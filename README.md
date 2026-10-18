@@ -30,6 +30,13 @@ En Git Bash de Windows, antepón `MSYS_NO_PATHCONV=1` al comando.
 - `docker compose down`: detiene todo y conserva los datos.
 - `docker compose down -v`: detiene todo y borra los datos.
 
+## Integración continua
+
+El workflow de GitHub Actions en `.github/workflows/ci.yml` valida el frontend y el backend en cada push a `main`, `develop` o una rama `feature/**`, y en los pull requests dirigidos a `main` o `develop`.
+
+- Frontend: `npm ci`, `npm run build` y `npm test -- --run` desde `frontend`.
+- Backend: `dotnet restore` y `dotnet build` de `backend/HomologacionesFISEI.sln`, más las pruebas xUnit de `tests/backend/BuildingBlocks.Tests`.
+
 ### Problemas comunes
 - Error al conectar con la API de Docker: abre Docker Desktop y espera a "Engine running".
 - Puerto 1433 ocupado: cambia `MSSQL_PORT` en tu `.env` (por ejemplo a 1434) y ajusta la cadena de conexión.

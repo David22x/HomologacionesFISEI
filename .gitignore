@@ -1,0 +1,28 @@
+@'
+# .NET
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+
+# Node.js
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# IDE y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+'@ | Set-Content -Encoding utf8 .gitignore

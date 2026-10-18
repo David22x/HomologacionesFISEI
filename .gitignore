@@ -1,4 +1,4 @@
-@'
+
 # .NET
 **/bin/
 **/obj/
@@ -8,6 +8,7 @@
 
 # Node.js
 node_modules/
+**/node_modules/
 dist/
 coverage/
 .vite/
@@ -25,4 +26,3 @@ Thumbs.db
 
 # Logs
 *.log
-'@ | Set-Content -Encoding utf8 .gitignore

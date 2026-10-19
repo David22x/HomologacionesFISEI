@@ -95,7 +95,7 @@ El servicio usa el mismo secreto JWT compartido y escucha en `http://localhost:5
 
 ## Preparación para HU-S1-02 (acceso por rol)
 
-Los roles `Administrador` y `Profesor` están centralizados en `backend/BuildingBlocks/Roles/AppRoles.cs`; Auth Service los crea y los incluye como claims del JWT. El Gateway ya exige un JWT válido para las rutas protegidas configuradas, y solo publica las rutas declaradas explícitamente en `backend/Services/ApiGateway/ocelot.json`.
+Los roles `Administrador` y `Profesor` están centralizados en `backend/BuildingBlocks/Roles/AppRoles.cs`; Auth Service los crea y los incluye como claims del JWT. El Gateway ya exige un JWT válido para las rutas protegidas configuradas, solo publica las rutas declaradas explícitamente en `backend/Services/ApiGateway/ocelot.json` y responde 404 a cualquier ruta bajo `/internal` (sin distinguir mayúsculas/minúsculas).
 
 Al agregar funciones en HU-S1-02, cada ruta protegida deberá declarar su autenticación en Ocelot y aplicar autorización por rol también en el controlador o endpoint del microservicio. Las rutas internas no deben agregarse al Gateway. La pantalla principal actual todavía no incluye un menú por rol ni rutas de negocio; esos comportamientos quedan para la implementación de esa historia.
 

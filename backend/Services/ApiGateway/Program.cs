@@ -26,7 +26,21 @@ var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseCors("Frontend");
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments(
+        "/internal",
+        StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
 app.UseAuthentication();
 await app.UseOcelot();
 
 app.Run();
+
+public partial class Program { }

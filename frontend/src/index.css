@@ -206,4 +206,66 @@
   .welcome-card h1 {
     font-size: 23px;
   }
+  
+
+.role-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 6%;
+  background: white;
+  border-bottom: 1px solid #e0e6ef;
+}
+
+.role-menu a,
+.primary-link {
+  color: #173b70;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.role-menu a {
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.role-menu a:hover {
+  background: #e4edfc;
+}
+
+.denied-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: #f2f5fa;
+  font-family: Arial, sans-serif;
+}
+
+.denied-card {
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 36px;
+  border: 1px solid #e0e6ef;
+  border-radius: 16px;
+  background: white;
+  text-align: center;
+}
+
+.denied-card h1 {
+  color: #182b49;
+}
+
+.denied-card > p:not(.eyebrow) {
+  color: #65748b;
+  line-height: 1.6;
+}
+
+.primary-link {
+  display: inline-block;
+  margin-top: 16px;
+}
+
 }

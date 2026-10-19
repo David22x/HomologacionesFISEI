@@ -1,10 +1,23 @@
 
 import { useEffect, useState } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
+
 import LoginPage from './features/auth/pages/LoginPage';
 import {
   getCurrentUser,
   type AuthUser,
 } from './features/auth/services/authService';
+
+import ProtectedRoute from './components/ProtectedRoute';
+import HomePage from './features/auth/pages/HomePage';
+import AccessDeniedPage from './features/auth/pages/AccessDeniedPage';
+import AdminPage from './features/auth/pages/AdminPage';
+import TeacherPage from './features/auth/pages/TeacherPage';
 import './App.css';
 
 function App() {
@@ -25,7 +38,6 @@ function App() {
 
       try {
         const currentUser = await getCurrentUser(token);
-
         if (active) setUser(currentUser);
       } catch {
         sessionStorage.removeItem('accessToken');
@@ -64,54 +76,86 @@ function App() {
     return <main className="auth-page">Verificando sesión...</main>;
   }
 
-  if (!user) {
-    return (
-      <>
-        {sessionError && (
-          <p className="session-error" role="alert">
-            {sessionError}
-          </p>
-        )}
-        <LoginPage onLogin={handleLogin} />
-      </>
-    );
-  }
-
   return (
-    <main className="home-page">
-      <header className="home-header">
-        <div className="brand">
-          <span className="brand-mark">H</span>
-          <span>Homologaciones FISEI</span>
-        </div>
-
-        <button className="logout-button" onClick={handleLogout}>
-          Cerrar sesión
-        </button>
-      </header>
-
-      <section className="welcome-card">
-        <p className="eyebrow">PANEL PRINCIPAL</p>
-        <h1>¡Bienvenido/a, {user.nombreCompleto}!</h1>
-        <p>Has iniciado sesión correctamente.</p>
-
-        <div className="role-section">
-          <span>Rol(es) asignado(s)</span>
-          <div className="role-list">
-            {user.roles.map((role) => (
-              <span className="role-badge" key={role}>
-                {role}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <p className="home-note">
-          Accede a las funcionalidades del sistema según los permisos
-          de tu cuenta.
+    <BrowserRouter>
+      {sessionError && !user && (
+        <p className="session-error" role="alert">
+          {sessionError}
         </p>
-      </section>
-    </main>
+      )}
+
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            user
+              ? <Navigate to="/home" replace />
+              : <LoginPage onLogin={handleLogin} />
+          }
+        />
+
+        <Route
+          path="/"
+          element={
+            <Navigate to={user ? '/home' : '/login'} replace />
+          }
+        />
+
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute user={user}>
+              {user && (
+                <HomePage user={user} onLogout={handleLogout} />
+              )}
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={['Administrador']}
+            >
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/docente"
+          element={
+            <ProtectedRoute
+              user={user}
+              allowedRoles={['Profesor']}
+            >
+              <TeacherPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/acceso-denegado"
+          element={
+            <ProtectedRoute user={user}>
+              <AccessDeniedPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to={user ? '/home' : '/login'}
+              replace
+            />
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

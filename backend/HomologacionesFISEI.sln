@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TemplateService", "Services
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildingBlocks.Tests", "..\tests\backend\BuildingBlocks.Tests\BuildingBlocks.Tests.csproj", "{35E3AB53-318D-43C0-A80A-19E5D0CFBE3F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "Services\Auth\AuthService.csproj", "{17584753-2EBF-425D-868A-3AF0BEB5A9F2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,8 +34,13 @@ Global
 		{35E3AB53-318D-43C0-A80A-19E5D0CFBE3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{35E3AB53-318D-43C0-A80A-19E5D0CFBE3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{35E3AB53-318D-43C0-A80A-19E5D0CFBE3F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7328A5FB-823E-4D4B-A95E-B8CFB79C283E} = {D743CED6-E0D7-48E0-99D9-D896BB85A784}
+		{17584753-2EBF-425D-868A-3AF0BEB5A9F2} = {D743CED6-E0D7-48E0-99D9-D896BB85A784}
 	EndGlobalSection
 EndGlobal

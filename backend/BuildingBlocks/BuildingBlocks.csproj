@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- Ignora la advertencia MSB3277 para que compile con 0 advertencias -->
+    
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>
 

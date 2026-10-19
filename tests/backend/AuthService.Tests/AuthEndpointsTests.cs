@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AuthService.Models;
 using BuildingBlocks.Roles;
 
@@ -13,8 +14,8 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
     // Initial users created by AuthDbSeeder (one per role).
     public static TheoryData<string, string, string> UsuariosIniciales => new()
     {
-        { "admin@uta.edu.ec", "Admin123*", AppRoles.Administrador },
-        { "profesor@uta.edu.ec", "Profesor123*", AppRoles.Profesor }
+        { "admin@uta.edu.ec", AuthApiFactory.AdminPassword, AppRoles.Administrador },
+        { "profesor@uta.edu.ec", AuthApiFactory.ProfessorPassword, AppRoles.Profesor }
     };
 
     private static string NewEmail() => $"{Guid.NewGuid():N}@pruebas.test";
@@ -55,6 +56,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         Assert.True(body.ExpiresAt > DateTimeOffset.UtcNow);
         Assert.Equal(email, body.User.Email);
         Assert.Contains(rol, body.User.Roles);
+        Assert.False(string.IsNullOrWhiteSpace(body.User.NombreCompleto));
     }
 
     [Fact]
@@ -87,9 +89,37 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Login_AnteCredencialesIncorrectasOUsuarioInactivo_DevuelveElMismoErrorSinDatosSensibles()
+    {
+        const string wrongPassword = "Incorrecta999*";
+        var existingEmail = NewEmail();
+        var inactiveEmail = NewEmail();
+        var missingEmail = NewEmail();
+        await factory.CreateUserAsync(existingEmail);
+        await factory.CreateUserAsync(inactiveEmail, activo: false);
+
+        var invalidPasswordBody = await GetUnauthorizedBodyAsync(existingEmail, wrongPassword);
+        var missingUserBody = await GetUnauthorizedBodyAsync(missingEmail, AuthApiFactory.DefaultPassword);
+        var inactiveUserBody = await GetUnauthorizedBodyAsync(inactiveEmail, AuthApiFactory.DefaultPassword);
+
+        Assert.Equal(GetProblemDetailsSignature(invalidPasswordBody), GetProblemDetailsSignature(missingUserBody));
+        Assert.Equal(GetProblemDetailsSignature(invalidPasswordBody), GetProblemDetailsSignature(inactiveUserBody));
+
+        foreach (var body in new[] { invalidPasswordBody, missingUserBody, inactiveUserBody })
+        {
+            Assert.DoesNotContain("accessToken", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(existingEmail, body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(inactiveEmail, body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(missingEmail, body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(wrongPassword, body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(AuthApiFactory.DefaultPassword, body, StringComparison.Ordinal);
+        }
+    }
+
     [Theory]
-    [InlineData("", "Prueba123*")]
-    [InlineData("no-es-un-correo", "Prueba123*")]
+    [InlineData("", "dato-no-secreto")]
+    [InlineData("no-es-un-correo", "dato-no-secreto")]
     [InlineData("usuario@pruebas.test", "")]
     public async Task Login_ConDatosInvalidos_Devuelve400(string email, string password)
     {
@@ -130,6 +160,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var perfil = await response.Content.ReadFromJsonAsync<AuthUserResponse>();
         Assert.NotNull(perfil);
         Assert.Equal(email, perfil.Email);
+        Assert.Equal("Usuario de prueba", perfil.NombreCompleto);
         Assert.Contains(AppRoles.Administrador, perfil.Roles);
     }
 
@@ -160,5 +191,25 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var response = await GetMeAsync(login.AccessToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task<string> GetUnauthorizedBodyAsync(string email, string password)
+    {
+        var response = await LoginAsync(email, password);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    private static (string? Type, string? Title, int? Status, string? Detail) GetProblemDetailsSignature(
+        string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+        return (
+            root.TryGetProperty("type", out var type) ? type.GetString() : null,
+            root.TryGetProperty("title", out var title) ? title.GetString() : null,
+            root.TryGetProperty("status", out var status) ? status.GetInt32() : null,
+            root.TryGetProperty("detail", out var detail) ? detail.GetString() : null);
     }
 }

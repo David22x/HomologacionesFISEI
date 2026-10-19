@@ -6,59 +6,87 @@ namespace AuthService.Data;
 
 public static class AuthDbSeeder
 {
-    public static async Task SeedAsync(IServiceProvider serviceProvider)
+    public static async Task SeedAsync(
+        IServiceProvider serviceProvider,
+        bool seedDevelopmentUsers)
     {
         using var scope = serviceProvider.CreateScope();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        // Crear roles si no existen
         string[] roles = [AppRoles.Administrador, AppRoles.Profesor];
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                await roleManager.CreateAsync(new ApplicationRole(role)
+                EnsureSucceeded(await roleManager.CreateAsync(new ApplicationRole(role)
                 {
                     Descripcion = $"Rol de {role} del sistema"
-                });
+                }));
             }
         }
 
-        // Crear usuario inicial Administrador (ej. admin@uta.edu.ec)
-        var adminEmail = "admin@uta.edu.ec";
-        var adminUser = await userManager.FindByEmailAsync(adminEmail);
-        if (adminUser == null)
+        if (!seedDevelopmentUsers)
         {
-            adminUser = new ApplicationUser
-            {
-                Id = Guid.NewGuid(),
-                UserName = adminEmail,
-                Email = adminEmail,
-                EmailConfirmed = true,
-                NombreCompleto = "Administrador del Sistema",
-                Activo = true
-            };
-            await userManager.CreateAsync(adminUser, "Admin123*");
-            await userManager.AddToRoleAsync(adminUser, AppRoles.Administrador);
+            return;
         }
 
-        // Crear usuario inicial Profesor Evaluador (ej. profesor@uta.edu.ec)
-        var profEmail = "profesor@uta.edu.ec";
-        var profUser = await userManager.FindByEmailAsync(profEmail);
-        if (profUser == null)
+        await EnsureDevelopmentUserAsync(
+            userManager,
+            "admin@uta.edu.ec",
+            "Administrador del Sistema",
+            AppRoles.Administrador,
+            GetRequiredSetting(configuration, "SeedUsers:AdministradorPassword"));
+        await EnsureDevelopmentUserAsync(
+            userManager,
+            "profesor@uta.edu.ec",
+            "Ing. Hernan Naranjo",
+            AppRoles.Profesor,
+            GetRequiredSetting(configuration, "SeedUsers:ProfesorPassword"));
+    }
+
+    private static async Task EnsureDevelopmentUserAsync(
+        UserManager<ApplicationUser> userManager,
+        string email,
+        string fullName,
+        string role,
+        string password)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        if (user is null)
         {
-            profUser = new ApplicationUser
+            user = new ApplicationUser
             {
                 Id = Guid.NewGuid(),
-                UserName = profEmail,
-                Email = profEmail,
+                UserName = email,
+                Email = email,
                 EmailConfirmed = true,
-                NombreCompleto = "Ing. Hernan Naranjo",
+                NombreCompleto = fullName,
                 Activo = true
             };
-            await userManager.CreateAsync(profUser, "Profesor123*");
-            await userManager.AddToRoleAsync(profUser, AppRoles.Profesor);
+
+            EnsureSucceeded(await userManager.CreateAsync(user, password));
+        }
+
+        if (!await userManager.IsInRoleAsync(user, role))
+        {
+            EnsureSucceeded(await userManager.AddToRoleAsync(user, role));
+        }
+    }
+
+    private static string GetRequiredSetting(IConfiguration configuration, string key) =>
+        !string.IsNullOrWhiteSpace(configuration[key])
+            ? configuration[key]!
+            : throw new InvalidOperationException(
+                $"Configura {key} mediante User Secrets o una variable de entorno para sembrar los usuarios de desarrollo.");
+
+    private static void EnsureSucceeded(IdentityResult result)
+    {
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join("; ", result.Errors.Select(error => error.Description)));
         }
     }
 }

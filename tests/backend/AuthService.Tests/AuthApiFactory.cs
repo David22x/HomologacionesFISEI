@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using AuthService.Data;
 using AuthService.Models;
 using BuildingBlocks.Roles;
@@ -13,7 +14,11 @@ namespace AuthService.Tests;
 /// <summary>Starts the Auth Service in memory, using an isolated InMemory database.</summary>
 public sealed class AuthApiFactory : WebApplicationFactory<Program>
 {
-    public const string DefaultPassword = "Prueba123*";
+    public static readonly string DefaultPassword = CreateDevelopmentPassword("Test");
+    public static readonly string AdminPassword = CreateDevelopmentPassword("Admin");
+    public static readonly string ProfessorPassword = CreateDevelopmentPassword("Professor");
+    private static readonly string JwtSecretKey = Convert.ToHexString(
+        RandomNumberGenerator.GetBytes(32));
 
     private readonly string _databaseName = $"AuthDB-tests-{Guid.NewGuid():N}";
 
@@ -21,8 +26,10 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
 
-        // Fallback only: the real configuration wins if it already defines the key (min. 32 chars).
-        builder.UseSetting("Jwt:SecretKey", "clave-solo-para-pruebas-automatizadas-0123456789");
+        builder.UseSetting("Jwt:SecretKey", JwtSecretKey);
+        builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=(local);Database=AuthDB-tests");
+        builder.UseSetting("SeedUsers:AdministradorPassword", AdminPassword);
+        builder.UseSetting("SeedUsers:ProfesorPassword", ProfessorPassword);
 
         builder.ConfigureTestServices(services =>
         {
@@ -43,10 +50,12 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
 
     public async Task CreateUserAsync(
         string email,
-        string password = DefaultPassword,
+        string? password = null,
         bool activo = true,
         string? role = null)
     {
+        password ??= DefaultPassword;
+
         using var scope = Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
@@ -83,4 +92,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
                 string.Join("; ", result.Errors.Select(e => e.Description)));
         }
     }
+
+    private static string CreateDevelopmentPassword(string prefix) =>
+        $"{prefix}-{Guid.NewGuid():N}a1";
 }

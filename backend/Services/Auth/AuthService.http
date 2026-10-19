@@ -6,7 +6,7 @@ Content-Type: application/json
 
 {
   "email": "admin@uta.edu.ec",
-  "password": "Admin123*"
+  "password": "<contraseña configurada con User Secrets>"
 }
 
 ### Copy the accessToken from the login response.

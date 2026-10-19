@@ -8,11 +8,10 @@ namespace BuildingBlocks.Authentication;
 
 public sealed class JwtSettings
 {
-    public const string DefaultSecretKey = "ClaveSecretaSuperSeguraParaDesarrolloLocalSprint1_2026!";
     public const string DefaultIssuer = "HomologacionesFISEI";
     public const string DefaultAudience = "HomologacionesFISEIClient";
 
-    public string SecretKey { get; init; } = DefaultSecretKey;
+    public string SecretKey { get; init; } = string.Empty;
     public string Issuer { get; init; } = DefaultIssuer;
     public string Audience { get; init; } = DefaultAudience;
     public int ExpirationMinutes { get; init; } = 60;
@@ -23,9 +22,16 @@ public static class JwtExtensions
     public static IServiceCollection AddCustomJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var expirationMinutes = GetExpirationMinutes(configuration);
+        var secretKey = configuration["Jwt:SecretKey"];
+        if (string.IsNullOrWhiteSpace(secretKey))
+        {
+            throw new InvalidOperationException(
+                "Configura Jwt:SecretKey mediante User Secrets o una variable de entorno.");
+        }
+
         var jwtSettings = new JwtSettings
         {
-            SecretKey = configuration["Jwt:SecretKey"] ?? JwtSettings.DefaultSecretKey,
+            SecretKey = secretKey,
             Issuer = configuration["Jwt:Issuer"] ?? JwtSettings.DefaultIssuer,
             Audience = configuration["Jwt:Audience"] ?? JwtSettings.DefaultAudience,
             ExpirationMinutes = expirationMinutes

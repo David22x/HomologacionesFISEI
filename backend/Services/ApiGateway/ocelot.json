@@ -26,7 +26,11 @@
       "UpstreamPathTemplate": "/auth/me",
       "UpstreamHttpMethod": [
         "Get"
-      ]
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
     }
   ],
   "GlobalConfiguration": {

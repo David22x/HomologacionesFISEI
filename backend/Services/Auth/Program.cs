@@ -10,9 +10,16 @@ using AuthApplicationService = AuthService.Services.AuthService;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Configura ConnectionStrings:DefaultConnection mediante User Secrets o una variable de entorno.");
+}
+
 // DbContext con SQL Server
 builder.Services.AddDbContext<AuthDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(connectionString));
 
 // ASP.NET Core Identity
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
@@ -36,6 +43,15 @@ builder.Services.AddCustomSwagger("Auth Service API - Identity");
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    if (dbContext.Database.IsRelational())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
+}
+
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -51,8 +67,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapControllers();
 
-// Ejecutar el sembrado de usuarios y roles
-await AuthDbSeeder.SeedAsync(app.Services);
+await AuthDbSeeder.SeedAsync(app.Services, app.Environment.IsDevelopment());
 
 app.Run();
 public partial class Program { }

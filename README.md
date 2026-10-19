@@ -1,87 +1,150 @@
 # Sistema de Homologación FISEI
 
-## Entorno local: base de datos (SQL Server en Docker)
+## Estructura del repositorio
 
-### Requisitos
-- Docker Desktop con el motor en ejecución ("Engine running").
+- `frontend/`: aplicación React, TypeScript y Vite.
+- `backend/Services/`: Auth Service, API Gateway y plantilla de microservicio.
+- `backend/BuildingBlocks/`: autenticación JWT, roles, Swagger y manejo común de errores.
+- `database/init/`: scripts iniciales de SQL Server.
+- `infrastructure/`: configuración de Docker Compose.
+- `tests/backend/`: pruebas automatizadas de los servicios y componentes compartidos.
+
+## Requisitos locales
+
+- Docker Desktop con el motor iniciado.
+- .NET SDK 8.
+- Node.js 22 o superior y npm.
 - Git.
-- .NET SDK y Node.js, para los servicios y el frontend (se documentan aquí a medida que se agregan).
 
-### Levantar SQL Server con AuthDB
+## Preparar SQL Server y AuthDB
 
-    cd infrastructure
-    cp .env.example .env
-    docker compose up -d
-    docker compose ps -a
+Desde PowerShell, en la raíz del repositorio:
 
-Espera a que `sqlserver` esté `healthy`. El contenedor `sqlserver-init` corre una sola vez, crea las bases y termina con `Exited (0)`. Cambia la clave en tu `.env` si quieres; ese archivo no se sube al repositorio.
+```powershell
+Set-Location .\infrastructure
+Copy-Item .env.example .env
+```
 
-### Verificar que AuthDB existe
+Edita `infrastructure\.env` y reemplaza `MSSQL_SA_PASSWORD` por una contraseña segura. Luego inicia SQL Server:
 
-    docker compose exec -T sqlserver bash -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -Q "SELECT name FROM sys.databases"'
+```powershell
+docker compose up -d
+docker compose ps -a
+```
 
-En Git Bash de Windows, antepón `MSYS_NO_PATHCONV=1` al comando.
+Espera hasta que `sqlserver` tenga estado `healthy`. `sqlserver-init` crea `AuthDB` y termina con código 0. La base de datos conserva sus datos mientras exista el volumen Docker.
 
-### Cadena de conexión para los servicios
+## Configurar secretos locales de .NET
 
-    Server=localhost,1433;Database=AuthDB;User Id=sa;Password=<MSSQL_SA_PASSWORD de tu .env>;TrustServerCertificate=True
+Las contraseñas y la clave JWT no están guardadas en el repositorio. Auth Service, API Gateway y Template Service comparten el almacén local de .NET User Secrets. Configúralo una vez desde PowerShell, en la raíz del repositorio:
 
-### Detener, reiniciar y limpiar
-- `docker compose down`: detiene todo y conserva los datos.
-- `docker compose down -v`: detiene todo y borra los datos.
+```powershell
+$jwtSecret = Read-Host "Clave JWT aleatoria (mínimo 32 caracteres)"
+$saPassword = Read-Host "MSSQL_SA_PASSWORD configurada en infrastructure\.env"
+$adminPassword = Read-Host "Contraseña local de admin@uta.edu.ec"
+$professorPassword = Read-Host "Contraseña local de profesor@uta.edu.ec"
 
-## Integración continua
+$connectionString = "Server=localhost,1433;Database=AuthDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
+$authProject = ".\backend\Services\Auth\AuthService.csproj"
 
-El workflow de GitHub Actions en `.github/workflows/ci.yml` valida el frontend y el backend en cada push a `main`, `develop` o una rama `feature/**`, y en los pull requests dirigidos a `main` o `develop`.
+dotnet user-secrets set --project $authProject "Jwt:SecretKey" $jwtSecret
+dotnet user-secrets set --project $authProject "ConnectionStrings:DefaultConnection" $connectionString
+dotnet user-secrets set --project $authProject "SeedUsers:AdministradorPassword" $adminPassword
+dotnet user-secrets set --project $authProject "SeedUsers:ProfesorPassword" $professorPassword
+```
 
-- Frontend: `npm ci`, `npm run build` y `npm test -- --run` desde `frontend`.
-- Backend: `dotnet restore` y `dotnet build` de `backend/HomologacionesFISEI.sln`, más las pruebas xUnit de `tests/backend/BuildingBlocks.Tests`.
+Usa una clave JWT aleatoria de al menos 32 caracteres. Las contraseñas iniciales deben cumplir las reglas de Identity (mínimo 6 caracteres y al menos un dígito). Los secretos se guardan localmente fuera del repositorio. El usuario `admin@uta.edu.ec` tiene el rol `Administrador` y `profesor@uta.edu.ec` tiene el rol `Profesor`; sus contraseñas son las que acabas de configurar.
 
-### Problemas comunes
-- Error al conectar con la API de Docker: abre Docker Desktop y espera a "Engine running".
-- Puerto 1433 ocupado: cambia `MSSQL_PORT` en tu `.env` (por ejemplo a 1434) y ajusta la cadena de conexión.
-- SQL Server no arranca: la clave debe tener mayúsculas, minúsculas, números y símbolos.
+Si cambias las contraseñas luego de que los usuarios ya se sembraron, los usuarios existentes no se modifican automáticamente. Para reiniciar el entorno de desarrollo desde cero, detén Compose y elimina sus datos con `docker compose down -v`; después levanta la base y ejecuta Auth Service otra vez.
 
-## Auth Service, API Gateway y frontend
+## Ejecutar backend y frontend
 
-Con SQL Server disponible y `AuthDB` creada, inicia Auth Service y el Gateway
-en terminales separadas desde la raíz del repositorio:
+Con SQL Server activo y los User Secrets configurados, abre terminales separadas desde la raíz:
 
-    dotnet run --project backend/Services/Auth/AuthService.csproj
-    dotnet run --project backend/Services/ApiGateway/ApiGateway.csproj
+**Terminal 1 — Auth Service** (aplica las migraciones y crea las tablas de Identity en `AuthDB`; puerto 5192):
 
-Auth Service escucha en `http://localhost:5192` y el Gateway en
-`http://localhost:5080`. El Gateway enruta `POST /auth/login` y `GET /auth/me`
-al servicio de Auth, permite CORS desde el origen local de Vite
-`http://localhost:5173`.
+```powershell
+dotnet run --project .\backend\Services\Auth\AuthService.csproj
+```
 
-El frontend debe enviar sus solicitudes de autenticación a través del Gateway,
-por ejemplo `POST http://localhost:5080/auth/login` y
-`GET http://localhost:5080/auth/me`. El segundo endpoint requiere el token
-Bearer obtenido al iniciar sesión. Los errores de conectividad con Auth se
-devuelven como respuestas de Gateway con estado `502 Bad Gateway`.
+**Terminal 2 — API Gateway** (puerto 5080):
 
-## Auth API (login y perfil)
+```powershell
+dotnet run --project .\backend\Services\ApiGateway\ApiGateway.csproj
+```
 
-Con el Auth Service en marcha, Swagger queda en `/swagger` (botón **Authorize** para pegar el token).
+El Gateway enruta el login sin token y valida el JWT para `GET /auth/me`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
 
-| Endpoint | Descripción | Respuestas |
+**Terminal 3 — Frontend**:
+
+```powershell
+Set-Location .\frontend
+npm ci
+npm run dev
+```
+
+Vite muestra la URL local, normalmente `http://localhost:5173`. La aplicación usa el Gateway (`http://localhost:5080`) como API y, después del login, consulta `/auth/me` para mostrar el nombre y rol actuales.
+
+`TemplateService` es solamente una plantilla sin rutas de negocio y no está expuesta por el Gateway. Si necesitas iniciarla para desarrollo:
+
+```powershell
+dotnet run --project .\backend\Services\TemplateService\TemplateService.csproj
+```
+
+El servicio usa el mismo secreto JWT compartido y escucha en `http://localhost:5158`.
+
+## Preparación para HU-S1-02 (acceso por rol)
+
+Los roles `Administrador` y `Profesor` están centralizados en `backend/BuildingBlocks/Roles/AppRoles.cs`; Auth Service los crea y los incluye como claims del JWT. El Gateway ya exige un JWT válido para las rutas protegidas configuradas, y solo publica las rutas declaradas explícitamente en `backend/Services/ApiGateway/ocelot.json`.
+
+Al agregar funciones en HU-S1-02, cada ruta protegida deberá declarar su autenticación en Ocelot y aplicar autorización por rol también en el controlador o endpoint del microservicio. Las rutas internas no deben agregarse al Gateway. La pantalla principal actual todavía no incluye un menú por rol ni rutas de negocio; esos comportamientos quedan para la implementación de esa historia.
+
+## API de autenticación
+
+| Método y ruta | Descripción | Respuestas principales |
 |---|---|---|
-| `POST /auth/login` | Recibe `{ "email", "password" }` y devuelve el JWT y el perfil | 200, 400 (datos inválidos), 401 (credenciales incorrectas, usuario inactivo o cuenta bloqueada) |
-| `GET /auth/me` | Devuelve el perfil del token enviado | 200, 401 (token ausente, inválido o usuario inactivo) |
+| `POST /auth/login` | Recibe `{ "email", "password" }` a través del Gateway y devuelve token y perfil | 200, 400, 401 |
+| `GET /auth/me` | Devuelve el perfil y roles del token enviado | 200, 401 |
 
-Ejemplo:
+Una credencial incorrecta, una cuenta inactiva o bloqueada devuelve 401 sin distinguir cuál fue la causa. La pantalla de login muestra un mensaje genérico. La cuenta se bloquea tras cinco intentos fallidos consecutivos.
 
-    curl -X POST http://localhost:5192/auth/login \
-      -H "Content-Type: application/json" \
-      -d '{"email":"profesor@uta.edu.ec","password":"<contraseña>"}'
+## Detener el entorno
 
-    curl http://localhost:5192/auth/me -H "Authorization: Bearer <token>"
+Desde `infrastructure/`:
 
-La cuenta se bloquea unos minutos tras 5 intentos fallidos consecutivos.
+```powershell
+docker compose down
+```
 
-### Pruebas del backend
+Esto conserva los datos. Para borrar también la base de datos local:
 
-    dotnet test backend/HomologacionesFISEI.sln
+```powershell
+docker compose down -v
+```
 
-Requiere el SDK de .NET 8. Las pruebas del Auth Service levantan el servicio en memoria y no necesitan Docker.
+## Pruebas y CI
+
+Desde la raíz, ejecuta las pruebas del backend:
+
+```powershell
+dotnet test .\backend\HomologacionesFISEI.sln
+```
+
+Para compilar y probar el frontend:
+
+```powershell
+Set-Location .\frontend
+npm ci
+npm run build
+npm test -- --run
+```
+
+El workflow `.github/workflows/ci.yml` ejecuta la instalación, compilación y pruebas de ambos proyectos en GitHub Actions. Las pruebas de Auth usan una base en memoria y no requieren Docker ni los secretos locales.
+
+## Problemas comunes
+
+- **Docker no responde:** inicia Docker Desktop y espera a que indique que el motor está listo.
+- **Puerto 1433 ocupado:** cambia `MSSQL_PORT` en `infrastructure\.env` y actualiza el puerto en `ConnectionStrings:DefaultConnection`.
+- **SQL Server no inicia:** verifica que la contraseña de `MSSQL_SA_PASSWORD` cumpla los requisitos de SQL Server.
+- **Auth Service informa que falta configuración:** configura `Jwt:SecretKey`, la cadena de conexión y ambas contraseñas de semilla con los comandos de User Secrets anteriores.
+- **El login da error de conexión:** confirma que SQL Server está `healthy`, que `AuthDB` existe y que Auth Service y Gateway siguen ejecutándose.

@@ -13,8 +13,8 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
     // Initial users created by AuthDbSeeder (one per role).
     public static TheoryData<string, string, string> UsuariosIniciales => new()
     {
-        { "admin@uta.edu.ec", "Admin123*", AppRoles.Administrador },
-        { "profesor@uta.edu.ec", "Profesor123*", AppRoles.Profesor }
+        { "admin@uta.edu.ec", AuthApiFactory.AdminPassword, AppRoles.Administrador },
+        { "profesor@uta.edu.ec", AuthApiFactory.ProfessorPassword, AppRoles.Profesor }
     };
 
     private static string NewEmail() => $"{Guid.NewGuid():N}@pruebas.test";
@@ -55,6 +55,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         Assert.True(body.ExpiresAt > DateTimeOffset.UtcNow);
         Assert.Equal(email, body.User.Email);
         Assert.Contains(rol, body.User.Roles);
+        Assert.False(string.IsNullOrWhiteSpace(body.User.NombreCompleto));
     }
 
     [Fact]
@@ -66,6 +67,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var response = await LoginAsync(email, "Incorrecta999*");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -74,6 +76,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var response = await LoginAsync(NewEmail(), AuthApiFactory.DefaultPassword);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -85,11 +88,12 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var response = await LoginAsync(email, AuthApiFactory.DefaultPassword);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
     }
 
     [Theory]
-    [InlineData("", "Prueba123*")]
-    [InlineData("no-es-un-correo", "Prueba123*")]
+    [InlineData("", "dato-no-secreto")]
+    [InlineData("no-es-un-correo", "dato-no-secreto")]
     [InlineData("usuario@pruebas.test", "")]
     public async Task Login_ConDatosInvalidos_Devuelve400(string email, string password)
     {
@@ -130,6 +134,7 @@ public sealed class AuthEndpointsTests(AuthApiFactory factory) : IClassFixture<A
         var perfil = await response.Content.ReadFromJsonAsync<AuthUserResponse>();
         Assert.NotNull(perfil);
         Assert.Equal(email, perfil.Email);
+        Assert.Equal("Usuario de prueba", perfil.NombreCompleto);
         Assert.Contains(AppRoles.Administrador, perfil.Roles);
     }
 

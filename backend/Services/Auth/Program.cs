@@ -1,9 +1,12 @@
 using AuthService.Data;
 using AuthService.Models;
+using AuthService.Services;
+using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using AuthApplicationService = AuthService.Services.AuthService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,10 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 })
 .AddEntityFrameworkStores<AuthDbContext>()
 .AddDefaultTokenProviders();
+
+builder.Services.AddCustomJwtAuthentication(builder.Configuration);
+builder.Services.AddAuthorization();
+builder.Services.AddScoped<IAuthService, AuthApplicationService>();
 
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();

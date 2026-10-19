@@ -1,6 +1,20 @@
 @AuthService_HostAddress = http://localhost:5192
 
-GET {{AuthService_HostAddress}}/weatherforecast/
+### Login
+POST {{AuthService_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@uta.edu.ec",
+  "password": "Admin123*"
+}
+
+### Copy the accessToken from the login response.
+@accessToken = replace-with-access-token
+
+### Get the authenticated user's profile
+GET {{AuthService_HostAddress}}/auth/me
+Authorization: Bearer {{accessToken}}
 Accept: application/json
 
 ###

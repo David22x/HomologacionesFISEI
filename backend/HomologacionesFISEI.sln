@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BuildingBlocks.Tests", "..\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "Services\Auth\AuthService.csproj", "{17584753-2EBF-425D-868A-3AF0BEB5A9F2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "Services\ApiGateway\ApiGateway.csproj", "{2E31C57C-A150-44F7-AE96-94BD1A3A75EF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,9 +40,14 @@ Global
 		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{17584753-2EBF-425D-868A-3AF0BEB5A9F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2E31C57C-A150-44F7-AE96-94BD1A3A75EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E31C57C-A150-44F7-AE96-94BD1A3A75EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E31C57C-A150-44F7-AE96-94BD1A3A75EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E31C57C-A150-44F7-AE96-94BD1A3A75EF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7328A5FB-823E-4D4B-A95E-B8CFB79C283E} = {D743CED6-E0D7-48E0-99D9-D896BB85A784}
 		{17584753-2EBF-425D-868A-3AF0BEB5A9F2} = {D743CED6-E0D7-48E0-99D9-D896BB85A784}
+		{2E31C57C-A150-44F7-AE96-94BD1A3A75EF} = {D743CED6-E0D7-48E0-99D9-D896BB85A784}
 	EndGlobalSection
 EndGlobal

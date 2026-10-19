@@ -1,0 +1,35 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/auth/login",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5192
+        }
+      ],
+      "UpstreamPathTemplate": "/auth/login",
+      "UpstreamHttpMethod": [
+        "Post"
+      ]
+    },
+    {
+      "DownstreamPathTemplate": "/auth/me",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5192
+        }
+      ],
+      "UpstreamPathTemplate": "/auth/me",
+      "UpstreamHttpMethod": [
+        "Get"
+      ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:5080"
+  }
+}

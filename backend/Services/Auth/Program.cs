@@ -55,3 +55,4 @@ app.MapControllers();
 await AuthDbSeeder.SeedAsync(app.Services);
 
 app.Run();
+public partial class Program { }

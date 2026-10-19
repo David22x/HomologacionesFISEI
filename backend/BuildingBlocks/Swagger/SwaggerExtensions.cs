@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
 
@@ -11,13 +12,23 @@ public static class SwaggerExtensions
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc(version, new OpenApiInfo { Title = apiTitle, Version = version });
+
+            // Publishes the /// comments of the service that starts, when its XML file was generated.
+            var xmlFile = $"{Assembly.GetEntryAssembly()?.GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                c.IncludeXmlComments(xmlPath);
+            }
+
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                Description = "Encabezado de autorización JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
+                Description = "Token JWT obtenido en POST /auth/login. Pega solo el token, sin la palabra 'Bearer'.",
                 Name = "Authorization",
                 In = ParameterLocation.Header,
                 Type = SecuritySchemeType.Http,
-                Scheme = "Bearer"
+                Scheme = "Bearer",
+                BearerFormat = "JWT"
             });
             c.AddSecurityRequirement(new OpenApiSecurityRequirement
             {

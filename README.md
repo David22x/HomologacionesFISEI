@@ -42,5 +42,21 @@ El workflow de GitHub Actions en `.github/workflows/ci.yml` valida el frontend y
 - Puerto 1433 ocupado: cambia `MSSQL_PORT` en tu `.env` (por ejemplo a 1434) y ajusta la cadena de conexión.
 - SQL Server no arranca: la clave debe tener mayúsculas, minúsculas, números y símbolos.
 
-### Pendiente de documentar
-Auth Service, API Gateway y frontend (HU-S1-01).
+## Auth Service, API Gateway y frontend
+
+Con SQL Server disponible y `AuthDB` creada, inicia Auth Service y el Gateway
+en terminales separadas desde la raíz del repositorio:
+
+    dotnet run --project backend/Services/Auth/AuthService.csproj
+    dotnet run --project backend/Services/ApiGateway/ApiGateway.csproj
+
+Auth Service escucha en `http://localhost:5192` y el Gateway en
+`http://localhost:5080`. El Gateway enruta `POST /auth/login` y `GET /auth/me`
+al servicio de Auth, permite CORS desde el origen local de Vite
+`http://localhost:5173`.
+
+El frontend debe enviar sus solicitudes de autenticación a través del Gateway,
+por ejemplo `POST http://localhost:5080/auth/login` y
+`GET http://localhost:5080/auth/me`. El segundo endpoint requiere el token
+Bearer obtenido al iniciar sesión. Los errores de conectividad con Auth se
+devuelven como respuestas de Gateway con estado `502 Bad Gateway`.

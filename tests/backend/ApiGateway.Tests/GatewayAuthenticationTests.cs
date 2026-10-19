@@ -40,7 +40,10 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory
     public async Task RutaProtegida_ConTokenAlterado_Devuelve401()
     {
         var token = GatewayApiFactory.CreateToken(DateTime.UtcNow.AddMinutes(5));
-        var alteredToken = token[..^1] + (token[^1] == 'A' ? 'B' : 'A');
+        var tokenParts = token.Split('.');
+        var signature = tokenParts[2];
+        tokenParts[2] = (signature[0] == 'A' ? 'B' : 'A') + signature[1..];
+        var alteredToken = string.Join('.', tokenParts);
 
         var response = await GetWithTokenAsync(alteredToken);
 

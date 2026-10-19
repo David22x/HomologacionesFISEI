@@ -63,4 +63,4 @@ jobs:
         run: dotnet build backend/HomologacionesFISEI.sln --configuration Release --no-restore
 
       - name: Ejecutar pruebas xUnit
-        run: dotnet test tests/backend/BuildingBlocks.Tests/BuildingBlocks.Tests.csproj --configuration Release --no-build
+        run: dotnet test backend/HomologacionesFISEI.sln --configuration Release --no-build

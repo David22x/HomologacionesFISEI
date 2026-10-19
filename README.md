@@ -60,3 +60,28 @@ por ejemplo `POST http://localhost:5080/auth/login` y
 `GET http://localhost:5080/auth/me`. El segundo endpoint requiere el token
 Bearer obtenido al iniciar sesión. Los errores de conectividad con Auth se
 devuelven como respuestas de Gateway con estado `502 Bad Gateway`.
+
+## Auth API (login y perfil)
+
+Con el Auth Service en marcha, Swagger queda en `/swagger` (botón **Authorize** para pegar el token).
+
+| Endpoint | Descripción | Respuestas |
+|---|---|---|
+| `POST /auth/login` | Recibe `{ "email", "password" }` y devuelve el JWT y el perfil | 200, 400 (datos inválidos), 401 (credenciales incorrectas, usuario inactivo o cuenta bloqueada) |
+| `GET /auth/me` | Devuelve el perfil del token enviado | 200, 401 (token ausente, inválido o usuario inactivo) |
+
+Ejemplo:
+
+    curl -X POST http://localhost:5192/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{"email":"profesor@uta.edu.ec","password":"<contraseña>"}'
+
+    curl http://localhost:5192/auth/me -H "Authorization: Bearer <token>"
+
+La cuenta se bloquea unos minutos tras 5 intentos fallidos consecutivos.
+
+### Pruebas del backend
+
+    dotnet test backend/HomologacionesFISEI.sln
+
+Requiere el SDK de .NET 8. Las pruebas del Auth Service levantan el servicio en memoria y no necesitan Docker.

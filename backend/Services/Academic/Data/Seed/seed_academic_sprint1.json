@@ -1,0 +1,842 @@
+{
+  "version": 1,
+  "fuente": "80 planes analíticos jul-dic 2026 (40 TI y 40 SW)",
+  "carreras": [
+    {
+      "codigo": "TI",
+      "nombre": "Tecnologías de la Información",
+      "esDemo": false,
+      "mallas": [
+        {
+          "version": "2026",
+          "vigente": true,
+          "niveles": [
+            {
+              "numero": 1,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-01-01",
+                  "nombre": "ALGEBRA LINEAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-01-02",
+                  "nombre": "FUNDAMENTOS DE PROGRAMACION",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-01-03",
+                  "nombre": "CALCULO DIFERENCIAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-01-04",
+                  "nombre": "FISICA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-01-05",
+                  "nombre": "METODOLOGIA DE LA INVESTIGACION",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 2,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-01",
+                  "nombre": "CALCULO INTEGRAL",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-02",
+                  "nombre": "LOGICA MATEMATICA",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-03",
+                  "nombre": "MEDIDAS ELECTRICAS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-04",
+                  "nombre": "ESTRUCTURA DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-05",
+                  "nombre": "REALIDAD NACIONAL",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-02-06",
+                  "nombre": "PROGRAMACION ORIENTADA A OBJETOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 3,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-03-01",
+                  "nombre": "PROGRAMACION AVANZADA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-03-02",
+                  "nombre": "PROBABILIDAD Y ESTADISTICA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-03-03",
+                  "nombre": "SISTEMAS OPERATIVOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-03-04",
+                  "nombre": "FUNDAMENTOS DE BASES DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UB-03-05",
+                  "nombre": "FUNDAMENTOS DE REDES Y COMUNICACION DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 4,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-04-01",
+                  "nombre": "METODOS NUMERICOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-04-02",
+                  "nombre": "INGENIERIA DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-04-03",
+                  "nombre": "INTERACCION HOMBRE MAQUINA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-04-04",
+                  "nombre": "ADMINISTRACION DE SISTEMAS OPERATIVOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-04-05",
+                  "nombre": "GESTION DE BASES DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 5,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-05-01",
+                  "nombre": "SISTEMAS DE BASES DE DATOS DISTRIBUIDOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-05-02",
+                  "nombre": "TECNOLOGIAS Y DESARROLLO WEB",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-05-03",
+                  "nombre": "INVESTIGACION OPERATIVA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-05-04",
+                  "nombre": "CONMUTACION Y ENRUTAMIENTO BASICO",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-05-05",
+                  "nombre": "GESTION Y EVALUACION DE PROYECTOS TI",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 6,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-06-01",
+                  "nombre": "ADMINISTRACION DE BASE DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-06-02",
+                  "nombre": "SISTEMAS DE SOPORTE DE DECISIONES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-06-03",
+                  "nombre": "CONMUTACION Y ENRUTAMIENTO AVANZADO",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-06-04",
+                  "nombre": "GOBIERNOS TI",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-06-05",
+                  "nombre": "APLICACIONES MOVILES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 7,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-07-02",
+                  "nombre": "INTELIGENCIA DE NEGOCIOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-07-03",
+                  "nombre": "EMPRENDIMIENTO Y GESTION FINANCIERA DE TI",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-07-04",
+                  "nombre": "ARQUITECTURA Y PLATAFORMAS DE SERVIDORES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-07-06",
+                  "nombre": "ADMINISTRACION DE REDES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 8,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-08-02",
+                  "nombre": "INTEGRACION DE SISTEMAS",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-08-03",
+                  "nombre": "SEGURIDAD DE LA INFORMACION EN REDES DE COMUNICACION DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-08-04",
+                  "nombre": "AUDITORIA DE TI",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-08-05",
+                  "nombre": "DISEÑO DE PROYECTOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 9,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-TI-MP-UP-09-02",
+                  "nombre": "DESARROLLO DE PROYECTOS",
+                  "creditos": 6,
+                  "horas": 288,
+                  "horasDocencia": 96,
+                  "horasPractica": 192,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "SW",
+      "nombre": "Software",
+      "esDemo": false,
+      "mallas": [
+        {
+          "version": "2026",
+          "vigente": true,
+          "niveles": [
+            {
+              "numero": 1,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-01-01",
+                  "nombre": "FISICA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-01-02",
+                  "nombre": "ALGEBRA LINEAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-01-03",
+                  "nombre": "CALCULO DIFERENCIAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-01-04",
+                  "nombre": "ALGORITMOS Y LOGICA DE PROGRAMACION",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-01-05",
+                  "nombre": "LOGICA MATEMATICA",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 2,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-02-01",
+                  "nombre": "FUNDAMENTOS DE INGENIERIA DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-02-02",
+                  "nombre": "CALCULO INTEGRAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-02-03",
+                  "nombre": "PROGRAMACION ORIENTADA A OBJETOS",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-02-04",
+                  "nombre": "SISTEMAS OPERATIVOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-02-05",
+                  "nombre": "METODOLOGIA DE LA INVESTIGACION",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 3,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-03-01",
+                  "nombre": "METODOS NUMERICOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-03-02",
+                  "nombre": "ESTRUCTURA DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-03-03",
+                  "nombre": "PROBABILIDAD Y ESTADISTICA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-03-04",
+                  "nombre": "INTRODUCCION A REDES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UB-03-05",
+                  "nombre": "MODELAMIENTO Y DISEñO DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Básica"
+                }
+              ]
+            },
+            {
+              "numero": 4,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-04-01",
+                  "nombre": "METODOLOGIAS AGILES",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-04-02",
+                  "nombre": "REDES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-04-03",
+                  "nombre": "BASE DE DATOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-04-04",
+                  "nombre": "COMPUTACION VISUAL",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-04-05",
+                  "nombre": "MANEJO Y CONFIGURACION DEL SOFTWARE",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 5,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-05-01",
+                  "nombre": "INVESTIGACIÓN OPERATIVA",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-05-02",
+                  "nombre": "SISTEMAS DE SOPORTE DE DECISIONES",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-05-03",
+                  "nombre": "PATRONES DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-05-04",
+                  "nombre": "APLICACIONES ORIENTADAS A SERVICIOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-05-05",
+                  "nombre": "INTERACCION HUMANO / COMPUTADOR",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 6,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-06-01",
+                  "nombre": "INTELIGENCIA DE NEGOCIOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-06-02",
+                  "nombre": "APLICACIONES WEB Y MOVILES",
+                  "creditos": 4,
+                  "horas": 192,
+                  "horasDocencia": 64,
+                  "horasPractica": 128,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-06-03",
+                  "nombre": "APLICACIONES DISTRIBUIDAS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-06-04",
+                  "nombre": "GESTION DE PRUEBAS E IMPLANTACIÓN DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-06-05",
+                  "nombre": "REALIDAD NACIONAL",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 7,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-07-02",
+                  "nombre": "DESARROLLO ASISTIDO POR SOFTWARE",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-07-03",
+                  "nombre": "AUDITORIA DE SISTEMAS DE INFORMACION",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-07-04",
+                  "nombre": "GESTION DE PROYECTOS DE SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-07-05",
+                  "nombre": "GESTION DE CALIDAD DEL SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-07-06",
+                  "nombre": "INTELIGENCIA ARTIFICIAL",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 8,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-08-02",
+                  "nombre": "EMPRENDIMIENTO Y LEGISLACION LABORAL",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-08-03",
+                  "nombre": "SEGURIDAD EN EL DESARROLLO DEL SOFTWARE",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-08-04",
+                  "nombre": "INGENIERIA ECONOMICA PARA SOFTWARE",
+                  "creditos": 2,
+                  "horas": 96,
+                  "horasDocencia": 32,
+                  "horasPractica": 64,
+                  "unidadOrganizacional": "Profesional"
+                },
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-08-05",
+                  "nombre": "DISEÑO DE PROYECTOS",
+                  "creditos": 3,
+                  "horas": 144,
+                  "horasDocencia": 48,
+                  "horasPractica": 96,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            },
+            {
+              "numero": 9,
+              "asignaturas": [
+                {
+                  "codigo": "UTA-FISEI-SF-MP-UP-09-02",
+                  "nombre": "DESARROLLO DE PROYECTOS",
+                  "creditos": 6,
+                  "horas": 288,
+                  "horasDocencia": 96,
+                  "horasPractica": 192,
+                  "unidadOrganizacional": "Profesional"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

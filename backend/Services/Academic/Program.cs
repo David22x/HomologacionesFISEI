@@ -24,6 +24,9 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// Migraciones y semilla del catalogo (solo en Desarrollo)
+await AcademicDbSeeder.SeedAsync(app.Services, app.Environment.IsDevelopment());
+
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 if (app.Environment.IsDevelopment())

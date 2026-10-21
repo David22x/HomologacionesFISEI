@@ -3,7 +3,7 @@
 ## Estructura del repositorio
 
 - `frontend/`: aplicación React, TypeScript y Vite.
-- `backend/Services/`: Auth Service, API Gateway y plantilla de microservicio.
+- `backend/Services/`: Auth Service, Academic Service, API Gateway y plantilla de microservicio.
 - `backend/BuildingBlocks/`: autenticación JWT, roles, Swagger y manejo común de errores.
 - `database/init/`: scripts iniciales de SQL Server.
 - `infrastructure/`: configuración de Docker Compose.
@@ -45,15 +45,18 @@ $adminPassword = Read-Host "Contraseña local de admin@uta.edu.ec"
 $professorPassword = Read-Host "Contraseña local de profesor@uta.edu.ec"
 
 $connectionString = "Server=localhost,1433;Database=AuthDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
+$academicConnectionString = "Server=localhost,1433;Database=AcademicDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
 $authProject = ".\backend\Services\Auth\AuthService.csproj"
+$academicProject = ".\backend\Services\Academic\AcademicService.csproj"
 
 dotnet user-secrets set --project $authProject "Jwt:SecretKey" $jwtSecret
 dotnet user-secrets set --project $authProject "ConnectionStrings:DefaultConnection" $connectionString
 dotnet user-secrets set --project $authProject "SeedUsers:AdministradorPassword" $adminPassword
 dotnet user-secrets set --project $authProject "SeedUsers:ProfesorPassword" $professorPassword
+dotnet user-secrets set --project $academicProject "ConnectionStrings:AcademicConnection" $academicConnectionString
 ```
 
-Usa una clave JWT aleatoria de al menos 32 caracteres. Las contraseñas iniciales deben cumplir las reglas de Identity (mínimo 6 caracteres y al menos un dígito). Los secretos se guardan localmente fuera del repositorio. El usuario `admin@uta.edu.ec` tiene el rol `Administrador` y `profesor@uta.edu.ec` tiene el rol `Profesor`; sus contraseñas son las que acabas de configurar.
+Usa una clave JWT aleatoria de al menos 32 caracteres. Las contraseñas iniciales deben cumplir las reglas de Identity (mínimo 6 caracteres y al menos un dígito). Auth Service y Academic Service comparten el almacén local de User Secrets, por lo que la clave JWT configurada para Auth también queda disponible para Academic. Los secretos se guardan localmente fuera del repositorio. El usuario `admin@uta.edu.ec` tiene el rol `Administrador` y `profesor@uta.edu.ec` tiene el rol `Profesor`; sus contraseñas son las que acabas de configurar.
 
 Si cambias las contraseñas luego de que los usuarios ya se sembraron, los usuarios existentes no se modifican automáticamente. Para reiniciar el entorno de desarrollo desde cero, detén Compose y elimina sus datos con `docker compose down -v`; después levanta la base y ejecuta Auth Service otra vez.
 
@@ -73,9 +76,15 @@ dotnet run --project .\backend\Services\Auth\AuthService.csproj
 dotnet run --project .\backend\Services\ApiGateway\ApiGateway.csproj
 ```
 
+**Terminal 3 — Academic Service** (puerto 5193):
+
+```powershell
+dotnet run --project .\backend\Services\Academic\AcademicService.csproj
+```
+
 El Gateway enruta el login sin token y valida el JWT para `GET /auth/me`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
 
-**Terminal 3 — Frontend**:
+**Terminal 4 — Frontend**:
 
 ```powershell
 Set-Location .\frontend
@@ -146,5 +155,6 @@ El workflow `.github/workflows/ci.yml` ejecuta la instalación, compilación y p
 - **Docker no responde:** inicia Docker Desktop y espera a que indique que el motor está listo.
 - **Puerto 1433 ocupado:** cambia `MSSQL_PORT` en `infrastructure\.env` y actualiza el puerto en `ConnectionStrings:DefaultConnection`.
 - **SQL Server no inicia:** verifica que la contraseña de `MSSQL_SA_PASSWORD` cumpla los requisitos de SQL Server.
-- **Auth Service informa que falta configuración:** configura `Jwt:SecretKey`, la cadena de conexión y ambas contraseñas de semilla con los comandos de User Secrets anteriores.
+- **Un servicio informa que falta configuración:** configura las claves `ConnectionStrings:DefaultConnection` para Auth, `ConnectionStrings:AcademicConnection` para Academic, `Jwt:SecretKey` y las contraseñas de semilla de Auth con los comandos de User Secrets anteriores.
+- **Academic Service no puede conectarse a SQL Server:** verifica que `sqlserver` esté `healthy`, que `AcademicDB` exista y que `ConnectionStrings:AcademicConnection` use el puerto y la contraseña configurados en `infrastructure\.env`.
 - **El login da error de conexión:** confirma que SQL Server está `healthy`, que `AuthDB` existe y que Auth Service y Gateway siguen ejecutándose.

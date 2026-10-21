@@ -139,7 +139,7 @@ public class AcademicDbSeederTests
         await using var db = tdb.CreateContext();
         var r = await AcademicDbSeeder.SeedFromJsonAsync(db, json);
 
-        Assert.Equal(2, r.CarrerasNuevas);
+        Assert.Equal(5, r.CarrerasNuevas);
         Assert.Equal(80, r.AsignaturasNuevas);
         Assert.Equal(40, await db.Asignaturas.CountAsync(a => a.MallaVersion!.Carrera!.Codigo == "TI"));
         Assert.Equal(40, await db.Asignaturas.CountAsync(a => a.MallaVersion!.Carrera!.Codigo == "SW"));
@@ -148,5 +148,10 @@ public class AcademicDbSeederTests
         Assert.All(todas, a => Assert.True(a.Creditos > 0, $"Creditos invalidos en {a.Codigo}"));
         Assert.All(todas, a => Assert.False(string.IsNullOrWhiteSpace(a.UnidadOrganizacional)));
         Assert.Equal(80, todas.Select(a => a.Codigo).Distinct().Count());
+
+        var demos = await db.Carreras.Where(c => c.EsDemo).ToListAsync();
+        Assert.Equal(3, demos.Count);
+        Assert.Equal(0, await db.Mallas.CountAsync(m => m.Carrera!.EsDemo));
+        Assert.Equal(0, await db.Asignaturas.CountAsync(a => a.MallaVersion!.Carrera!.EsDemo));
     }
 }

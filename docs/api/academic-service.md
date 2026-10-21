@@ -75,7 +75,26 @@ Los campos `creditos` y `horas` representan los valores almacenados en el catál
 
 ## Datos semilla del Sprint 1
 
-La semilla incluida actualmente contiene las 40 asignaturas de TI y las 40 de SW. Las otras tres carreras FISEI aún no tienen datos suministrados; cuando se agreguen al catálogo, deben aparecer con `esDemo: true` y sin mallas ni asignaturas. No se deben completar sus planes de estudio con datos supuestos.
+La semilla contiene las 40 asignaturas de TI y las 40 de SW, además de estas carreras demo sin mallas ni asignaturas:
+
+| Código | Carrera | `esDemo` |
+|---|---|---|
+| `IND` | Industrial | `true` |
+| `ROB` | Robótica | `true` |
+| `TEL` | Telecomunicaciones | `true` |
+
+El Academic Service aplica migraciones y carga la semilla al iniciar únicamente en el entorno `Development` (salvo que `Academic:SeedOnStartup` se desactive). Reinicia ese servicio después de actualizar el JSON. La interfaz muestra `(DEMO)` junto al nombre de estas carreras.
+
+Para confirmar en SQL Server Management Studio que se cargaron en `AcademicDB`:
+
+```sql
+SELECT Codigo, Nombre, EsDemo
+FROM dbo.Carreras
+WHERE EsDemo = 1
+ORDER BY Nombre;
+```
+
+No se deben completar sus planes de estudio con datos supuestos.
 
 ## Pruebas de contrato e integración
 

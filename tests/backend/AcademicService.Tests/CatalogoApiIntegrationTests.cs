@@ -45,6 +45,9 @@ public sealed class CatalogoApiIntegrationTests : IClassFixture<CatalogApiFactor
         Assert.NotNull(carreras);
         Assert.Contains(carreras, carrera => carrera.Codigo == "TI");
         Assert.Contains(carreras, carrera => carrera.Codigo == "SW");
+        Assert.Contains(carreras, carrera => carrera.Codigo == "IND" && carrera.EsDemo);
+        Assert.Contains(carreras, carrera => carrera.Codigo == "ROB" && carrera.EsDemo);
+        Assert.Contains(carreras, carrera => carrera.Codigo == "TEL" && carrera.EsDemo);
     }
 
     [Fact]

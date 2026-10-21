@@ -24,8 +24,11 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Migraciones y semilla del catalogo (solo en Desarrollo)
-await AcademicDbSeeder.SeedAsync(app.Services, app.Environment.IsDevelopment());
+// Migraciones y semilla del catalogo (solo en Desarrollo). La opcion permite
+// probar el host real con una base aislada sin aplicar migraciones de SQL Server.
+var seedOnStartup = app.Environment.IsDevelopment()
+    && builder.Configuration.GetValue("Academic:SeedOnStartup", true);
+await AcademicDbSeeder.SeedAsync(app.Services, seedOnStartup);
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 

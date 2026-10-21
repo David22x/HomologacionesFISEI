@@ -32,7 +32,7 @@ docker compose up -d
 docker compose ps -a
 ```
 
-Espera hasta que `sqlserver` tenga estado `healthy`. `sqlserver-init` crea `AuthDB` y termina con código 0. La base de datos conserva sus datos mientras exista el volumen Docker.
+Espera hasta que `sqlserver` tenga estado `healthy`. `sqlserver-init` crea `AuthDB` y `AcademicDB`, y termina con código 0. La base de datos conserva sus datos mientras exista el volumen Docker.
 
 ## Configurar secretos locales de .NET
 
@@ -83,6 +83,8 @@ dotnet run --project .\backend\Services\Academic\AcademicService.csproj
 ```
 
 El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
+
+El contrato de consulta del catálogo, incluidos los filtros, respuestas y autorización, está documentado en [`docs/api/academic-service.md`](docs/api/academic-service.md). Swagger del Academic Service está en `http://localhost:5193/swagger`.
 
 **Terminal 4 — Frontend**:
 

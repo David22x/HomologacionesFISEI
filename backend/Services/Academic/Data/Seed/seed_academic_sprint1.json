@@ -837,6 +837,24 @@
           ]
         }
       ]
+    },
+    {
+      "codigo": "IND",
+      "nombre": "Industrial",
+      "esDemo": true,
+      "mallas": []
+    },
+    {
+      "codigo": "ROB",
+      "nombre": "Robótica",
+      "esDemo": true,
+      "mallas": []
+    },
+    {
+      "codigo": "TEL",
+      "nombre": "Telecomunicaciones",
+      "esDemo": true,
+      "mallas": []
     }
   ]
 }

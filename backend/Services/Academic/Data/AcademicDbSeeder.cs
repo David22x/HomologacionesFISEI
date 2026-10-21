@@ -74,6 +74,40 @@ public static class AcademicDbSeeder
                 carrera.EsDemo = sc.EsDemo;
             }
 
+            if (sc.EsDemo)
+            {
+                // Las carreras DEMO se publican sin mallas ni asignaturas reales.
+                // Limpia datos antiguos por si la semilla se aplica sobre una DB existente.
+                var demoMallaIds = await db.Mallas
+                    .Where(m => m.CarreraId == carrera.Id)
+                    .Select(m => m.Id)
+                    .ToListAsync(ct);
+
+                if (demoMallaIds.Count > 0)
+                {
+                    var asignaturasDemo = await db.Asignaturas
+                        .Where(a => demoMallaIds.Contains(a.MallaVersionId))
+                        .ToListAsync(ct);
+                    db.Asignaturas.RemoveRange(asignaturasDemo);
+                    await db.SaveChangesAsync(ct);
+
+                    var nivelesDemo = await db.Niveles
+                        .Where(n => demoMallaIds.Contains(n.MallaVersionId))
+                        .ToListAsync(ct);
+                    db.Niveles.RemoveRange(nivelesDemo);
+                    await db.SaveChangesAsync(ct);
+
+                    var mallasDemo = await db.Mallas
+                        .Where(m => demoMallaIds.Contains(m.Id))
+                        .ToListAsync(ct);
+                    db.Mallas.RemoveRange(mallasDemo);
+                    await db.SaveChangesAsync(ct);
+                }
+
+                await db.SaveChangesAsync(ct);
+                continue;
+            }
+
             foreach (var sm in sc.Mallas)
             {
                 Requerido(sm.Version, $"carrera {codigoCarrera}: version de malla");

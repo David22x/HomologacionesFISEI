@@ -207,7 +207,7 @@ export default function CatalogPage() {
             <option value="">Selecciona una carrera</option>
             {carreras.map((carrera) => (
               <option key={carrera.id} value={carrera.id}>
-                {carrera.nombre}
+                {carrera.nombre}{carrera.esDemo ? ' (DEMO)' : ''}
               </option>
             ))}
           </select>
@@ -289,6 +289,11 @@ export default function CatalogPage() {
         {cargando ? (
           <p className="catalog-message" role="status">
             Cargando información del catálogo...
+          </p>
+        ) : carreraSeleccionada?.esDemo ? (
+          <p className="catalog-message">
+            Esta carrera está marcada como DEMO y no tiene mallas ni asignaturas
+            precargadas.
           </p>
         ) : !carreraId || !mallaId || !nivelId ? (
           <p className="catalog-message">

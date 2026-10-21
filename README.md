@@ -82,7 +82,7 @@ dotnet run --project .\backend\Services\ApiGateway\ApiGateway.csproj
 dotnet run --project .\backend\Services\Academic\AcademicService.csproj
 ```
 
-El Gateway enruta el login sin token y valida el JWT para `GET /auth/me`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
+El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
 
 **Terminal 4 — Frontend**:
 

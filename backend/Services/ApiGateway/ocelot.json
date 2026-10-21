@@ -38,7 +38,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "localhost",
-          "Port": 5102
+          "Port": 5193
         }
       ],
       "UpstreamPathTemplate": "/api/v1/catalogo/{everything}",

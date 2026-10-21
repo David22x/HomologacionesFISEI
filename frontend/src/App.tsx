@@ -19,6 +19,7 @@ import AccessDeniedPage from './features/auth/pages/AccessDeniedPage';
 import AdminPage from './features/auth/pages/AdminPage';
 import TeacherPage from './features/auth/pages/TeacherPage';
 import './App.css';
+import CatalogPage from './features/catalog/pages/CatalogPage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -111,6 +112,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/catalogo"
+  element={
+    <ProtectedRoute
+      user={user}
+      allowedRoles={['Administrador', 'Profesor']}
+    >
+      <CatalogPage />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
           path="/admin"

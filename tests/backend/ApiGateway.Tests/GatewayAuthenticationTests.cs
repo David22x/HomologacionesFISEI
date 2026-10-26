@@ -51,6 +51,19 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory
     }
 
     [Theory]
+    [InlineData("POST", "/api/v1/catalogo/carreras")]
+    [InlineData("PUT", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001")]
+    public async Task EscriturasDelCatalogo_SinToken_Devuelven401(string method, string path)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), path);
+        request.Content = new StringContent("{}");
+
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
     [InlineData("/internal/health")]
     [InlineData("/INTERNAL/health")]
     public async Task RutaInternal_NoEstaExpuestaPorElGateway(string path)

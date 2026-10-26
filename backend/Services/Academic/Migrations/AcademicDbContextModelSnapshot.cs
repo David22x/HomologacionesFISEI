@@ -104,6 +104,22 @@ namespace AcademicService.Migrations
                     b.Property<Guid>("CarreraId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Borrador");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Version")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -113,6 +129,11 @@ namespace AcademicService.Migrations
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CarreraId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Mallas_UnaPublicadaPorCarrera")
+                        .HasFilter("[Estado] = 'Publicada'");
 
                     b.HasIndex("CarreraId", "Version")
                         .IsUnique();

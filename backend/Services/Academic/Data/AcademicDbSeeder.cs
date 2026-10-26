@@ -117,13 +117,15 @@ public static class AcademicDbSeeder
                     m => m.CarreraId == carrera.Id && m.Version == versionMalla, ct);
                 if (malla is null)
                 {
-                    malla = new MallaVersion { CarreraId = carrera.Id, Version = versionMalla, Vigente = sm.Vigente };
+                    malla = new MallaVersion { CarreraId = carrera.Id, Version = versionMalla, Vigente = sm.Vigente, Estado = sm.Vigente ? EstadoMalla.Publicada : EstadoMalla.Borrador,
+    ModificadoPor = "seed" };
                     db.Mallas.Add(malla);
                     mallasNuevas++;
                 }
                 else
                 {
                     malla.Vigente = sm.Vigente;
+                    malla.Estado = sm.Vigente ? EstadoMalla.Publicada : EstadoMalla.Borrador;
                 }
 
                 foreach (var sn in sm.Niveles)

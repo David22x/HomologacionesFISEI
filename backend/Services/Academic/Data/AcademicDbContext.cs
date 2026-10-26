@@ -31,6 +31,13 @@ public class AcademicDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Version).HasMaxLength(20).IsRequired();
             e.HasIndex(x => new { x.CarreraId, x.Version }).IsUnique();
+            e.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20)
+                .HasDefaultValue(EstadoMalla.Borrador);
+            e.Property(x => x.ModificadoPor).HasMaxLength(100);
+            e.Property(x => x.ModificadoEn).HasDefaultValueSql("SYSUTCDATETIME()");
+            e.HasIndex(x => x.CarreraId).IsUnique()
+                .HasFilter("[Estado] = 'Publicada'")
+                .HasDatabaseName("UX_Mallas_UnaPublicadaPorCarrera");
             e.HasOne(x => x.Carrera).WithMany(c => c.Mallas)
                 .HasForeignKey(x => x.CarreraId).OnDelete(DeleteBehavior.Cascade);
         });

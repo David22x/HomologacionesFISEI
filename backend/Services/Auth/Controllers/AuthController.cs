@@ -27,7 +27,9 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         CancellationToken cancellationToken)
     {
         var response = await authService.LoginAsync(request, cancellationToken);
-        return response is null ? Unauthorized() : Ok(response);
+        return response is null
+            ? Unauthorized(new { message = "Credenciales inválidas o cuenta inactiva." })
+            : Ok(response);
     }
 
     /// <summary>Returns the profile associated with the supplied bearer token.</summary>

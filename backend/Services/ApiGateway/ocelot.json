@@ -43,7 +43,9 @@
       ],
       "UpstreamPathTemplate": "/api/v1/catalogo/{everything}",
       "UpstreamHttpMethod": [
-        "Get"
+        "Get",
+        "Post",
+        "Put"
       ],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",

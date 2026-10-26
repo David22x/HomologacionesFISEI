@@ -178,7 +178,8 @@ public sealed class CatalogoApiIntegrationTests : IClassFixture<CatalogApiFactor
 
         var schemas = root.GetProperty("components").GetProperty("schemas");
         AssertProperties(schemas, nameof(CarreraCatalogoResponse), "id", "codigo", "nombre", "esDemo");
-        AssertProperties(schemas, nameof(MallaCatalogoResponse), "id", "carreraId", "version", "vigente");
+        AssertProperties(schemas, nameof(MallaCatalogoResponse), "id", "carreraId", "version", "vigente",
+            "estado", "modificadoPor", "modificadoEn");
         AssertProperties(schemas, nameof(NivelCatalogoResponse), "id", "mallaVersionId", "numero");
         AssertProperties(schemas, nameof(AsignaturaCatalogoResponse), "id", "mallaVersionId", "nivelId",
             "nivelNumero", "codigo", "nombre", "creditos", "horas", "unidadOrganizacional");

@@ -10,7 +10,10 @@ public sealed record MallaCatalogoResponse(
     Guid Id,
     Guid CarreraId,
     string Version,
-    bool Vigente);
+    bool Vigente,
+    string Estado,
+    string? ModificadoPor,
+    DateTime ModificadoEn);
 
 public sealed record NivelCatalogoResponse(
     Guid Id,

@@ -344,6 +344,7 @@
 }
 
 .catalog-field select,
+.catalog-field input[type="search"],
 .catalog-search input {
   box-sizing: border-box;
   width: 100%;
@@ -357,6 +358,7 @@
 }
 
 .catalog-field select:disabled,
+.catalog-field input[type="search"]:disabled,
 .catalog-search input:disabled {
   background: #f2f5fa;
   cursor: not-allowed;

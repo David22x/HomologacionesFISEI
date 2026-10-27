@@ -31,7 +31,10 @@ export default function HomePage({
         <Link to="/home">Inicio</Link>
         <Link to="/catalogo">Catálogo académico</Link>
         {isAdmin && (
-          <Link to="/admin">Administración</Link>
+          <>
+            <Link to="/catalogo/mantenimiento">Mantenimiento del catálogo</Link>
+            <Link to="/admin">Administración</Link>
+          </>
         )}
 
         {isTeacher && (

@@ -15,6 +15,7 @@ export interface MallaCurricular {
   carreraId: string;
   version: string;
   vigente: boolean;
+  estado?: string;
 }
 
 export interface Nivel {
@@ -36,6 +37,14 @@ export interface Asignatura {
 }
 
 async function solicitar<T>(ruta: string): Promise<T> {
+  return solicitarConMetodo<T>(ruta, 'GET');
+}
+
+async function solicitarConMetodo<T>(
+  ruta: string,
+  metodo: string,
+  cuerpo?: unknown,
+): Promise<T> {
   const token = sessionStorage.getItem('accessToken');
 
   if (!token) {
@@ -43,9 +52,12 @@ async function solicitar<T>(ruta: string): Promise<T> {
   }
 
   const response = await fetch(`${API_URL}${ruta}`, {
+    method: metodo,
     headers: {
       Authorization: `Bearer ${token}`,
+      ...(cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
+    ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
   });
 
   if (response.status === 401) {
@@ -57,11 +69,17 @@ async function solicitar<T>(ruta: string): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new Error(
-      `No se pudo consultar el catálogo (HTTP ${response.status}).`,
-    );
+    let detalle = '';
+    try {
+      const error = await response.json();
+      detalle = error.detail || error.title || '';
+    } catch {
+      // Keep a useful status message when the server returns no JSON body.
+    }
+    throw new Error(detalle || `No se pudo guardar el catálogo (HTTP ${response.status}).`);
   }
 
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -98,5 +116,25 @@ export const catalogService = {
     return solicitar<Asignatura[]>(
       `/api/v1/catalogo/mallas/${mallaId}/asignaturas?${parametros.toString()}`,
     );
+  },
+
+  guardarCarrera(id: string | undefined, datos: Omit<Carrera, 'id'>): Promise<Carrera> {
+    return solicitarConMetodo(id ? `/api/v1/catalogo/carreras/${id}` : '/api/v1/catalogo/carreras', id ? 'PUT' : 'POST', datos);
+  },
+
+  guardarMalla(id: string | undefined, carreraId: string, version: string): Promise<MallaCurricular> {
+    return solicitarConMetodo(id ? `/api/v1/catalogo/mallas/${id}` : `/api/v1/catalogo/carreras/${carreraId}/mallas`, id ? 'PUT' : 'POST', { version });
+  },
+
+  publicarMalla(id: string): Promise<MallaCurricular> {
+    return solicitarConMetodo(`/api/v1/catalogo/mallas/${id}/publicar`, 'POST');
+  },
+
+  guardarNivel(id: string | undefined, mallaId: string, numero: number): Promise<Nivel> {
+    return solicitarConMetodo(id ? `/api/v1/catalogo/niveles/${id}` : `/api/v1/catalogo/mallas/${mallaId}/niveles`, id ? 'PUT' : 'POST', { numero });
+  },
+
+  guardarAsignatura(id: string | undefined, mallaId: string, datos: Omit<Asignatura, 'id' | 'mallaVersionId' | 'nivelNumero'>): Promise<Asignatura> {
+    return solicitarConMetodo(id ? `/api/v1/catalogo/asignaturas/${id}` : `/api/v1/catalogo/mallas/${mallaId}/asignaturas`, id ? 'PUT' : 'POST', datos);
   },
 };

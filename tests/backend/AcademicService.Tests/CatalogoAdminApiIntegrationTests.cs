@@ -146,6 +146,53 @@ public sealed class CatalogoAdminApiIntegrationTests : IClassFixture<CatalogApiF
         Assert.Equal(HttpStatusCode.Conflict, mallaDuplicada.StatusCode);
     }
 
+    [Fact]
+    public async Task Validaciones_de_escritura_rechazan_campos_obligatorios_y_valores_fuera_de_rango()
+    {
+        var carrera = await CrearCarreraAsync($"R{Guid.NewGuid():N}"[..9]);
+        var malla = await CrearMallaAsync(carrera.Id, "2028");
+        var nivel = await CrearNivelAsync(malla.Id, 1);
+        using var crearAsignatura = await EnviarJsonAsync(HttpMethod.Post,
+            $"/api/v1/catalogo/mallas/{malla.Id}/asignaturas",
+            new AsignaturaWriteRequest(nivel.Id, "VALIDA", "Asignatura válida", 3m, 48, null));
+        Assert.Equal(HttpStatusCode.Created, crearAsignatura.StatusCode);
+        var asignatura = await crearAsignatura.Content.ReadFromJsonAsync<AsignaturaCatalogoResponse>();
+        Assert.NotNull(asignatura);
+
+        using var carreraInvalida = await EnviarJsonAsync(HttpMethod.Post,
+            "/api/v1/catalogo/carreras", new CarreraWriteRequest(" ", "Carrera", false));
+        using var actualizarCarreraInvalida = await EnviarJsonAsync(HttpMethod.Put,
+            $"/api/v1/catalogo/carreras/{carrera.Id}",
+            new CarreraWriteRequest(carrera.Codigo, "  ", false));
+        using var mallaInvalida = await EnviarJsonAsync(HttpMethod.Post,
+            $"/api/v1/catalogo/carreras/{carrera.Id}/mallas", new MallaWriteRequest(" "));
+        using var actualizarMallaInvalida = await EnviarJsonAsync(HttpMethod.Put,
+            $"/api/v1/catalogo/mallas/{malla.Id}", new MallaWriteRequest(" "));
+        using var nivelInvalido = await EnviarJsonAsync(HttpMethod.Post,
+            $"/api/v1/catalogo/mallas/{malla.Id}/niveles", new NivelWriteRequest(0));
+        using var actualizarNivelInvalido = await EnviarJsonAsync(HttpMethod.Put,
+            $"/api/v1/catalogo/niveles/{nivel.Id}", new NivelWriteRequest(0));
+        using var creditosFueraDeRango = await EnviarJsonAsync(HttpMethod.Post,
+            $"/api/v1/catalogo/mallas/{malla.Id}/asignaturas",
+            new AsignaturaWriteRequest(nivel.Id, "CREDITOS", "Créditos", 1000m, 48, null));
+        using var horasInvalidas = await EnviarJsonAsync(HttpMethod.Post,
+            $"/api/v1/catalogo/mallas/{malla.Id}/asignaturas",
+            new AsignaturaWriteRequest(nivel.Id, "HORAS", "Horas", 3m, 0, null));
+        using var asignaturaInvalida = await EnviarJsonAsync(HttpMethod.Put,
+            $"/api/v1/catalogo/asignaturas/{asignatura.Id}",
+            new AsignaturaWriteRequest(nivel.Id, " ", "Actualización", 3m, 48, null));
+
+        Assert.Equal(HttpStatusCode.BadRequest, carreraInvalida.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, actualizarCarreraInvalida.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, mallaInvalida.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, actualizarMallaInvalida.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, nivelInvalido.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, actualizarNivelInvalido.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, creditosFueraDeRango.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, horasInvalidas.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, asignaturaInvalida.StatusCode);
+    }
+
     [Theory]
     [InlineData("POST", "/api/v1/catalogo/carreras", "{\"codigo\":\"DENY\",\"nombre\":\"No autorizada\",\"esDemo\":false}")]
     [InlineData("PUT", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001", "{\"codigo\":\"DENY\",\"nombre\":\"No autorizada\",\"esDemo\":false}")]

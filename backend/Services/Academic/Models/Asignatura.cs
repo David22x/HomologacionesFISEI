@@ -13,4 +13,5 @@ public class Asignatura
 
     public MallaVersion? MallaVersion { get; set; }
     public Nivel? Nivel { get; set; }
+    public ICollection<Tema> Temas { get; set; } = new List<Tema>();
 }

@@ -164,6 +164,72 @@ namespace AcademicService.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AcademicService.Models.Subtema", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("HorasEstimadas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TemaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemaId", "Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Subtemas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Subtemas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
+
+                            t.HasCheckConstraint("CK_Subtemas_Orden_Positivo", "[Orden] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AcademicService.Models.Tema", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AsignaturaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("HorasEstimadas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AsignaturaId", "Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Temas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Temas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
+
+                            t.HasCheckConstraint("CK_Temas_Orden_Positivo", "[Orden] > 0");
+                        });
+                });
+
             modelBuilder.Entity("AcademicService.Models.Asignatura", b =>
                 {
                     b.HasOne("AcademicService.Models.MallaVersion", "MallaVersion")
@@ -205,6 +271,33 @@ namespace AcademicService.Migrations
                     b.Navigation("MallaVersion");
                 });
 
+            modelBuilder.Entity("AcademicService.Models.Subtema", b =>
+                {
+                    b.HasOne("AcademicService.Models.Tema", "Tema")
+                        .WithMany("Subtemas")
+                        .HasForeignKey("TemaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tema");
+                });
+
+            modelBuilder.Entity("AcademicService.Models.Tema", b =>
+                {
+                    b.HasOne("AcademicService.Models.Asignatura", "Asignatura")
+                        .WithMany("Temas")
+                        .HasForeignKey("AsignaturaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asignatura");
+                });
+
+            modelBuilder.Entity("AcademicService.Models.Asignatura", b =>
+                {
+                    b.Navigation("Temas");
+                });
+
             modelBuilder.Entity("AcademicService.Models.Carrera", b =>
                 {
                     b.Navigation("Mallas");
@@ -220,6 +313,11 @@ namespace AcademicService.Migrations
             modelBuilder.Entity("AcademicService.Models.Nivel", b =>
                 {
                     b.Navigation("Asignaturas");
+                });
+
+            modelBuilder.Entity("AcademicService.Models.Tema", b =>
+                {
+                    b.Navigation("Subtemas");
                 });
 #pragma warning restore 612, 618
         }

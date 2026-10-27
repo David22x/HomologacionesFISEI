@@ -16,10 +16,9 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
-builder.Configuration.AddJsonFile(
-    Path.Combine(AppContext.BaseDirectory, "ocelot.json"),
-    optional: false,
-    reloadOnChange: true);
+var ocelotConfigurationPath = builder.Configuration["Ocelot:ConfigurationFile"]
+    ?? Path.Combine(AppContext.BaseDirectory, "ocelot.json");
+builder.Configuration.AddJsonFile(ocelotConfigurationPath, optional: false, reloadOnChange: true);
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();

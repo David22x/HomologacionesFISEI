@@ -3,25 +3,31 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ApiGateway.Tests;
 
-public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory>
+public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixture>
 {
-    private readonly HttpClient _client;
+    private readonly GatewayTestFixture _fixture;
 
-    public GatewayAuthenticationTests(GatewayApiFactory factory)
+    public GatewayAuthenticationTests(GatewayTestFixture fixture)
     {
-        _client = factory.CreateClient();
+        _fixture = fixture;
     }
 
     [Fact]
     public async Task RutaProtegida_SinToken_Devuelve401()
     {
-        var response = await _client.GetAsync("/auth/me");
+        var response = await _fixture.Client.GetAsync("/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -53,14 +59,48 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory
     [Theory]
     [InlineData("POST", "/api/v1/catalogo/carreras")]
     [InlineData("PUT", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001/mallas")]
+    [InlineData("PUT", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/niveles")]
+    [InlineData("PUT", "/api/v1/catalogo/niveles/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/asignaturas")]
+    [InlineData("PUT", "/api/v1/catalogo/asignaturas/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/publicar")]
     public async Task EscriturasDelCatalogo_SinToken_Devuelven401(string method, string path)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
         request.Content = new StringContent("{}");
 
-        using var response = await _client.SendAsync(request);
+        using var response = await _fixture.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/v1/catalogo/carreras")]
+    [InlineData("PUT", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/carreras/00000000-0000-0000-0000-000000000001/mallas")]
+    [InlineData("PUT", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/niveles")]
+    [InlineData("PUT", "/api/v1/catalogo/niveles/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/asignaturas")]
+    [InlineData("PUT", "/api/v1/catalogo/asignaturas/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/v1/catalogo/mallas/00000000-0000-0000-0000-000000000001/publicar")]
+    public async Task EscriturasDelCatalogo_Propagan403DelServicio(
+        string method,
+        string path)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), path)
+        {
+            Content = new StringContent("{}")
+        };
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", GatewayApiFactory.CreateToken(DateTime.UtcNow.AddMinutes(5)));
+
+        using var response = await _fixture.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Theory]
@@ -68,7 +108,7 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory
     [InlineData("/INTERNAL/health")]
     public async Task RutaInternal_NoEstaExpuestaPorElGateway(string path)
     {
-        var response = await _client.GetAsync(path);
+        var response = await _fixture.Client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -78,11 +118,107 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayApiFactory
         var request = new HttpRequestMessage(HttpMethod.Get, "/auth/me");
         request.Headers.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        return _client.SendAsync(request);
+        return _fixture.Client.SendAsync(request);
     }
 }
 
-public sealed class GatewayApiFactory : WebApplicationFactory<Program>
+public sealed class GatewayTestFixture : IAsyncLifetime
+{
+    private WebApplication? _downstream;
+    private GatewayApiFactory? _factory;
+    private string? _configurationDirectory;
+
+    public HttpClient Client { get; private set; } = null!;
+
+    public async Task InitializeAsync()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        _downstream = builder.Build();
+        _downstream.MapMethods(
+            "/api/v1/catalogo/{**path}",
+            ["GET", "POST", "PUT"],
+            context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            });
+        _downstream.MapGet("/auth/me", () => Results.Ok());
+        await _downstream.StartAsync();
+
+        var address = _downstream.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!
+            .Addresses.Single();
+        var downstreamPort = new Uri(address).Port;
+        _configurationDirectory = Path.Combine(
+            Path.GetTempPath(), $"gateway-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_configurationDirectory);
+        var configurationPath = Path.Combine(_configurationDirectory, "ocelot.json");
+        await File.WriteAllTextAsync(configurationPath, JsonSerializer.Serialize(new
+        {
+            Routes = new object[]
+            {
+                new
+                {
+                    DownstreamPathTemplate = "/api/v1/catalogo/{everything}",
+                    DownstreamScheme = "http",
+                    DownstreamHostAndPorts = new[]
+                    {
+                        new { Host = "127.0.0.1", Port = downstreamPort }
+                    },
+                    UpstreamPathTemplate = "/api/v1/catalogo/{everything}",
+                    UpstreamHttpMethod = new[] { "GET", "POST", "PUT" },
+                    AuthenticationOptions = new
+                    {
+                        AuthenticationProviderKey = "Bearer",
+                        AllowedScopes = Array.Empty<string>()
+                    }
+                },
+                new
+                {
+                    DownstreamPathTemplate = "/auth/me",
+                    DownstreamScheme = "http",
+                    DownstreamHostAndPorts = new[]
+                    {
+                        new { Host = "127.0.0.1", Port = downstreamPort }
+                    },
+                    UpstreamPathTemplate = "/auth/me",
+                    UpstreamHttpMethod = new[] { "GET" },
+                    AuthenticationOptions = new
+                    {
+                        AuthenticationProviderKey = "Bearer",
+                        AllowedScopes = Array.Empty<string>()
+                    }
+                }
+            },
+            GlobalConfiguration = new { BaseUrl = "http://localhost:5080" }
+        }));
+
+        _factory = new GatewayApiFactory(configurationPath);
+        Client = _factory.CreateClient();
+    }
+
+    public async Task DisposeAsync()
+    {
+        Client.Dispose();
+        if (_factory is not null)
+        {
+            await _factory.DisposeAsync();
+        }
+        if (_downstream is not null)
+        {
+            await _downstream.StopAsync();
+            await _downstream.DisposeAsync();
+        }
+        if (_configurationDirectory is not null)
+        {
+            File.Delete(Path.Combine(_configurationDirectory, "ocelot.json"));
+            Directory.Delete(_configurationDirectory);
+        }
+    }
+}
+
+public sealed class GatewayApiFactory(string ocelotConfigurationPath) : WebApplicationFactory<Program>
 {
     private static readonly string SecretKey = Convert.ToHexString(
         RandomNumberGenerator.GetBytes(32));
@@ -91,6 +227,7 @@ public sealed class GatewayApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("Jwt:SecretKey", SecretKey);
+        builder.UseSetting("Ocelot:ConfigurationFile", ocelotConfigurationPath);
     }
 
     public static string CreateToken(DateTime expiresAt)

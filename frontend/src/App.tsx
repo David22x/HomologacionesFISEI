@@ -20,6 +20,7 @@ import AdminPage from './features/auth/pages/AdminPage';
 import TeacherPage from './features/auth/pages/TeacherPage';
 import './App.css';
 import CatalogPage from './features/catalog/pages/CatalogPage';
+import CatalogMaintenancePage from './features/catalog/pages/CatalogMaintenancePage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -133,6 +134,15 @@ function App() {
               allowedRoles={['Administrador']}
             >
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/catalogo/mantenimiento"
+          element={
+            <ProtectedRoute user={user} allowedRoles={['Administrador']}>
+              <CatalogMaintenancePage />
             </ProtectedRoute>
           }
         />

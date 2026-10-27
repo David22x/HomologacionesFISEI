@@ -8,6 +8,7 @@ import type {
   MallaCurricular,
   Nivel,
 } from '../services/catalogService';
+import SearchableSelect from '../../../components/SearchableSelect';
 
 export default function CatalogPage() {
   const [carreras, setCarreras] = useState<Carrera[]>([]);
@@ -197,56 +198,9 @@ export default function CatalogPage() {
       </header>
 
       <section className="catalog-filters" aria-label="Filtros del catálogo">
-        <div className="catalog-field">
-          <label htmlFor="carrera">Carrera</label>
-          <select
-            id="carrera"
-            value={carreraId}
-            onChange={(event) => setCarreraId(event.target.value)}
-          >
-            <option value="">Selecciona una carrera</option>
-            {carreras.map((carrera) => (
-              <option key={carrera.id} value={carrera.id}>
-                {carrera.nombre}{carrera.esDemo ? ' (DEMO)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="catalog-field">
-          <label htmlFor="malla">Malla curricular</label>
-          <select
-            id="malla"
-            value={mallaId}
-            onChange={(event) => setMallaId(event.target.value)}
-            disabled={!carreraId || mallas.length === 0}
-          >
-            <option value="">Selecciona una malla</option>
-            {mallas.map((malla) => (
-              <option key={malla.id} value={malla.id}>
-                Versión {malla.version}
-                {malla.vigente ? ' (vigente)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="catalog-field">
-          <label htmlFor="nivel">Nivel</label>
-          <select
-            id="nivel"
-            value={nivelId}
-            onChange={(event) => setNivelId(event.target.value)}
-            disabled={!mallaId || niveles.length === 0}
-          >
-            <option value="">Selecciona un nivel</option>
-            {niveles.map((nivel) => (
-              <option key={nivel.id} value={nivel.id}>
-                Nivel {nivel.numero}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect id="carrera" label="Carrera" value={carreraId} placeholder="Escribe para buscar una carrera" options={carreras.map(carrera => ({ value: carrera.id, label: `${carrera.nombre}${carrera.esDemo ? ' (DEMO)' : ''} · ${carrera.codigo}` }))} onChange={setCarreraId} />
+        <SearchableSelect key={`catalogo-malla-${carreraId}`} id="malla" label="Malla curricular" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!carreraId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' (vigente)' : ''}` }))} onChange={setMallaId} />
+        <SearchableSelect key={`catalogo-nivel-${mallaId}`} id="nivel" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(nivel => ({ value: nivel.id, label: `Nivel ${nivel.numero}` }))} onChange={setNivelId} />
       </section>
 
       {carreraSeleccionada && mallaSeleccionada && nivelSeleccionado && (

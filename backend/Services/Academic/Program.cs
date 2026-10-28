@@ -29,6 +29,7 @@ var app = builder.Build();
 var seedOnStartup = app.Environment.IsDevelopment()
     && builder.Configuration.GetValue("Academic:SeedOnStartup", true);
 await AcademicDbSeeder.SeedAsync(app.Services, seedOnStartup);
+await AcademicTemasSeeder.SeedAsync(app.Services, seedOnStartup);
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 

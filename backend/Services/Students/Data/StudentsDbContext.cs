@@ -17,11 +17,19 @@ public class StudentsDbContext : DbContext
 
         modelBuilder.Entity<Estudiante>(e =>
         {
-            e.ToTable("Estudiantes", t => t.HasCheckConstraint(
-                "CK_Estudiantes_Cedula_Formato",
-                "LEN([Cedula]) = 10 AND [Cedula] NOT LIKE '%[^0-9]%'"));
+            e.ToTable("Estudiantes", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_Estudiantes_Cedula_Formato",
+                    "[TipoIdentificacion] <> 'Cedula' OR (LEN([Cedula]) = 10 AND [Cedula] NOT LIKE '%[^0-9]%')");
+                t.HasCheckConstraint(
+                    "CK_Estudiantes_Pasaporte_Formato",
+                    "[TipoIdentificacion] <> 'Pasaporte' OR (LEN([Cedula]) BETWEEN 5 AND 20 AND [Cedula] NOT LIKE '%[^A-Za-z0-9]%')");
+            });
             e.HasKey(x => x.Id);
-            e.Property(x => x.Cedula).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Cedula).HasMaxLength(20).IsRequired();
+            e.Property(x => x.TipoIdentificacion).HasConversion<string>().HasMaxLength(20).IsRequired()
+                .HasDefaultValue(TipoIdentificacion.Cedula);
             e.Property(x => x.Nombres).HasMaxLength(150).IsRequired();
             e.Property(x => x.Apellidos).HasMaxLength(150).IsRequired();
             e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20).IsRequired();
@@ -51,6 +59,7 @@ public class StudentsDbContext : DbContext
             {
                 t.HasCheckConstraint("CK_AsignaturasCursadas_Nota_Rango", "[Nota] >= 0 AND [Nota] <= 10");
                 t.HasCheckConstraint("CK_AsignaturasCursadas_Creditos_Positivos", "[Creditos] IS NULL OR [Creditos] > 0");
+                t.HasCheckConstraint("CK_AsignaturasCursadas_Horas_Positivas", "[Horas] IS NULL OR [Horas] > 0");
             });
             e.HasKey(x => x.Id);
             e.Property(x => x.Codigo).HasMaxLength(30);

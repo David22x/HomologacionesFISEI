@@ -42,6 +42,9 @@ namespace StudentsService.Migrations
                     b.Property<Guid>("HistorialAcademicoId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("Horas")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -66,6 +69,8 @@ namespace StudentsService.Migrations
                         {
                             t.HasCheckConstraint("CK_AsignaturasCursadas_Creditos_Positivos", "[Creditos] IS NULL OR [Creditos] > 0");
 
+                            t.HasCheckConstraint("CK_AsignaturasCursadas_Horas_Positivas", "[Horas] IS NULL OR [Horas] > 0");
+
                             t.HasCheckConstraint("CK_AsignaturasCursadas_Nota_Rango", "[Nota] >= 0 AND [Nota] <= 10");
                         });
                 });
@@ -83,8 +88,8 @@ namespace StudentsService.Migrations
 
                     b.Property<string>("Cedula")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreadoEn")
                         .HasColumnType("datetime2");
@@ -110,6 +115,13 @@ namespace StudentsService.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("TipoIdentificacion")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Cedula");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Cedula")
@@ -117,7 +129,9 @@ namespace StudentsService.Migrations
 
                     b.ToTable("Estudiantes", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Estudiantes_Cedula_Formato", "LEN([Cedula]) = 10 AND [Cedula] NOT LIKE '%[^0-9]%'");
+                            t.HasCheckConstraint("CK_Estudiantes_Cedula_Formato", "[TipoIdentificacion] <> 'Cedula' OR (LEN([Cedula]) = 10 AND [Cedula] NOT LIKE '%[^0-9]%')");
+
+                            t.HasCheckConstraint("CK_Estudiantes_Pasaporte_Formato", "[TipoIdentificacion] <> 'Pasaporte' OR (LEN([Cedula]) BETWEEN 5 AND 20 AND [Cedula] NOT LIKE '%[^A-Za-z0-9]%')");
                         });
                 });
 

@@ -10,6 +10,7 @@ public class AsignaturaCursada
     public string? Codigo { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public decimal? Creditos { get; set; }
+    public int? Horas { get; set; }
     public decimal Nota { get; set; }
     public string Periodo { get; set; } = string.Empty;
 

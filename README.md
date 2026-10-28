@@ -86,7 +86,15 @@ El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenv�
 
 El contrato de consulta del catálogo, incluidos los filtros, respuestas y autorización, está documentado en [`docs/api/academic-service.md`](docs/api/academic-service.md). Swagger del Academic Service está en `http://localhost:5193/swagger`.
 
-**Terminal 4 — Frontend**:
+**Terminal 4 — Homologation Service** (puerto 5196; aplica las migraciones de `HomologationDB`):
+
+```powershell
+dotnet run --project .\backend\Services\Homologation\HomologationService.csproj
+```
+
+El Gateway reenvía `/api/v1/expedientes` al Homologation Service en `http://localhost:5196`. Swagger del Homologation Service está en `http://localhost:5196/swagger`.
+
+**Terminal 5 — Frontend**:
 
 ```powershell
 Set-Location .\frontend

@@ -45,7 +45,8 @@
       "UpstreamHttpMethod": [
         "Get",
         "Post",
-        "Put"
+        "Put",
+        "Delete"
       ],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "Bearer",

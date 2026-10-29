@@ -21,6 +21,7 @@ import TeacherPage from './features/auth/pages/TeacherPage';
 import './App.css';
 import CatalogPage from './features/catalog/pages/CatalogPage';
 import CatalogMaintenancePage from './features/catalog/pages/CatalogMaintenancePage';
+import TemasPage from './features/catalog/pages/TemasPage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -143,6 +144,15 @@ function App() {
           element={
             <ProtectedRoute user={user} allowedRoles={['Administrador']}>
               <CatalogMaintenancePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/catalogo/asignaturas/:asignaturaId/temas"
+          element={
+            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+              <TemasPage isAdmin={Boolean(user?.roles.includes('Administrador'))} />
             </ProtectedRoute>
           }
         />

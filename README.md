@@ -87,7 +87,7 @@ dotnet run --project .\backend\Services\Academic\AcademicService.csproj
 dotnet run --project .\backend\Services\Students\StudentsService.csproj
 ```
 
-El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
+El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. También protege con JWT y reenvía `GET`/`POST /api/v1/estudiantes` y las rutas `GET`/`PUT` anidadas al Students Service en `http://localhost:5194`. El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
 
 El contrato de consulta del catálogo, incluidos los filtros, respuestas y autorización, está documentado en [`docs/api/academic-service.md`](docs/api/academic-service.md). Swagger del Academic Service está en `http://localhost:5193/swagger`. Swagger del Students Service está en `http://localhost:5194/swagger`.
 

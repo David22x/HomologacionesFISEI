@@ -33,6 +33,44 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v1/estudiantes",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5194
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/estudiantes",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/estudiantes/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5194
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/estudiantes/{everything}",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Put"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/catalogo/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

@@ -65,7 +65,12 @@ export interface EstudianteWriteRequest {
   };
 }
 
-async function request<T>(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', body?: unknown): Promise<T> {
+async function request<T>(
+  path: string,
+  method: 'GET' | 'POST' | 'PUT' = 'GET',
+  body?: unknown,
+  notFound?: { value: T },
+): Promise<T> {
   const token = sessionStorage.getItem('accessToken');
   if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
 
@@ -78,6 +83,7 @@ async function request<T>(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', 
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 
+  if (response.status === 404 && notFound) return notFound.value;
   if (response.status === 401) throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
   if (response.status === 403) throw new Error('No tienes permiso para administrar estudiantes.');
   if (!response.ok) {
@@ -96,6 +102,14 @@ async function request<T>(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', 
 export const studentsService = {
   listar(): Promise<Estudiante[]> {
     return request<Estudiante[]>('/api/v1/estudiantes');
+  },
+  buscarPorCedula(cedula: string): Promise<Estudiante | null> {
+    return request<Estudiante | null>(
+      `/api/v1/estudiantes/cedula/${encodeURIComponent(cedula)}`,
+      'GET',
+      undefined,
+      { value: null },
+    );
   },
   crear(datos: EstudianteWriteRequest): Promise<Estudiante> {
     return request<Estudiante>('/api/v1/estudiantes', 'POST', datos);

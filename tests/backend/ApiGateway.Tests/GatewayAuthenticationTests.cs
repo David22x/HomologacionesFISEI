@@ -59,6 +59,7 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
     [Theory]
     [InlineData("GET", "/api/v1/estudiantes")]
     [InlineData("POST", "/api/v1/estudiantes")]
+    [InlineData("GET", "/api/v1/estudiantes/cedula/0102030405")]
     [InlineData("GET", "/api/v1/estudiantes/00000000-0000-0000-0000-000000000001")]
     [InlineData("PUT", "/api/v1/estudiantes/00000000-0000-0000-0000-000000000001/historial")]
     public async Task RutaStudents_SinToken_Devuelve401(string method, string path)
@@ -74,6 +75,7 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
     [Theory]
     [InlineData("GET", "/api/v1/estudiantes")]
     [InlineData("POST", "/api/v1/estudiantes")]
+    [InlineData("GET", "/api/v1/estudiantes/cedula/0102030405")]
     [InlineData("GET", "/api/v1/estudiantes/00000000-0000-0000-0000-000000000001")]
     [InlineData("PUT", "/api/v1/estudiantes/00000000-0000-0000-0000-000000000001/historial")]
     public async Task RutaStudents_ConToken_ReenviaAlServicio(

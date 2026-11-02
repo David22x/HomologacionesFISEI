@@ -79,6 +79,66 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Profesor")]
+    public async Task Busca_por_cedula_permite_roles_autorizados(string role)
+    {
+        var cedula = NuevaCedula();
+        await CrearEstudiante(cedula);
+
+        using var found = await Get($"/api/v1/estudiantes/cedula/{cedula}", role);
+        Assert.Equal(HttpStatusCode.OK, found.StatusCode);
+        using var json = JsonDocument.Parse(await found.Content.ReadAsStringAsync());
+        Assert.Equal(cedula, json.RootElement.GetProperty("cedula").GetString());
+
+        using var partial = await Get($"/api/v1/estudiantes/cedula/{cedula[..9]}", role);
+        Assert.Equal(HttpStatusCode.NotFound, partial.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cedula_inexistente_y_rol_no_autorizado_devuelven_la_misma_respuesta()
+    {
+        var existingCedula = NuevaCedula();
+        await CrearEstudiante(existingCedula);
+
+        using var existingWithUnauthorizedRole = await Get(
+            $"/api/v1/estudiantes/cedula/{existingCedula}", "Estudiante");
+        using var missingWithUnauthorizedRole = await Get(
+            $"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Estudiante");
+        Assert.Equal(HttpStatusCode.NotFound, existingWithUnauthorizedRole.StatusCode);
+        Assert.Equal(existingWithUnauthorizedRole.StatusCode, missingWithUnauthorizedRole.StatusCode);
+        Assert.Equal(
+            WithoutTraceId(await existingWithUnauthorizedRole.Content.ReadAsStringAsync()),
+            WithoutTraceId(await missingWithUnauthorizedRole.Content.ReadAsStringAsync()));
+    }
+
+    [Fact]
+    public async Task Busca_por_cedula_sin_token_devuelve401()
+    {
+        using var response = await Get($"/api/v1/estudiantes/cedula/{NuevaCedula()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task CrearEstudiante(string cedula)
+    {
+        using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
+        {
+            cedula, tipoIdentificacion = 0, nombres = "Ana", apellidos = "Paz", tipo = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static string WithoutTraceId(string response)
+    {
+        using var json = JsonDocument.Parse(response);
+        var properties = json.RootElement.EnumerateObject()
+            .Where(property => property.Name != "traceId")
+            .OrderBy(property => property.Name, StringComparer.Ordinal)
+            .ToDictionary(property => property.Name, property => property.Value.Clone());
+        return JsonSerializer.Serialize(properties);
+    }
+
     private static string NuevaCedula()
     {
         var primerosNueve = "011" + RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
@@ -98,6 +158,14 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StudentsApiFactory.Token("Administrador"));
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> Get(string path, string? role = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        if (role is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StudentsApiFactory.Token(role));
         return await _client.SendAsync(request);
     }
 }

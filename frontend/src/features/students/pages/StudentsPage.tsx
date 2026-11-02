@@ -43,6 +43,10 @@ export default function StudentsPage() {
   const [niveles, setNiveles] = useState<Nivel[]>([]);
   const [subjects, setSubjects] = useState<Asignatura[]>([]);
   const [filter, setFilter] = useState('');
+  const [searchCedula, setSearchCedula] = useState('');
+  const [searchResult, setSearchResult] = useState<Estudiante | null>(null);
+  const [searchMessage, setSearchMessage] = useState('');
+  const [searching, setSearching] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [cedula, setCedula] = useState('');
@@ -197,6 +201,32 @@ export default function StudentsPage() {
     } finally { setSaving(false); }
   }
 
+  async function searchByCedula(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedCedula = searchCedula.trim();
+    setSearching(true);
+    setSearchResult(null);
+    setSearchMessage('');
+    setError('');
+
+    try {
+      const student = await studentsService.buscarPorCedula(normalizedCedula);
+      if (student) setSearchResult(student);
+      else setSearchMessage('No se encontró un estudiante con esa cédula.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo buscar el estudiante.');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchCedula('');
+    setSearchResult(null);
+    setSearchMessage('');
+    setError('');
+  }
+
   const filteredStudents = useMemo(() => {
     const term = filter.trim().toLocaleLowerCase();
     if (!term) return students;
@@ -213,6 +243,78 @@ export default function StudentsPage() {
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}
     {error && <div role="alert" className="catalog-error">{error}</div>}
+
+    <section className="students-panel student-search-panel" aria-labelledby="student-search-heading">
+      <div className="students-panel-heading">
+        <div><h2 id="student-search-heading">Buscar estudiante por cédula</h2><p>Consulta un expediente con el número de cédula exacto.</p></div>
+      </div>
+      <form className="student-search-form" onSubmit={searchByCedula}>
+        <label htmlFor="student-search-cedula">Cédula del estudiante</label>
+        <div className="student-search-controls">
+          <input
+            id="student-search-cedula"
+            type="search"
+            inputMode="numeric"
+            value={searchCedula}
+            onChange={event => {
+              setSearchCedula(event.target.value.replace(/\D/g, '').slice(0, 10));
+              setSearchResult(null);
+              setSearchMessage('');
+            }}
+            required
+            minLength={10}
+            maxLength={10}
+            pattern="\d{10}"
+            placeholder="Ingresa los 10 dígitos"
+            aria-describedby="student-search-help"
+          />
+          <button type="submit" className="students-primary" disabled={searching || searchCedula.length !== 10}>
+            {searching ? 'Buscando…' : 'Buscar'}
+          </button>
+          {(searchResult || searchMessage || searchCedula) && (
+            <button type="button" className="students-secondary" onClick={clearSearch} disabled={searching}>Limpiar</button>
+          )}
+        </div>
+        <span id="student-search-help" className="student-search-help">La búsqueda requiere una cédula completa de 10 dígitos.</span>
+      </form>
+
+      {searchMessage && <p className="catalog-message student-search-message" role="status">{searchMessage}</p>}
+      {searchResult && <article className="student-search-result" aria-label="Resultado de búsqueda">
+        <div className="student-search-result-heading">
+          <div><h3>{searchResult.apellidos}, {searchResult.nombres}</h3><p>{searchResult.tipo === 0 ? 'Estudiante interno' : 'Estudiante externo'}</p></div>
+          <strong>{searchResult.cedula}</strong>
+        </div>
+        <dl className="student-search-details">
+          <div><dt>Identificación</dt><dd>{searchResult.tipoIdentificacion === 0 ? 'Cédula' : 'Pasaporte'}</dd></div>
+          <div><dt>Tipo de estudiante</dt><dd>{searchResult.tipo === 0 ? 'Interno' : 'Externo'}</dd></div>
+          <div><dt>Registrado</dt><dd>{new Date(searchResult.creadoEn).toLocaleDateString()}</dd></div>
+        </dl>
+        <section className="student-search-history" aria-label="Historial académico">
+          <h4>Historial académico</h4>
+          {searchResult.historial ? <>
+            <p>
+              Carrera de origen: {careers.find(career => career.id === searchResult.historial?.carreraOrigenId)?.nombre
+                ?? searchResult.historial.carreraOrigenNombre ?? '—'}
+              {' · '}Nivel actual: {searchResult.historial.nivelActual ?? '—'}
+            </p>
+            {searchResult.historial.asignaturas.length > 0
+              ? <div className="student-table-wrap"><table className="student-table">
+                <thead><tr><th>Asignatura</th><th>Créditos</th><th>Horas</th><th>Nota</th><th>Período</th></tr></thead>
+                <tbody>{searchResult.historial.asignaturas.map((course, index) => (
+                  <tr key={course.id ?? `${course.codigo}-${index}`}>
+                    <td>{course.codigo ? <><strong>{course.codigo}</strong><br /></> : null}{course.nombre}</td>
+                    <td>{course.creditos ?? '—'}</td>
+                    <td>{course.horas ?? '—'}</td>
+                    <td>{course.nota}</td>
+                    <td>{course.periodo}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              : <p>Este estudiante aún no tiene asignaturas registradas.</p>}
+          </> : <p>Este estudiante no tiene historial académico registrado.</p>}
+        </section>
+      </article>}
+    </section>
 
     <section className="students-panel">
       <div className="students-panel-heading"><div><h2>Registro y listado</h2><p>{students.length} estudiantes registrados</p></div>

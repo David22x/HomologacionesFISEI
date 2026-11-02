@@ -34,6 +34,25 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         return Ok(entities.Select(ToResponse).ToList());
     }
 
+    /// <summary>Busca un estudiante por coincidencia exacta de cédula.</summary>
+    [HttpGet("cedula/{cedula}")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(EstudianteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<EstudianteResponse>> GetPorCedula(string cedula, CancellationToken ct)
+    {
+        if (User.Identity?.IsAuthenticated != true) return Unauthorized();
+        if (!User.IsInRole(AppRoles.Administrador) && !User.IsInRole(AppRoles.Profesor))
+            return NotFound();
+
+        var normalizedCedula = NormalizarId(cedula);
+        var entity = await context.Estudiantes.AsNoTracking().Include(e => e.Historial)
+            .ThenInclude(h => h!.Asignaturas)
+            .FirstOrDefaultAsync(e => e.Cedula == normalizedCedula, ct);
+        return entity is null ? NotFound() : Ok(ToResponse(entity));
+    }
+
     /// <summary>Obtiene un estudiante y su historial por identificador.</summary>
     [HttpGet("{estudianteId:guid}")]
     [ProducesResponseType(typeof(EstudianteResponse), StatusCodes.Status200OK)]

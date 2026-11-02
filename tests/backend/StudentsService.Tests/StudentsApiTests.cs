@@ -79,6 +79,50 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
+    [Fact]
+    public async Task Busca_por_cedula_exacta_y_oculta_si_no_existe_o_no_tiene_permiso()
+    {
+        var cedula = NuevaCedula();
+        using var created = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
+        {
+            cedula, tipoIdentificacion = 0, nombres = "Ana", apellidos = "Paz", tipo = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+        foreach (var role in new[] { "Administrador", "Profesor" })
+        {
+            using var found = await Get($"/api/v1/estudiantes/cedula/{cedula}", role);
+            Assert.Equal(HttpStatusCode.OK, found.StatusCode);
+            using var json = JsonDocument.Parse(await found.Content.ReadAsStringAsync());
+            Assert.Equal(cedula, json.RootElement.GetProperty("cedula").GetString());
+        }
+
+        using var unauthorizedExisting = await Get($"/api/v1/estudiantes/cedula/{cedula}", "Estudiante");
+        using var unauthorizedMissing = await Get(
+            $"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Estudiante");
+        Assert.Equal(HttpStatusCode.NotFound, unauthorizedExisting.StatusCode);
+        Assert.Equal(unauthorizedExisting.StatusCode, unauthorizedMissing.StatusCode);
+        Assert.Equal(
+            WithoutTraceId(await unauthorizedExisting.Content.ReadAsStringAsync()),
+            WithoutTraceId(await unauthorizedMissing.Content.ReadAsStringAsync()));
+
+        using var missing = await Get($"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Profesor");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        using var partial = await Get($"/api/v1/estudiantes/cedula/{cedula[..9]}", "Administrador");
+        Assert.Equal(HttpStatusCode.NotFound, partial.StatusCode);
+        using var unauthenticated = await Get($"/api/v1/estudiantes/cedula/{cedula}");
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+    }
+
+    private static string WithoutTraceId(string response)
+    {
+        using var json = JsonDocument.Parse(response);
+        var properties = json.RootElement.EnumerateObject()
+            .Where(property => property.Name != "traceId")
+            .ToDictionary(property => property.Name, property => property.Value.Clone());
+        return JsonSerializer.Serialize(properties);
+    }
+
     private static string NuevaCedula()
     {
         var primerosNueve = "011" + RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
@@ -98,6 +142,14 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
             Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StudentsApiFactory.Token("Administrador"));
+        return await _client.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> Get(string path, string? role = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        if (role is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StudentsApiFactory.Token(role));
         return await _client.SendAsync(request);
     }
 }

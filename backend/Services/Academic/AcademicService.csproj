@@ -26,6 +26,9 @@
     <Content Update="Data\Seed\seed_academic_sprint1.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+        <Content Update="Data\Seed\seed_temas_sprint2.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

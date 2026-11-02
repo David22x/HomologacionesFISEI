@@ -30,6 +30,7 @@ export default function HomePage({
       <nav className="role-menu" aria-label="Menú principal">
         <Link to="/home">Inicio</Link>
         <Link to="/catalogo">Catálogo académico</Link>
+        {(isAdmin || isTeacher) && <Link to="/estudiantes">Estudiantes</Link>}
         {isAdmin && (
           <>
             <Link to="/catalogo/mantenimiento">Mantenimiento del catálogo</Link>

@@ -36,6 +36,28 @@ export interface Asignatura {
   unidadOrganizacional: string | null;
 }
 
+export interface Tema {
+  id: string;
+  asignaturaId: string;
+  nombre: string;
+  orden: number;
+  horasEstimadas: number | null;
+}
+
+export interface Subtema {
+  id: string;
+  temaId: string;
+  nombre: string;
+  orden: number;
+  horasEstimadas: number | null;
+}
+
+export interface TemaWrite {
+  nombre: string;
+  orden: number;
+  horasEstimadas: number | null;
+}
+
 async function solicitar<T>(ruta: string): Promise<T> {
   return solicitarConMetodo<T>(ruta, 'GET');
 }
@@ -136,5 +158,37 @@ export const catalogService = {
 
   guardarAsignatura(id: string | undefined, mallaId: string, datos: Omit<Asignatura, 'id' | 'mallaVersionId' | 'nivelNumero'>): Promise<Asignatura> {
     return solicitarConMetodo(id ? `/api/v1/catalogo/asignaturas/${id}` : `/api/v1/catalogo/mallas/${mallaId}/asignaturas`, id ? 'PUT' : 'POST', datos);
+  },
+
+  obtenerTemas(asignaturaId: string): Promise<Tema[]> {
+    return solicitar<Tema[]>(`/api/v1/catalogo/asignaturas/${asignaturaId}/temas`);
+  },
+
+  crearTema(asignaturaId: string, datos: TemaWrite): Promise<Tema> {
+    return solicitarConMetodo<Tema>(`/api/v1/catalogo/asignaturas/${asignaturaId}/temas`, 'POST', datos);
+  },
+
+  actualizarTema(temaId: string, datos: TemaWrite): Promise<Tema> {
+    return solicitarConMetodo<Tema>(`/api/v1/catalogo/temas/${temaId}`, 'PUT', datos);
+  },
+
+  eliminarTema(temaId: string): Promise<void> {
+    return solicitarConMetodo<void>(`/api/v1/catalogo/temas/${temaId}`, 'DELETE');
+  },
+
+  obtenerSubtemas(temaId: string): Promise<Subtema[]> {
+    return solicitar<Subtema[]>(`/api/v1/catalogo/temas/${temaId}/subtemas`);
+  },
+
+  crearSubtema(temaId: string, datos: TemaWrite): Promise<Subtema> {
+    return solicitarConMetodo<Subtema>(`/api/v1/catalogo/temas/${temaId}/subtemas`, 'POST', datos);
+  },
+
+  actualizarSubtema(subtemaId: string, datos: TemaWrite): Promise<Subtema> {
+    return solicitarConMetodo<Subtema>(`/api/v1/catalogo/subtemas/${subtemaId}`, 'PUT', datos);
+  },
+
+  eliminarSubtema(subtemaId: string): Promise<void> {
+    return solicitarConMetodo<void>(`/api/v1/catalogo/subtemas/${subtemaId}`, 'DELETE');
   },
 };

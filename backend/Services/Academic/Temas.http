@@ -1,0 +1,62 @@
+@baseUrl = http://localhost:5193/api/v1/catalogo
+@asignaturaId = 00000000-0000-0000-0000-000000000001
+@temaId = 00000000-0000-0000-0000-000000000002
+@subtemaId = 00000000-0000-0000-0000-000000000003
+
+### Listar temas de una asignatura (Administrador o Profesor)
+GET {{baseUrl}}/asignaturas/{{asignaturaId}}/temas
+
+### Consultar un tema por identificador
+GET {{baseUrl}}/temas/{{temaId}}
+
+### Crear un tema (solo Administrador)
+POST {{baseUrl}}/asignaturas/{{asignaturaId}}/temas
+Content-Type: application/json
+
+{
+  "nombre": "Introducción a la programación",
+  "orden": 1,
+  "horasEstimadas": 12
+}
+
+### Actualizar un tema (solo Administrador)
+PUT {{baseUrl}}/temas/{{temaId}}
+Content-Type: application/json
+
+{
+  "nombre": "Fundamentos de programación",
+  "orden": 1,
+  "horasEstimadas": 16
+}
+
+### Eliminar un tema (solo Administrador; elimina también sus subtemas)
+DELETE {{baseUrl}}/temas/{{temaId}}
+
+### Listar subtemas de un tema (Administrador o Profesor)
+GET {{baseUrl}}/temas/{{temaId}}/subtemas
+
+### Consultar un subtema por identificador
+GET {{baseUrl}}/subtemas/{{subtemaId}}
+
+### Crear un subtema (solo Administrador)
+POST {{baseUrl}}/temas/{{temaId}}/subtemas
+Content-Type: application/json
+
+{
+  "nombre": "Variables y tipos de datos",
+  "orden": 1,
+  "horasEstimadas": 4
+}
+
+### Actualizar un subtema (solo Administrador)
+PUT {{baseUrl}}/subtemas/{{subtemaId}}
+Content-Type: application/json
+
+{
+  "nombre": "Tipos de datos y variables",
+  "orden": 1,
+  "horasEstimadas": 5
+}
+
+### Eliminar un subtema (solo Administrador)
+DELETE {{baseUrl}}/subtemas/{{subtemaId}}

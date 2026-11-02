@@ -79,39 +79,54 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
-    [Fact]
-    public async Task Busca_por_cedula_exacta_y_oculta_si_no_existe_o_no_tiene_permiso()
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Profesor")]
+    public async Task Busca_por_cedula_permite_roles_autorizados(string role)
     {
         var cedula = NuevaCedula();
-        using var created = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
+        await CrearEstudiante(cedula);
+
+        using var found = await Get($"/api/v1/estudiantes/cedula/{cedula}", role);
+        Assert.Equal(HttpStatusCode.OK, found.StatusCode);
+        using var json = JsonDocument.Parse(await found.Content.ReadAsStringAsync());
+        Assert.Equal(cedula, json.RootElement.GetProperty("cedula").GetString());
+
+        using var partial = await Get($"/api/v1/estudiantes/cedula/{cedula[..9]}", role);
+        Assert.Equal(HttpStatusCode.NotFound, partial.StatusCode);
+    }
+
+    [Fact]
+    public async Task Cedula_inexistente_y_rol_no_autorizado_devuelven_la_misma_respuesta()
+    {
+        var existingCedula = NuevaCedula();
+        await CrearEstudiante(existingCedula);
+
+        using var existingWithUnauthorizedRole = await Get(
+            $"/api/v1/estudiantes/cedula/{existingCedula}", "Estudiante");
+        using var missingWithUnauthorizedRole = await Get(
+            $"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Estudiante");
+        Assert.Equal(HttpStatusCode.NotFound, existingWithUnauthorizedRole.StatusCode);
+        Assert.Equal(existingWithUnauthorizedRole.StatusCode, missingWithUnauthorizedRole.StatusCode);
+        Assert.Equal(
+            WithoutTraceId(await existingWithUnauthorizedRole.Content.ReadAsStringAsync()),
+            WithoutTraceId(await missingWithUnauthorizedRole.Content.ReadAsStringAsync()));
+    }
+
+    [Fact]
+    public async Task Busca_por_cedula_sin_token_devuelve401()
+    {
+        using var response = await Get($"/api/v1/estudiantes/cedula/{NuevaCedula()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task CrearEstudiante(string cedula)
+    {
+        using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         {
             cedula, tipoIdentificacion = 0, nombres = "Ana", apellidos = "Paz", tipo = 1
         });
-        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-
-        foreach (var role in new[] { "Administrador", "Profesor" })
-        {
-            using var found = await Get($"/api/v1/estudiantes/cedula/{cedula}", role);
-            Assert.Equal(HttpStatusCode.OK, found.StatusCode);
-            using var json = JsonDocument.Parse(await found.Content.ReadAsStringAsync());
-            Assert.Equal(cedula, json.RootElement.GetProperty("cedula").GetString());
-        }
-
-        using var unauthorizedExisting = await Get($"/api/v1/estudiantes/cedula/{cedula}", "Estudiante");
-        using var unauthorizedMissing = await Get(
-            $"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Estudiante");
-        Assert.Equal(HttpStatusCode.NotFound, unauthorizedExisting.StatusCode);
-        Assert.Equal(unauthorizedExisting.StatusCode, unauthorizedMissing.StatusCode);
-        Assert.Equal(
-            WithoutTraceId(await unauthorizedExisting.Content.ReadAsStringAsync()),
-            WithoutTraceId(await unauthorizedMissing.Content.ReadAsStringAsync()));
-
-        using var missing = await Get($"/api/v1/estudiantes/cedula/{NuevaCedula()}", "Profesor");
-        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
-        using var partial = await Get($"/api/v1/estudiantes/cedula/{cedula[..9]}", "Administrador");
-        Assert.Equal(HttpStatusCode.NotFound, partial.StatusCode);
-        using var unauthenticated = await Get($"/api/v1/estudiantes/cedula/{cedula}");
-        Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
     private static string WithoutTraceId(string response)
@@ -119,6 +134,7 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         using var json = JsonDocument.Parse(response);
         var properties = json.RootElement.EnumerateObject()
             .Where(property => property.Name != "traceId")
+            .OrderBy(property => property.Name, StringComparer.Ordinal)
             .ToDictionary(property => property.Name, property => property.Value.Clone());
         return JsonSerializer.Serialize(properties);
     }

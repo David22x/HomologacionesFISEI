@@ -22,6 +22,7 @@ import './App.css';
 import CatalogPage from './features/catalog/pages/CatalogPage';
 import CatalogMaintenancePage from './features/catalog/pages/CatalogMaintenancePage';
 import TemasPage from './features/catalog/pages/TemasPage';
+import StudentsPage from './features/students/pages/StudentsPage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -135,6 +136,15 @@ function App() {
               allowedRoles={['Administrador']}
             >
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/estudiantes"
+          element={
+            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+              <StudentsPage />
             </ProtectedRoute>
           }
         />

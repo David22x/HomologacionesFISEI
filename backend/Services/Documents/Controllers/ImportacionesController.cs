@@ -1,5 +1,8 @@
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace DocumentsService.Controllers;
 
@@ -12,6 +15,15 @@ public sealed class ImportacionesController : ControllerBase
 
     private sealed record Column(string Name, bool Required, int MaxLength = 0);
     private sealed record RowError(string Hoja, int Fila, string Columna, string Mensaje);
+    private sealed record ValidationOutcome(
+        bool IsValid, string Message, IReadOnlyList<RowError> Errors, ExternalStudentImport? Import);
+    private sealed record ExternalStudentImport(
+        string Cedula, int TipoIdentificacion, string Nombres, string Apellidos, int Tipo, ExternalHistoryImport Historial);
+    private sealed record ExternalHistoryImport(
+        Guid? CarreraOrigenId, string? CarreraOrigenNombre, string? InstitucionOrigen, int? NivelActual,
+        IReadOnlyList<ExternalSubjectImport> Asignaturas);
+    private sealed record ExternalSubjectImport(
+        Guid? AsignaturaId, string? Codigo, string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo);
 
     private static readonly IReadOnlyDictionary<string, Column[]> Schema = new Dictionary<string, Column[]>
     {
@@ -61,14 +73,63 @@ public sealed class ImportacionesController : ControllerBase
     [RequestSizeLimit(MaxFileSize + 1024 * 1024)]
     public IActionResult ValidarArchivo([FromForm] IFormFile? archivo)
     {
+        var outcome = ValidateFile(archivo);
+        return outcome.IsValid
+            ? Ok(new { mensaje = outcome.Message, errores = outcome.Errors })
+            : BadRequest(new { mensaje = outcome.Message, errores = outcome.Errors });
+    }
+
+    /// <summary>Confirma una importación validada y guarda el estudiante externo con su historial.</summary>
+    [HttpPost("confirmar")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaxFileSize + 1024 * 1024)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Confirmar(
+        [FromForm] IFormFile? archivo, [FromServices] IHttpClientFactory httpClientFactory, CancellationToken ct)
+    {
+        var outcome = ValidateFile(archivo);
+        if (!outcome.IsValid)
+            return BadRequest(new { mensaje = outcome.Message, errores = outcome.Errors });
+        if (outcome.Import is null)
+            return BadRequest(new { mensaje = "No se pudo interpretar la información del archivo." });
+        if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var authorization)
+            || !string.Equals(authorization.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
+            return Unauthorized();
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/internal/estudiantes/importaciones")
+        {
+            Content = JsonContent.Create(outcome.Import, options: new JsonSerializerOptions(JsonSerializerDefaults.Web))
+        };
+        request.Headers.Authorization = authorization;
+        using var response = await httpClientFactory.CreateClient("StudentsService").SendAsync(request, ct);
+        var content = await response.Content.ReadAsStringAsync(ct);
+        var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/json";
+        if (response.Headers.Location is not null)
+            Response.Headers.Location = response.Headers.Location.ToString();
+        return new ContentResult
+        {
+            Content = content,
+            ContentType = contentType,
+            StatusCode = (int)response.StatusCode
+        };
+    }
+
+    private static ValidationOutcome ValidateFile(IFormFile? archivo)
+    {
         if (archivo is null || archivo.Length == 0)
-            return BadRequest(new { mensaje = "Selecciona un archivo .xlsx para cargar.", errores = Array.Empty<RowError>() });
+            return new(false, "Selecciona un archivo .xlsx para cargar.", Array.Empty<RowError>(), null);
         if (!string.Equals(Path.GetExtension(archivo.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { mensaje = "El formato no es válido. Carga un archivo .xlsx.", errores = Array.Empty<RowError>() });
+            return new(false, "El formato no es válido. Carga un archivo .xlsx.", Array.Empty<RowError>(), null);
         if (archivo.Length > MaxFileSize)
-            return BadRequest(new { mensaje = "El archivo supera el tamaño máximo de 5 MB.", errores = Array.Empty<RowError>() });
+            return new(false, "El archivo supera el tamaño máximo de 5 MB.", Array.Empty<RowError>(), null);
 
         var errors = new List<RowError>();
+        ExternalStudentImport? import = null;
         try
         {
             using var stream = archivo.OpenReadStream();
@@ -116,17 +177,64 @@ public sealed class ImportacionesController : ControllerBase
                     ValidateSubject(sheets["Asignaturas"], row, subjectCodes, errors);
 
                 ValidateContents(sheets["Contenidos"], subjectCodes, errors);
+                if (errors.Count == 0)
+                    import = CreateImport(sheets["Estudiante"], studentRows[0], sheets["Asignaturas"], subjectRows);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return BadRequest(new { mensaje = "No se pudo leer el archivo. Verifica que sea un libro .xlsx válido y que no esté dañado.", errores = Array.Empty<RowError>() });
+            return new(false, "No se pudo leer el archivo. Verifica que sea un libro .xlsx válido y que no esté dañado.",
+                Array.Empty<RowError>(), null);
         }
 
         if (errors.Count > 0)
-            return BadRequest(new { mensaje = $"Se encontraron {errors.Count} error(es). Corrige las filas indicadas y carga el archivo nuevamente.", errores = errors });
+            return new(false, $"Se encontraron {errors.Count} error(es). Corrige las filas indicadas y carga el archivo nuevamente.",
+                errors, null);
 
-        return Ok(new { mensaje = "El archivo es válido. No se encontraron errores.", errores = Array.Empty<RowError>() });
+        return new(true, "El archivo es válido. No se encontraron errores.", Array.Empty<RowError>(), import);
+    }
+
+    private static ExternalStudentImport CreateImport(
+        (IXLWorksheet Worksheet, Dictionary<string, int> Headers) studentSheet,
+        int studentRow,
+        (IXLWorksheet Worksheet, Dictionary<string, int> Headers) subjectsSheet,
+        IReadOnlyList<int> subjectRows)
+    {
+        var identificationType = Value(studentSheet, studentRow, "TipoIdentificacion");
+        var level = Value(studentSheet, studentRow, "NivelActual");
+        int? currentLevel = null;
+        if (level.Length > 0)
+        {
+            TryNumber(level, out var numericLevel);
+            currentLevel = decimal.ToInt32(numericLevel);
+        }
+        var subjects = subjectRows.Select(row =>
+        {
+            TryNumber(Value(subjectsSheet, row, "Creditos"), out var credits);
+            TryNumber(Value(subjectsSheet, row, "Horas"), out var hours);
+            TryNumber(Value(subjectsSheet, row, "Nota"), out var grade);
+            return new ExternalSubjectImport(
+                null,
+                Value(subjectsSheet, row, "Codigo"),
+                Value(subjectsSheet, row, "Nombre"),
+                credits,
+                decimal.ToInt32(hours),
+                grade,
+                Value(subjectsSheet, row, "Periodo"));
+        }).ToList();
+
+        return new ExternalStudentImport(
+            Value(studentSheet, studentRow, "Identificacion"),
+            identificationType == "Pasaporte" ? 1 : 0,
+            Value(studentSheet, studentRow, "Nombres"),
+            Value(studentSheet, studentRow, "Apellidos"),
+            1,
+            new ExternalHistoryImport(
+                null,
+                Value(studentSheet, studentRow, "CarreraOrigen"),
+                Value(studentSheet, studentRow, "InstitucionOrigen"),
+                currentLevel,
+                subjects));
     }
 
     private static List<int> GetDataRows(IXLWorksheet sheet, IReadOnlyDictionary<string, int> headers)
@@ -158,8 +266,15 @@ public sealed class ImportacionesController : ControllerBase
     }
 
     private static bool TryNumber(string value, out decimal number)
-        => decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out number)
-            || decimal.TryParse(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.GetCultureInfo("es-EC"), out number);
+    {
+        var style = System.Globalization.NumberStyles.Number;
+        var ecuadorCulture = System.Globalization.CultureInfo.GetCultureInfo("es-EC");
+        if (value.Contains(',') && !value.Contains('.')
+            && decimal.TryParse(value, style, ecuadorCulture, out number))
+            return true;
+        return decimal.TryParse(value, style, System.Globalization.CultureInfo.InvariantCulture, out number)
+            || decimal.TryParse(value, style, ecuadorCulture, out number);
+    }
 
     private static void ValidateStudent((IXLWorksheet Worksheet, Dictionary<string, int> Headers) sheet, int row, List<RowError> errors)
     {

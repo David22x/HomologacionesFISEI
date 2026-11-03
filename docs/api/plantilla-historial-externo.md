@@ -7,8 +7,13 @@ Lo genera `scripts/generar_plantilla_xlsx.py`; Documents Service lo sirve para d
 
 - `GET /api/v1/documentos/importaciones/plantilla`: descarga la plantilla `.xlsx`.
 - `POST /api/v1/documentos/importaciones`: recibe el archivo multipart con el campo `archivo` y valida el libro sin guardar datos.
+- `POST /api/v1/documentos/importaciones/confirmar`: recibe otra vez el archivo multipart (`archivo`), lo valida y confirma la importación en Students Service.
 
-La respuesta de validación incluye `mensaje` y `errores`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; una carga válida devuelve una lista vacía. El Gateway publica ambas rutas y requiere una sesión autenticada.
+La respuesta de validación incluye `mensaje` y `errores`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; una carga válida devuelve una lista vacía. El Gateway publica las tres rutas y requiere una sesión autenticada.
+
+La confirmación vuelve a validar el archivo y envía el estudiante externo y sus asignaturas a `PUT /internal/estudiantes/importaciones` de Students, reenviando el JWT del usuario. Devuelve `201` al crear el estudiante o `200` si ya existía o si la misma importación se confirma otra vez. Una identificación existente de estudiante interno produce `409`. Las asignaturas de la confirmación reemplazan las importadas previamente, mientras que repetir el mismo contenido conserva los identificadores y la fecha del historial.
+
+La ruta `/internal` no se publica por el Gateway. Students exige JWT y rol `Administrador` o `Profesor`; Documents llama directamente a la dirección configurada en `StudentsService:BaseUrl` (por defecto `http://localhost:5194`). La hoja `Contenidos` se valida, pero no se persiste.
 
 ## Reglas del archivo
 
@@ -56,7 +61,7 @@ No se puede repetir la combinacion `CodigoAsignatura` + `Tema` + `Subtema`.
 - `Estudiante` -> `Estudiantes` (`Identificacion` -> `Cedula`, `TipoIdentificacion`).
 - `Estudiante.InstitucionOrigen`, `CarreraOrigen`, `NivelActual` -> `HistorialesAcademicos`.
 - `Asignaturas` -> `AsignaturasCursadas` (`Codigo`, `Nombre`, `Creditos`, `Horas`, `Nota`, `Periodo`).
-- `Contenidos`: **pendiente de decidir** si se guardan en Students al confirmar o solo en Documents.
+- `Contenidos`: se valida, pero no se guarda en esta versión.
 
 ## Supuestos a confirmar con el equipo
 

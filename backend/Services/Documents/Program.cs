@@ -1,4 +1,3 @@
-using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
 
@@ -8,10 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomSwagger("Documents Service API");
-
-// Configurar JWT (descomentar una vez que el Gateway valide roles, si es necesario)
-// builder.Services.AddCustomJwtAuthentication(builder.Configuration);
-// builder.Services.AddAuthorization();
+builder.Services.AddHttpClient("StudentsService", client =>
+{
+    var baseAddress = builder.Configuration["StudentsService:BaseUrl"];
+    if (string.IsNullOrWhiteSpace(baseAddress))
+        throw new InvalidOperationException("Configura StudentsService:BaseUrl para contactar a Students Service.");
+    client.BaseAddress = new Uri(baseAddress, UriKind.Absolute);
+});
 
 var app = builder.Build();
 
@@ -26,10 +28,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 
-// app.UseAuthentication();
-// app.UseAuthorization();
-
 app.MapHealthChecks("/health");
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

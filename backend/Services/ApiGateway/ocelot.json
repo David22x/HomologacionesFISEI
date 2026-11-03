@@ -53,7 +53,7 @@
     },
 
     {
-      "DownstreamPathTemplate": "/api/v1/documentos/{everything}",
+      "DownstreamPathTemplate": "/api/v1/documentos/importaciones/plantilla",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -61,9 +61,44 @@
           "Port": 5104
         }
       ],
-      "UpstreamPathTemplate": "/api/v1/documentos/{everything}",
+      "UpstreamPathTemplate": "/api/v1/documentos/importaciones/plantilla",
       "UpstreamHttpMethod": [
-        "Get",
+        "Get"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/documentos/importaciones",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5104
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/documentos/importaciones",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/documentos/importaciones/confirmar",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5104
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/documentos/importaciones/confirmar",
+      "UpstreamHttpMethod": [
         "Post"
       ],
       "AuthenticationOptions": {

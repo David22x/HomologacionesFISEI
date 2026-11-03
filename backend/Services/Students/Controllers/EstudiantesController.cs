@@ -163,6 +163,165 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         return Ok(ToResponse(student.Historial));
     }
 
+    /// <summary>Confirma de forma idempotente la importación de un estudiante externo y su historial.</summary>
+    [HttpPut("~/internal/estudiantes/importaciones")]
+    [ProducesResponseType(typeof(EstudianteResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EstudianteResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<EstudianteResponse>> ImportarEstudianteExterno(
+        EstudianteWriteRequest request, CancellationToken ct)
+    {
+        if (request.Tipo != TipoEstudiante.Externo || request.Historial is null)
+            return BadRequest(Problem(400, "La importación requiere un estudiante externo con historial."));
+
+        var error = ValidarEstudiante(request);
+        if (error is not null) return BadRequest(Problem(400, error));
+
+        var historial = request.Historial;
+        var subjects = historial.Asignaturas!;
+        if (string.IsNullOrWhiteSpace(historial.CarreraOrigenNombre)
+            || string.IsNullOrWhiteSpace(historial.InstitucionOrigen)
+            || subjects.Any(a => a.AsignaturaId.HasValue || string.IsNullOrWhiteSpace(a.Codigo)))
+            return BadRequest(Problem(400, "La importación requiere carrera, institución y códigos de asignaturas externas."));
+        var courseCodes = subjects.Select(a => a.Codigo!.Trim()).ToList();
+        if (courseCodes.Count != courseCodes.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            return BadRequest(Problem(400, "El código de una asignatura externa no puede repetirse."));
+
+        var cedula = NormalizarId(request.Cedula);
+        var student = await context.Estudiantes.Include(e => e.Historial)
+            .ThenInclude(h => h!.Asignaturas)
+            .FirstOrDefaultAsync(e => e.Cedula == cedula, ct);
+        var created = student is null;
+        if (student is not null && student.Tipo != TipoEstudiante.Externo)
+            return Conflict(Problem(409, "La identificación ya pertenece a un estudiante interno."));
+
+        var now = DateTime.UtcNow;
+        if (student is null)
+        {
+            student = new Estudiante
+            {
+                Cedula = cedula,
+                TipoIdentificacion = request.TipoIdentificacion,
+                Nombres = request.Nombres.Trim(),
+                Apellidos = request.Apellidos.Trim(),
+                Tipo = TipoEstudiante.Externo,
+                CreadoPor = ActorActual(),
+                CreadoEn = now,
+                ModificadoPor = ActorActual(),
+                ModificadoEn = now
+            };
+            student.Historial = CrearHistorial(student, NormalizarHistorialExterno(historial));
+            context.Estudiantes.Add(student);
+        }
+        else
+        {
+            var normalizedHistory = NormalizarHistorialExterno(historial);
+            var changed = student.TipoIdentificacion != request.TipoIdentificacion
+                || student.Nombres != request.Nombres.Trim()
+                || student.Apellidos != request.Apellidos.Trim()
+                || !HistorialCoincide(student.Historial, normalizedHistory);
+            if (changed)
+            {
+                student.TipoIdentificacion = request.TipoIdentificacion;
+                student.Nombres = request.Nombres.Trim();
+                student.Apellidos = request.Apellidos.Trim();
+                if (student.Historial is null)
+                    student.Historial = CrearHistorial(student, normalizedHistory);
+                else
+                    ActualizarHistorialExterno(student.Historial, normalizedHistory);
+                student.ModificadoPor = ActorActual();
+                student.ModificadoEn = now;
+                await context.SaveChangesAsync(ct);
+            }
+        }
+
+        if (created)
+        {
+            if (!await SaveAsync(ct)) return Conflict(Problem(409, "Ya existe un estudiante con esa identificación."));
+            logger.LogInformation("Imported external student identification {Identification}", MaskIdentification(cedula));
+            return CreatedAtAction(nameof(GetEstudiante), new { estudianteId = student.Id }, ToResponse(student));
+        }
+
+        return Ok(ToResponse(student));
+    }
+
+    private static HistorialWriteRequest NormalizarHistorialExterno(HistorialWriteRequest request)
+        => request with
+        {
+            CarreraOrigenId = null,
+            CarreraOrigenNombre = Normalizar(request.CarreraOrigenNombre),
+            InstitucionOrigen = Normalizar(request.InstitucionOrigen),
+            Asignaturas = request.Asignaturas!.Select(a => a with
+            {
+                Codigo = Normalizar(a.Codigo),
+                Nombre = a.Nombre.Trim(),
+                Periodo = a.Periodo.Trim()
+            }).ToList()
+        };
+
+    private void ActualizarHistorialExterno(HistorialAcademico historial, HistorialWriteRequest request)
+    {
+        historial.CarreraOrigenId = null;
+        historial.CarreraOrigenNombre = request.CarreraOrigenNombre;
+        historial.InstitucionOrigen = request.InstitucionOrigen;
+        historial.NivelActual = request.NivelActual;
+        historial.ActualizadoEn = DateTime.UtcNow;
+
+        var unassigned = historial.Asignaturas.ToList();
+        foreach (var item in request.Asignaturas!)
+        {
+            var course = unassigned.FirstOrDefault(existing =>
+                string.Equals(existing.Codigo, item.Codigo, StringComparison.OrdinalIgnoreCase))
+                ?? unassigned.FirstOrDefault();
+            if (course is null)
+            {
+                course = new AsignaturaCursada { Historial = historial };
+                historial.Asignaturas.Add(course);
+            }
+            else
+            {
+                unassigned.Remove(course);
+            }
+
+            course.AsignaturaId = null;
+            course.Codigo = item.Codigo;
+            course.Nombre = item.Nombre;
+            course.Creditos = item.Creditos;
+            course.Horas = item.Horas;
+            course.Nota = item.Nota;
+            course.Periodo = item.Periodo;
+        }
+
+        foreach (var removed in unassigned)
+        {
+            historial.Asignaturas.Remove(removed);
+            context.AsignaturasCursadas.Remove(removed);
+        }
+    }
+
+    private static bool HistorialCoincide(HistorialAcademico? current, HistorialWriteRequest request)
+    {
+        if (current is null
+            || current.CarreraOrigenId != request.CarreraOrigenId
+            || current.CarreraOrigenNombre != request.CarreraOrigenNombre
+            || current.InstitucionOrigen != request.InstitucionOrigen
+            || current.NivelActual != request.NivelActual
+            || current.Asignaturas.Count != request.Asignaturas!.Count)
+            return false;
+
+        return request.Asignaturas.All(item => current.Asignaturas.Any(existing =>
+            existing.AsignaturaId is null
+            && string.Equals(existing.Codigo, item.Codigo, StringComparison.OrdinalIgnoreCase)
+            && existing.Nombre == item.Nombre
+            && existing.Creditos == item.Creditos
+            && existing.Horas == item.Horas
+            && existing.Nota == item.Nota
+            && existing.Periodo == item.Periodo));
+    }
+
     private static string? ValidarEstudiante(EstudianteWriteRequest request, bool requireHistory = true)
     {
         if (string.IsNullOrWhiteSpace(request.Cedula) || string.IsNullOrWhiteSpace(request.Nombres)

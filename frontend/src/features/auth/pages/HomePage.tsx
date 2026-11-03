@@ -31,6 +31,7 @@ export default function HomePage({
         <Link to="/home">Inicio</Link>
         <Link to="/catalogo">Catálogo académico</Link>
         {(isAdmin || isTeacher) && <Link to="/estudiantes">Estudiantes</Link>}
+        {(isAdmin || isTeacher) && <Link to="/estudiantes/importar">Carga de historiales</Link>}
         {isAdmin && (
           <>
             <Link to="/catalogo/mantenimiento">Mantenimiento del catálogo</Link>

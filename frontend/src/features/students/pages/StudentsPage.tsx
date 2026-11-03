@@ -238,7 +238,7 @@ export default function StudentsPage() {
   return <main className="catalog-page students-page">
     <header className="catalog-header">
       <div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · EXPEDIENTES ACADÉMICOS</p><h1>Estudiantes</h1><p>Registra estudiantes internos y administra sus asignaturas aprobadas.</p></div>
-      <Link to="/home" className="catalog-back-link">Volver al inicio</Link>
+      <div className="students-header-links"><Link to="/estudiantes/importar" className="students-primary">Carga de historiales</Link><Link to="/home" className="catalog-back-link">Volver al inicio</Link></div>
     </header>
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}

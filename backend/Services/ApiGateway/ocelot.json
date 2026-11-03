@@ -51,6 +51,27 @@
         "AllowedScopes": []
       }
     },
+
+    {
+      "DownstreamPathTemplate": "/api/v1/documentos/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5104
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/documentos/{everything}",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    
     {
       "DownstreamPathTemplate": "/api/v1/estudiantes/{everything}",
       "DownstreamScheme": "http",

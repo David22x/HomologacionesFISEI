@@ -3,6 +3,13 @@
 Contrato de la plantilla de la HU-S2-09 (Sprint 2). Archivo: `plantilla_historial_externo.xlsx`.
 Lo genera `scripts/generar_plantilla_xlsx.py`; Documents Service lo sirve para descargar y lo valida al cargarlo.
 
+## Endpoints
+
+- `GET /api/v1/documentos/importaciones/plantilla`: descarga la plantilla `.xlsx`.
+- `POST /api/v1/documentos/importaciones`: recibe el archivo multipart con el campo `archivo` y valida el libro sin guardar datos.
+
+La respuesta de validación incluye `mensaje` y `errores`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; una carga válida devuelve una lista vacía. El Gateway publica ambas rutas y requiere una sesión autenticada.
+
 ## Reglas del archivo
 
 - Solo se acepta `.xlsx` de hasta 5 MB. Se rechazan `.xlsm` y cualquier otro formato.

@@ -288,6 +288,8 @@
 .catalog-topic-link { color: #173b70; font-weight: 600; text-decoration: none; }
 .catalog-topic-link:hover { text-decoration: underline; }
 .students-panel { padding: 24px; border: 1px solid #e0e6ef; border-radius: 14px; background: #fff; }
+.students-header-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; }
+.students-header-links .students-primary { text-decoration: none; white-space: nowrap; }
 .students-panel-heading,
 .students-list-toolbar,
 .student-form-heading,
@@ -358,6 +360,24 @@
 .student-search-history > p { color: #52627a; font-size: 13px; }
 .students-edit { min-height: 32px; padding: 6px 10px; }
 .student-readonly-note { color: #65748b; font-size: 12px; }
+.import-panel { margin-bottom: 20px; }
+.import-panel .students-panel-heading { align-items: center; }
+.import-panel .students-panel-heading > div { min-width: 0; }
+.import-panel .students-panel-heading p { max-width: 760px; line-height: 1.5; }
+.import-form { display: flex; flex-direction: column; gap: 8px; }
+.import-form > label { color: #263750; font-size: 13px; font-weight: 600; }
+.import-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.import-controls input[type="file"] { box-sizing: border-box; flex: 1 1 300px; min-width: 0; min-height: 42px; padding: 6px 8px; border: 1px solid #ccd5e2; border-radius: 8px; background: #fff; color: #182b49; font: inherit; }
+.import-help { color: #65748b; font-size: 12px; }
+.import-summary { margin: 18px 0 0; padding: 13px 16px; border-radius: 8px; background: #e8f6ee; color: #17683c; font-size: 14px; font-weight: 600; }
+.import-summary-error { background: #fff0f0; color: #9c2525; }
+.import-errors-wrap { margin-top: 14px; }
+.import-errors-table td:last-child { min-width: 300px; }
+@media (max-width: 760px) {
+  .import-panel .students-panel-heading { align-items: flex-start; flex-direction: column; }
+  .import-controls { align-items: stretch; flex-direction: column; }
+  .import-controls > * { width: 100%; }
+}
 @media (max-width: 760px) {
   .maintenance-layout { grid-template-columns: 1fr; }
   .maintenance-item { align-items: flex-start; flex-direction: column; }
@@ -370,6 +390,7 @@
   .students-panel { padding: 18px; }
   .students-panel-heading,
   .students-list-toolbar { align-items: flex-start; flex-direction: column; }
+  .students-header-links { align-items: flex-start; flex-direction: column; }
   .student-form-grid,
   .student-course-picker-grid { grid-template-columns: 1fr; }
 }

@@ -55,6 +55,54 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
     }
 
+    [Fact]
+    public async Task ImportacionInterna_RepetidaEsIdempotente_YReemplazaHistorialSiCambia()
+    {
+        const string identification = "AB12345";
+        var body = ExternalStudentImport(identification, "MAT1", "Matemática");
+
+        using var created = await Send(HttpMethod.Put, "/internal/estudiantes/importaciones", body);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var first = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var studentId = first.RootElement.GetProperty("id").GetGuid();
+        var historyId = first.RootElement.GetProperty("historial").GetProperty("id").GetGuid();
+        var courseId = first.RootElement.GetProperty("historial").GetProperty("asignaturas")[0]
+            .GetProperty("id").GetGuid();
+        var updatedAt = first.RootElement.GetProperty("historial").GetProperty("actualizadoEn").GetDateTime();
+
+        using var repeated = await Send(HttpMethod.Put, "/internal/estudiantes/importaciones", body);
+        Assert.True(repeated.StatusCode == HttpStatusCode.OK,
+            await repeated.Content.ReadAsStringAsync());
+        using var second = JsonDocument.Parse(await repeated.Content.ReadAsStringAsync());
+        Assert.Equal(studentId, second.RootElement.GetProperty("id").GetGuid());
+        Assert.Equal(historyId, second.RootElement.GetProperty("historial").GetProperty("id").GetGuid());
+        Assert.Equal(courseId, second.RootElement.GetProperty("historial").GetProperty("asignaturas")[0]
+            .GetProperty("id").GetGuid());
+        Assert.Equal(updatedAt, second.RootElement.GetProperty("historial").GetProperty("actualizadoEn").GetDateTime());
+        Assert.Equal(2, second.RootElement.GetProperty("historial").GetProperty("asignaturas").GetArrayLength());
+
+        using var changed = await Send(HttpMethod.Put, "/internal/estudiantes/importaciones",
+            ExternalStudentImport(identification, "BIO1", "Biología", includeSecond: false));
+        Assert.True(changed.StatusCode == HttpStatusCode.OK,
+            await changed.Content.ReadAsStringAsync());
+        using var third = JsonDocument.Parse(await changed.Content.ReadAsStringAsync());
+        var courses = third.RootElement.GetProperty("historial").GetProperty("asignaturas");
+        Assert.Single(courses.EnumerateArray());
+        Assert.Equal("BIO1", courses[0].GetProperty("codigo").GetString());
+    }
+
+    [Fact]
+    public async Task ImportacionInterna_RequiereJwt()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, "/internal/estudiantes/importaciones")
+        {
+            Content = new StringContent("{}")
+        };
+        using var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("1234567890")]
     [InlineData("0102030401")]
@@ -127,6 +175,54 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
             cedula, tipoIdentificacion = 0, nombres = "Ana", apellidos = "Paz", tipo = 1
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static object ExternalStudentImport(
+        string identification, string code, string subject, bool includeSecond = true)
+    {
+        var subjects = new List<object>
+        {
+            new
+            {
+                asignaturaId = (Guid?)null,
+                codigo = code,
+                nombre = subject,
+                creditos = 3m,
+                horas = 48,
+                nota = 9m,
+                periodo = "2026-A"
+            }
+        };
+        if (includeSecond)
+        {
+            subjects.Add(new
+            {
+                asignaturaId = (Guid?)null,
+                codigo = "ENG1",
+                nombre = "Inglés",
+                creditos = 2m,
+                horas = 32,
+                nota = 8m,
+                periodo = "2026-A"
+            });
+        }
+
+        return new
+        {
+            cedula = identification,
+            tipoIdentificacion = 1,
+            nombres = "Ana",
+            apellidos = "Paz",
+            tipo = 1,
+            historial = new
+            {
+                carreraOrigenId = (Guid?)null,
+                carreraOrigenNombre = "Ingeniería",
+                institucionOrigen = "Universidad de origen",
+                nivelActual = 3,
+                asignaturas = subjects
+            }
+        };
     }
 
     private static string WithoutTraceId(string response)

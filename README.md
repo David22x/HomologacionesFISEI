@@ -87,11 +87,17 @@ dotnet run --project .\backend\Services\Academic\AcademicService.csproj
 dotnet run --project .\backend\Services\Students\StudentsService.csproj
 ```
 
-El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. También protege con JWT y reenvía `GET`/`POST /api/v1/estudiantes` y las rutas `GET`/`PUT` anidadas al Students Service en `http://localhost:5194`. La búsqueda exacta `GET /api/v1/estudiantes/cedula/{cedula}` está permitida para `Administrador` y `Profesor`; para otros roles autenticados devuelve el mismo `404` que una cédula inexistente. Consulta el contrato en [`docs/api/students-service.md`](docs/api/students-service.md). El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
+**Terminal 5 — Documents Service** (puerto 5104; usa `StudentsService:BaseUrl`, por defecto `http://localhost:5194`):
+
+```powershell
+dotnet run --project .\backend\Services\Documents\DocumentsService.csproj
+```
+
+El Gateway enruta el login sin token, valida el JWT para `GET /auth/me` y reenvía las consultas de `/api/v1/catalogo` al Academic Service en `http://localhost:5193`. También protege con JWT y reenvía `GET`/`POST /api/v1/estudiantes` y las rutas `GET`/`PUT` anidadas al Students Service en `http://localhost:5194`. Las rutas de plantilla, validación y confirmación de importaciones de `/api/v1/documentos` se enrutan al Documents Service en `http://localhost:5104`. Al confirmar, Documents reenvía el JWT a la ruta interna de Students, que no está expuesta por el Gateway. La búsqueda exacta `GET /api/v1/estudiantes/cedula/{cedula}` está permitida para `Administrador` y `Profesor`; para otros roles autenticados devuelve el mismo `404` que una cédula inexistente. Consulta los contratos en [`docs/api/students-service.md`](docs/api/students-service.md) y [`docs/api/plantilla-historial-externo.md`](docs/api/plantilla-historial-externo.md). El Auth Service también valida el token y comprueba que el usuario siga activo. Swagger de Auth está en `http://localhost:5192/swagger`.
 
 El contrato de consulta del catálogo, incluidos los filtros, respuestas y autorización, está documentado en [`docs/api/academic-service.md`](docs/api/academic-service.md). Swagger del Academic Service está en `http://localhost:5193/swagger`. Swagger del Students Service está en `http://localhost:5194/swagger`.
 
-**Terminal 5 — Homologation Service** (puerto 5196; aplica las migraciones de `HomologationDB`):
+**Terminal 6 — Homologation Service** (puerto 5196; aplica las migraciones de `HomologationDB`):
 
 ```powershell
 dotnet run --project .\backend\Services\Homologation\HomologationService.csproj
@@ -99,7 +105,7 @@ dotnet run --project .\backend\Services\Homologation\HomologationService.csproj
 
 El Gateway reenvía `/api/v1/expedientes` al Homologation Service en `http://localhost:5196`. Swagger del Homologation Service está en `http://localhost:5196/swagger`.
 
-**Terminal 6 — Frontend**:
+**Terminal 7 — Frontend**:
 
 ```powershell
 Set-Location .\frontend

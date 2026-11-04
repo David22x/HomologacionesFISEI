@@ -16,27 +16,52 @@
 - Node.js 22 o superior y npm.
 - Git.
 
-## Preparar SQL Server y AuthDB
+## Inicio completo con Docker
 
-Desde PowerShell, en la raíz del repositorio:
+Este es el modo recomendado para iniciar el entorno completo: SQL Server, los microservicios, API Gateway y frontend, sin abrir una terminal por servicio. Desde la raíz del repositorio:
 
 ```powershell
 Set-Location .\infrastructure
 Copy-Item .env.example .env
 ```
 
-Edita `infrastructure\.env` y reemplaza `MSSQL_SA_PASSWORD` por una contraseña segura. Luego inicia SQL Server:
+Edita `infrastructure\.env` y reemplaza los valores de ejemplo. Usa una contraseña segura para SQL Server, una clave JWT aleatoria de al menos 32 caracteres y contraseñas de desarrollo que cumplan Identity (mínimo 6 caracteres y al menos un dígito). No compartas ni subas ese archivo al repositorio.
 
 ```powershell
-docker compose up -d
-docker compose ps -a
+docker compose up --build -d
+docker compose ps
 ```
 
-Espera hasta que `sqlserver` tenga estado `healthy`. `sqlserver-init` crea `AuthDB` y `AcademicDB`, y termina con código 0. La base de datos conserva sus datos mientras exista el volumen Docker.
+Compose construye e inicia los contenedores en orden: espera a que SQL Server esté saludable, crea las bases de datos y después inicia los servicios. Auth y Students aplican sus migraciones al arrancar; Academic prepara su catálogo. El frontend queda en `http://localhost:5173`, y el login usa las credenciales definidas en `ADMIN_PASSWORD` y `PROFESSOR_PASSWORD` dentro de `.env`.
 
-## Configurar secretos locales de .NET
+Puedes consultar el estado y los registros con:
 
-Las contraseñas y la clave JWT no están guardadas en el repositorio. Auth Service, API Gateway y Template Service comparten el almacén local de .NET User Secrets. Configúralo una vez desde PowerShell, en la raíz del repositorio:
+```powershell
+docker compose ps
+docker compose logs -f
+```
+
+Direcciones locales:
+
+- Frontend: `http://localhost:5173`
+- API Gateway: `http://localhost:5080`
+- Swagger de Auth: `http://localhost:5192/swagger`
+- Swagger de Academic: `http://localhost:5193/swagger`
+- Swagger de Students: `http://localhost:5194/swagger`
+- Swagger de Documents: `http://localhost:5104/swagger`
+- Template Service: `http://localhost:5158/swagger`
+
+Para apagar los servicios sin perder datos, ejecuta `docker compose down` desde `infrastructure/`. Para reiniciar también las bases de datos, usa `docker compose down -v`; esto elimina permanentemente los datos del volumen local.
+
+## Ejecución manual sin Docker (alternativa)
+
+Si prefieres ejecutar los servicios .NET directamente en el host, primero inicia solo la base de datos desde `infrastructure/`:
+
+```powershell
+docker compose up -d sqlserver sqlserver-init
+```
+
+Después configura los secretos locales. Auth Service, API Gateway y Template Service comparten el almacén local de .NET User Secrets. Desde PowerShell, en la raíz del repositorio:
 
 ```powershell
 $jwtSecret = Read-Host "Clave JWT aleatoria (mínimo 32 caracteres)"
@@ -46,21 +71,26 @@ $professorPassword = Read-Host "Contraseña local de profesor@uta.edu.ec"
 
 $connectionString = "Server=localhost,1433;Database=AuthDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
 $academicConnectionString = "Server=localhost,1433;Database=AcademicDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
+$studentsConnectionString = "Server=localhost,1433;Database=StudentsDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
 $authProject = ".\backend\Services\Auth\AuthService.csproj"
 $academicProject = ".\backend\Services\Academic\AcademicService.csproj"
+$studentsProject = ".\backend\Services\Students\StudentsService.csproj"
 
 dotnet user-secrets set --project $authProject "Jwt:SecretKey" $jwtSecret
 dotnet user-secrets set --project $authProject "ConnectionStrings:DefaultConnection" $connectionString
 dotnet user-secrets set --project $authProject "SeedUsers:AdministradorPassword" $adminPassword
 dotnet user-secrets set --project $authProject "SeedUsers:ProfesorPassword" $professorPassword
 dotnet user-secrets set --project $academicProject "ConnectionStrings:AcademicConnection" $academicConnectionString
+dotnet user-secrets set --project $studentsProject "ConnectionStrings:StudentsConnection" $studentsConnectionString
 ```
 
 Usa una clave JWT aleatoria de al menos 32 caracteres. Las contraseñas iniciales deben cumplir las reglas de Identity (mínimo 6 caracteres y al menos un dígito). Auth Service y Academic Service comparten el almacén local de User Secrets, por lo que la clave JWT configurada para Auth también queda disponible para Academic. Los secretos se guardan localmente fuera del repositorio. El usuario `admin@uta.edu.ec` tiene el rol `Administrador` y `profesor@uta.edu.ec` tiene el rol `Profesor`; sus contraseñas son las que acabas de configurar.
 
 Si cambias las contraseñas luego de que los usuarios ya se sembraron, los usuarios existentes no se modifican automáticamente. Para reiniciar el entorno de desarrollo desde cero, detén Compose y elimina sus datos con `docker compose down -v`; después levanta la base y ejecuta Auth Service otra vez.
 
-## Ejecutar backend y frontend
+## Iniciar servicios manualmente
+
+En el modo completo con Docker no necesitas seguir esta sección: `docker compose up --build -d` inicia todo el entorno.
 
 Con SQL Server activo y los User Secrets configurados, abre terminales separadas desde la raíz:
 

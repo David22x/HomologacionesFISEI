@@ -10,6 +10,7 @@ public class StudentsDbContext : DbContext
     public DbSet<Estudiante> Estudiantes => Set<Estudiante>();
     public DbSet<HistorialAcademico> Historiales => Set<HistorialAcademico>();
     public DbSet<AsignaturaCursada> AsignaturasCursadas => Set<AsignaturaCursada>();
+    public DbSet<Expediente> Expedientes => Set<Expediente>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,6 +74,20 @@ public class StudentsDbContext : DbContext
                 .HasFilter("[AsignaturaId] IS NOT NULL");
             e.HasOne(x => x.Historial).WithMany(h => h.Asignaturas)
                 .HasForeignKey(x => x.HistorialAcademicoId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Expediente>(e =>
+        {
+            e.ToTable("Expedientes", t => t.HasCheckConstraint(
+                "CK_Expedientes_Estado",
+                "[Estado] IN ('Pendiente', 'En revisión', 'Aprobado', 'Rechazado')"));
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Estado).HasMaxLength(20).IsRequired().HasDefaultValue("Pendiente");
+            e.Property(x => x.CreadoPor).HasMaxLength(100);
+            e.Property(x => x.ModificadoPor).HasMaxLength(100);
+            e.HasIndex(x => x.EstudianteId);
+            e.HasOne(x => x.Estudiante).WithMany()
+                .HasForeignKey(x => x.EstudianteId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

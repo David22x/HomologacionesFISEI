@@ -168,13 +168,70 @@ using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private async Task CrearEstudiante(string cedula)
+    [Fact]
+    public async Task Expediente_se_crea_con_estado_pendiente_se_consulta_y_actualiza_estado()
+    {
+        var studentId = await CrearEstudiante(NuevaCedula());
+        var carreraId = Guid.NewGuid();
+        var mallaId = Guid.NewGuid();
+
+        using var created = await Send(HttpMethod.Post, "/api/v1/expedientes", new
+        {
+            estudianteId = studentId,
+            carreraId,
+            mallaId
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        using var createdJson = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var expedienteId = createdJson.RootElement.GetProperty("id").GetGuid();
+        Assert.Equal("Pendiente", createdJson.RootElement.GetProperty("estado").GetString());
+        Assert.Equal(carreraId, createdJson.RootElement.GetProperty("carreraId").GetGuid());
+        Assert.Equal(mallaId, createdJson.RootElement.GetProperty("mallaId").GetGuid());
+
+        using var details = await Get($"/api/v1/expedientes/{expedienteId}", "Administrador");
+        Assert.Equal(HttpStatusCode.OK, details.StatusCode);
+
+        using var updated = await Send(HttpMethod.Put, $"/api/v1/expedientes/{expedienteId}/estado",
+            new { estado = "En revisión" });
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        using var updatedJson = JsonDocument.Parse(await updated.Content.ReadAsStringAsync());
+        Assert.Equal("En revisión", updatedJson.RootElement.GetProperty("estado").GetString());
+
+        using var listed = await Get("/api/v1/expedientes", "Profesor");
+        Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+        using var listJson = JsonDocument.Parse(await listed.Content.ReadAsStringAsync());
+        Assert.Single(listJson.RootElement.EnumerateArray());
+        Assert.Equal(expedienteId, listJson.RootElement[0].GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task Expediente_rechaza_estado_fuera_del_catalogo()
+    {
+        var studentId = await CrearEstudiante(NuevaCedula());
+        using var created = await Send(HttpMethod.Post, "/api/v1/expedientes", new
+        {
+            estudianteId = studentId,
+            carreraId = Guid.NewGuid(),
+            mallaId = Guid.NewGuid()
+        });
+        using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
+        var expedienteId = json.RootElement.GetProperty("id").GetGuid();
+
+        using var invalidState = await Send(HttpMethod.Put, $"/api/v1/expedientes/{expedienteId}/estado",
+            new { estado = "En proceso" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, invalidState.StatusCode);
+    }
+
+    private async Task<Guid> CrearEstudiante(string cedula)
     {
         using var response = await Send(HttpMethod.Post, "/api/v1/estudiantes", new
         {
             cedula, tipoIdentificacion = 0, nombres = "Ana", apellidos = "Paz", tipo = 1
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return json.RootElement.GetProperty("id").GetGuid();
     }
 
     private static object ExternalStudentImport(

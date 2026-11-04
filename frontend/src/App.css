@@ -360,6 +360,24 @@
 .student-search-history > p { color: #52627a; font-size: 13px; }
 .students-edit { min-height: 32px; padding: 6px 10px; }
 .student-readonly-note { color: #65748b; font-size: 12px; }
+.expediente-create,
+.expediente-list { margin-bottom: 20px; }
+.expediente-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 14px; }
+.expediente-form .catalog-field { min-width: 0; }
+.expediente-form input,
+.expediente-status-form select { box-sizing: border-box; width: 100%; min-height: 42px; padding: 10px 11px; border: 1px solid #ccd5e2; border-radius: 8px; background: #fff; color: #182b49; font: inherit; }
+.expediente-initial-state { margin: 0; color: #52627a; font-size: 13px; }
+.expediente-status { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; background: #fff3d6; color: #855b00; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.status-en-revision { background: #e4edfc; color: #173b70; }
+.status-aprobado { background: #e8f6ee; color: #17683c; }
+.status-rechazado { background: #fff0f0; color: #a52222; }
+.expediente-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 0 0 22px; }
+.expediente-details div { min-width: 0; }
+.expediente-details dt { color: #65748b; font-size: 12px; }
+.expediente-details dd { margin: 5px 0 0; color: #182b49; font-weight: 600; overflow-wrap: anywhere; }
+.expediente-status-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.expediente-status-form label { display: flex; flex: 1 1 220px; flex-direction: column; gap: 7px; color: #263750; font-size: 13px; font-weight: 600; }
+.expediente-status-form select { max-width: 360px; }
 .import-panel { margin-bottom: 20px; }
 .import-panel .students-panel-heading { align-items: center; }
 .import-panel .students-panel-heading > div { min-width: 0; }
@@ -392,5 +410,6 @@
   .students-list-toolbar { align-items: flex-start; flex-direction: column; }
   .students-header-links { align-items: flex-start; flex-direction: column; }
   .student-form-grid,
-  .student-course-picker-grid { grid-template-columns: 1fr; }
+  .student-course-picker-grid,
+  .expediente-form { grid-template-columns: 1fr; }
 }

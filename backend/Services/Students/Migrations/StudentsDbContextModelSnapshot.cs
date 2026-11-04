@@ -135,6 +135,52 @@ namespace StudentsService.Migrations
                         });
                 });
 
+            modelBuilder.Entity("StudentsService.Models.Expediente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CarreraId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreadoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pendiente");
+
+                    b.Property<Guid>("EstudianteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("MallaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ModificadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModificadoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EstudianteId");
+
+                    b.ToTable("Expedientes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Expedientes_Estado", "[Estado] IN ('Pendiente', 'En revisión', 'Aprobado', 'Rechazado')");
+                        });
+                });
+
             modelBuilder.Entity("StudentsService.Models.HistorialAcademico", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,6 +227,17 @@ namespace StudentsService.Migrations
                         .IsRequired();
 
                     b.Navigation("Historial");
+                });
+
+            modelBuilder.Entity("StudentsService.Models.Expediente", b =>
+                {
+                    b.HasOne("StudentsService.Models.Estudiante", "Estudiante")
+                        .WithMany()
+                        .HasForeignKey("EstudianteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Estudiante");
                 });
 
             modelBuilder.Entity("StudentsService.Models.HistorialAcademico", b =>

@@ -75,8 +75,8 @@ public sealed class ImportacionesController : ControllerBase
     {
         var outcome = ValidateFile(archivo);
         return outcome.IsValid
-            ? Ok(new { mensaje = outcome.Message, errores = outcome.Errors })
-            : BadRequest(new { mensaje = outcome.Message, errores = outcome.Errors });
+            ? Ok(new { mensaje = outcome.Message, errores = outcome.Errors, vistaPrevia = outcome.Import })
+            : BadRequest(new { mensaje = outcome.Message, errores = outcome.Errors, vistaPrevia = (ExternalStudentImport?)null });
     }
 
     /// <summary>Confirma una importación validada y guarda el estudiante externo con su historial.</summary>

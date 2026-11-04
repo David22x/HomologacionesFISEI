@@ -219,10 +219,15 @@
 .maintenance-context > .catalog-field { flex: 1 1 240px; min-width: 220px; }
 .maintenance-context .catalog-field > label { flex: none; }
 .maintenance-context select,
-.maintenance-form input:not([type="checkbox"]) {
+.maintenance-form input:not([type="checkbox"]),
+.maintenance-form textarea {
   box-sizing: border-box; width: 100%; min-height: 42px; padding: 10px 11px;
   border: 1px solid #ccd5e2; border-radius: 8px; color: #182b49; font: inherit;
 }
+.maintenance-form textarea { min-height: 260px; resize: vertical; font: 12px/1.5 ui-monospace, Consolas, monospace; }
+.plan-preview { margin-top: 18px; }
+.plan-upload-button { position: relative; display: inline-flex; align-items: center; min-height: 34px; padding: 7px 10px; border: 1px solid #ccd5e2; border-radius: 8px; color: #173b70; background: white; font-size: 12px; font-weight: 600; cursor: pointer; }
+.plan-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .maintenance-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; margin-top: 20px; }
 .maintenance-form,
 .maintenance-list { min-width: 0; padding: 22px; border: 1px solid #e0e6ef; border-radius: 12px; background: white; }

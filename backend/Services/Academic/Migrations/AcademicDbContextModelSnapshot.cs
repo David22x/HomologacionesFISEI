@@ -164,6 +164,40 @@ namespace AcademicService.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AcademicService.Models.PlanAnalitico", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AsignaturaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<DateTime>("SubidoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SubidoPor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AsignaturaId")
+                        .IsUnique();
+
+                    b.ToTable("PlanesAnaliticos", (string)null);
+                });
+
             modelBuilder.Entity("AcademicService.Models.Subtema", b =>
                 {
                     b.Property<Guid>("Id")
@@ -269,6 +303,17 @@ namespace AcademicService.Migrations
                         .IsRequired();
 
                     b.Navigation("MallaVersion");
+                });
+
+            modelBuilder.Entity("AcademicService.Models.PlanAnalitico", b =>
+                {
+                    b.HasOne("AcademicService.Models.Asignatura", "Asignatura")
+                        .WithOne()
+                        .HasForeignKey("AcademicService.Models.PlanAnalitico", "AsignaturaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asignatura");
                 });
 
             modelBuilder.Entity("AcademicService.Models.Subtema", b =>

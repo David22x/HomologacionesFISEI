@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { catalogService, type Asignatura, type Carrera, type MallaCurricular, type Nivel } from '../services/catalogService';
+import { catalogService, type Asignatura, type Carrera, type MallaCurricular, type Nivel, type PlanAnaliticoPreview } from '../services/catalogService';
 import SearchableSelect from '../../../components/SearchableSelect';
 
 type Section = 'carreras' | 'mallas' | 'niveles' | 'asignaturas';
@@ -19,6 +19,9 @@ export default function CatalogMaintenancePage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [planFile, setPlanFile] = useState<File | null>(null);
+  const [planSubjectId, setPlanSubjectId] = useState('');
+  const [planJson, setPlanJson] = useState('');
 
   async function cargarCarreras() {
     const rows = await catalogService.obtenerCarreras();
@@ -118,6 +121,30 @@ export default function CatalogMaintenancePage() {
     finally { setBusy(false); }
   }
 
+  async function analizarPlan(id: string, file: File | null) {
+    if (!file) return;
+    setBusy(true); setError(''); setNotice(''); setPlanSubjectId(id); setPlanFile(file);
+    try { const preview = await catalogService.analizarPlan(id, file); setPlanJson(JSON.stringify(preview, null, 2)); setNotice('PDF analizado. Revisa y edita el JSON extraído antes de confirmar.'); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo analizar el PDF.'); setPlanSubjectId(''); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmarPlan() {
+    if (!planFile || !planSubjectId) return;
+    let data: PlanAnaliticoPreview;
+    try { data = JSON.parse(planJson) as PlanAnaliticoPreview; }
+    catch { setError('El contenido editado debe ser JSON válido.'); return; }
+    setBusy(true); setError(''); setNotice('');
+    try { await catalogService.confirmarPlan(planSubjectId, planFile, data); setPlanJson(''); setPlanSubjectId(''); setPlanFile(null); setNotice('Plan analítico guardado y datos de la asignatura actualizados.'); await cargarAsignaturas(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo guardar el plan analítico.'); }
+    finally { setBusy(false); }
+  }
+
+  async function descargarPlan(id: string) {
+    try { await catalogService.descargarPlan(id); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo descargar el plan analítico.'); }
+  }
+
   const items = section === 'carreras' ? carreras : section === 'mallas' ? mallas : section === 'niveles' ? niveles : asignaturas;
   const singular: Record<Section, string> = { carreras: 'carrera', mallas: 'malla', niveles: 'nivel', asignaturas: 'asignatura' };
 
@@ -130,6 +157,7 @@ export default function CatalogMaintenancePage() {
       {section === 'asignaturas' && <SearchableSelect key={`maintenance-nivel-${mallaId}`} id="maintenance-nivel" label="Buscar nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId} options={niveles.map(n => ({ value: n.id, label: `Nivel ${n.numero}` }))} onChange={setNivelId} />}
     </section>
     {error && <div role="alert" className="catalog-error">{error}</div>}{notice && <div role="status" className="maintenance-notice">{notice}</div>}
+    {section === 'asignaturas' && planJson && <section className="maintenance-form plan-preview"><h2>Revisar extracción del plan analítico</h2><p>Verifica y corrige nombre, código, créditos, horas, unidad organizacional y los temas/subtemas. Los temas previos de esta asignatura se reemplazarán al confirmar.</p><label>Datos extraídos (JSON editable)<textarea rows={18} value={planJson} onChange={e => setPlanJson(e.target.value)} /></label><div className="maintenance-actions"><button className="maintenance-primary" type="button" disabled={busy} onClick={() => void confirmarPlan()}>{busy ? 'Guardando…' : 'Confirmar y guardar'}</button><button type="button" disabled={busy} onClick={() => { setPlanJson(''); setPlanSubjectId(''); setPlanFile(null); }}>Cancelar</button></div></section>}
     <section className="maintenance-layout">
       <form className="maintenance-form" onSubmit={submit} key={`${section}-${editId}`}>
         <h2>{editId ? 'Editar' : 'Agregar'} {singular[section]}</h2>
@@ -166,6 +194,8 @@ export default function CatalogMaintenancePage() {
               return <article key={item.id} className="maintenance-item">
                 <div><strong>{title}</strong><small>{detail}</small></div>
                 <div className="maintenance-item-actions">
+                  {section === 'asignaturas' && <label className="plan-upload-button">Subir plan PDF<input type="file" accept="application/pdf,.pdf" disabled={busy} onChange={event => { void analizarPlan(item.id, event.target.files?.[0] ?? null); event.target.value = ''; }} /></label>}
+                  {section === 'asignaturas' && <button type="button" disabled={busy} onClick={() => void descargarPlan(item.id)}>Descargar PDF</button>}
                   {malla && <button type="button" disabled={busy || malla.estado === 'Publicada'} onClick={() => void publicar(malla)}>Publicar</button>}
                   <button type="button" onClick={() => editar(item)}>Editar</button>
                 </div>

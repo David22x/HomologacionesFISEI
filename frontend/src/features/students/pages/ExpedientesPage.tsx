@@ -9,22 +9,24 @@ import {
 import {
   expedientesService,
   estadosExpediente,
-  type EstadoExpediente,
   type Expediente,
 } from '../expedientesService';
 import { studentsService, type Estudiante } from '../studentsService';
 
-export default function ExpedientesPage() {
+interface ExpedientesPageProps {
+  canCreate: boolean;
+}
+
+export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [students, setStudents] = useState<Estudiante[]>([]);
   const [careers, setCareers] = useState<Carrera[]>([]);
   const [mallas, setMallas] = useState<MallaCurricular[]>([]);
+  const [detailMallas, setDetailMallas] = useState<MallaCurricular[]>([]);
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [selectedExpediente, setSelectedExpediente] = useState<Expediente | null>(null);
-  const [detailMallas, setDetailMallas] = useState<MallaCurricular[]>([]);
   const [studentId, setStudentId] = useState('');
   const [careerId, setCareerId] = useState('');
   const [mallaId, setMallaId] = useState('');
-  const [nextStatus, setNextStatus] = useState<EstadoExpediente>('Pendiente');
   const [loading, setLoading] = useState(true);
   const [loadingMallas, setLoadingMallas] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,12 +78,10 @@ export default function ExpedientesPage() {
   async function selectExpediente(expediente: Expediente) {
     const requestId = ++detailRequestId.current;
     setSelectedExpediente(expediente);
-    setNextStatus(expediente.estado);
     setDetailMallas([]);
-    setNotice('');
     setError('');
     try {
-      const rows = await catalogService.obtenerMallas(expediente.carreraId);
+      const rows = await catalogService.obtenerMallas(expediente.carreraDestinoId);
       if (requestId === detailRequestId.current) setDetailMallas(rows);
     } catch (cause) {
       if (requestId === detailRequestId.current) {
@@ -101,12 +101,16 @@ export default function ExpedientesPage() {
     setError('');
     setNotice('');
     try {
-      const created = await expedientesService.crear({ estudianteId: studentId, carreraId: careerId, mallaId });
+      const created = await expedientesService.crear({
+        estudianteRefId: studentId,
+        carreraDestinoRefId: careerId,
+        mallaAplicableRefId: mallaId,
+      });
       setExpedientes(current => [created, ...current]);
       await selectExpediente(created);
       setStudentId('');
       changeCareer('');
-      setNotice('El expediente se creó correctamente con estado Pendiente.');
+      setNotice('El expediente se creó correctamente.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo crear el expediente.');
     } finally {
@@ -114,31 +118,9 @@ export default function ExpedientesPage() {
     }
   }
 
-  async function updateStatus(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedExpediente || selectedExpediente.estado === nextStatus) return;
-
-    setSaving(true);
-    setError('');
-    setNotice('');
-    try {
-      const updated = await expedientesService.actualizarEstado(selectedExpediente.id, nextStatus);
-      setSelectedExpediente(updated);
-      setExpedientes(current => current.map(item => item.id === updated.id ? updated : item));
-      setNotice('El estado del expediente se actualizó correctamente.');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo actualizar el estado.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function changeStatus(value: string) {
-    if (esEstadoExpediente(value)) setNextStatus(value);
-  }
-
-  const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraId);
-  const selectedMalla = detailMallas.find(malla => malla.id === selectedExpediente?.mallaId);
+  const selectedStudent = students.find(student => student.id === selectedExpediente?.estudianteId);
+  const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraDestinoId);
+  const selectedMalla = detailMallas.find(malla => malla.id === selectedExpediente?.mallaDestinoId);
 
   return <main className="catalog-page expediente-page">
     <header className="catalog-header">
@@ -156,7 +138,7 @@ export default function ExpedientesPage() {
     {notice && <p className="maintenance-notice" role="status">{notice}</p>}
     {error && <p className="catalog-error" role="alert">{error}</p>}
 
-    <section className="students-panel expediente-create" aria-labelledby="create-expediente-heading">
+    {canCreate && <section className="students-panel expediente-create" aria-labelledby="create-expediente-heading">
       <div className="students-panel-heading">
         <div>
           <h2 id="create-expediente-heading">Crear expediente</h2>
@@ -177,7 +159,7 @@ export default function ExpedientesPage() {
         />
         <SearchableSelect
           id="expediente-career"
-          label="Carrera"
+          label="Carrera de destino"
           value={careerId}
           placeholder="Busca una carrera"
           options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))}
@@ -195,7 +177,7 @@ export default function ExpedientesPage() {
           }))}
           onChange={setMallaId}
         />
-        <p className="expediente-initial-state">Estado inicial: <strong>Pendiente</strong></p>
+        <p className="expediente-initial-state">Estado inicial: <strong>Borrador</strong></p>
         <button className="students-primary" type="submit" disabled={saving || loading || students.length === 0 || !careerId || !mallaId}>
           {saving ? 'Creando…' : 'Crear expediente'}
         </button>
@@ -203,7 +185,7 @@ export default function ExpedientesPage() {
       {!loading && students.length === 0 && <p className="catalog-message">Registra al menos un estudiante antes de crear un expediente.</p>}
       {careerId && loadingMallas && <p className="catalog-message" role="status">Cargando mallas…</p>}
       {careerId && !loadingMallas && mallas.length === 0 && <p className="catalog-message">Esta carrera no tiene mallas curriculares disponibles.</p>}
-    </section>
+    </section>}
 
     <section className="students-panel expediente-list" aria-labelledby="expediente-list-heading">
       <div className="students-panel-heading">
@@ -216,14 +198,18 @@ export default function ExpedientesPage() {
         : expedientes.length === 0 ? <p className="catalog-message">Aún no hay expedientes registrados.</p>
           : <div className="student-table-wrap">
             <table className="student-table">
-              <thead><tr><th>Estudiante</th><th>Identificación</th><th>Creado</th><th>Estado</th><th></th></tr></thead>
-              <tbody>{expedientes.map(expediente => <tr key={expediente.id}>
-                <td><strong>{expediente.apellidosEstudiante}, {expediente.nombresEstudiante}</strong></td>
-                <td>{expediente.cedulaEstudiante}</td>
-                <td>{new Date(expediente.creadoEn).toLocaleDateString()}</td>
-                <td><span className={`expediente-status status-${estadoClass(expediente.estado)}`}>{expediente.estado}</span></td>
-                <td><button className="students-secondary" type="button" onClick={() => { void selectExpediente(expediente); }}>Ver expediente</button></td>
-              </tr>)}</tbody>
+              <thead><tr><th>Estudiante</th><th>Carrera</th><th>Creado</th><th>Estado</th><th></th></tr></thead>
+              <tbody>{expedientes.map(expediente => {
+                const student = students.find(item => item.id === expediente.estudianteId);
+                const career = careers.find(item => item.id === expediente.carreraDestinoId);
+                return <tr key={expediente.id}>
+                  <td>{student ? <strong>{student.apellidos}, {student.nombres}</strong> : expediente.estudianteId}</td>
+                  <td>{career?.nombre ?? expediente.carreraDestinoId}</td>
+                  <td>{new Date(expediente.creadoEn).toLocaleDateString()}</td>
+                  <td><span className={`expediente-status status-${estadoClass(expediente.estado)}`}>{estadoLabel(expediente.estado)}</span></td>
+                  <td><button className="students-secondary" type="button" onClick={() => { void selectExpediente(expediente); }}>Ver expediente</button></td>
+                </tr>;
+              })}</tbody>
             </table>
           </div>}
     </section>
@@ -234,32 +220,35 @@ export default function ExpedientesPage() {
           <h2 id="expediente-detail-heading">Detalle del expediente</h2>
           <p>Expediente {selectedExpediente.id}</p>
         </div>
-        <span className={`expediente-status status-${estadoClass(selectedExpediente.estado)}`}>{selectedExpediente.estado}</span>
+        <span className={`expediente-status status-${estadoClass(selectedExpediente.estado)}`}>{estadoLabel(selectedExpediente.estado)}</span>
       </div>
       <dl className="expediente-details">
-        <div><dt>Estudiante</dt><dd>{selectedExpediente.apellidosEstudiante}, {selectedExpediente.nombresEstudiante}</dd></div>
-        <div><dt>Identificación</dt><dd>{selectedExpediente.cedulaEstudiante}</dd></div>
-        <div><dt>Carrera</dt><dd>{selectedCareer?.nombre ?? selectedExpediente.carreraId}</dd></div>
-        <div><dt>Malla curricular</dt><dd>{selectedMalla ? `Versión ${selectedMalla.version}` : selectedExpediente.mallaId}</dd></div>
+        <div><dt>Estudiante</dt><dd>{selectedStudent ? `${selectedStudent.apellidos}, ${selectedStudent.nombres}` : selectedExpediente.estudianteId}</dd></div>
+        <div><dt>Identificación</dt><dd>{selectedStudent?.cedula ?? '—'}</dd></div>
+        <div><dt>Carrera de destino</dt><dd>{selectedCareer?.nombre ?? selectedExpediente.carreraDestinoId}</dd></div>
+        <div><dt>Malla curricular</dt><dd>{selectedMalla ? `Versión ${selectedMalla.version}` : selectedExpediente.mallaDestinoId}</dd></div>
+        <div><dt>Profesor responsable</dt><dd>{selectedExpediente.profesorNombre || selectedExpediente.profesorId}</dd></div>
         <div><dt>Fecha de creación</dt><dd>{new Date(selectedExpediente.creadoEn).toLocaleString()}</dd></div>
       </dl>
-      <form className="expediente-status-form" onSubmit={updateStatus}>
-        <label htmlFor="expediente-status-select">Actualizar estado</label>
-        <select id="expediente-status-select" value={nextStatus} onChange={event => changeStatus(event.target.value)}>
-          {estadosExpediente.map(status => <option key={status} value={status}>{status}</option>)}
-        </select>
-        <button className="students-primary" type="submit" disabled={saving || nextStatus === selectedExpediente.estado}>
-          {saving ? 'Guardando…' : 'Guardar estado'}
-        </button>
-      </form>
     </section>}
   </main>;
 }
 
-function esEstadoExpediente(value: string): value is EstadoExpediente {
-  return estadosExpediente.some(status => status === value);
+function estadoLabel(estado: number | string): string {
+  if (typeof estado === 'number') {
+    return estadosNumericos[estado] ?? `Estado no reconocido (${estado})`;
+  }
+  if (estado === 'EnRevision') return 'En revisión';
+  return estadosExpediente.find(value => value === estado) ?? `Estado no reconocido (${estado})`;
 }
 
-function estadoClass(estado: EstadoExpediente): string {
-  return estado.toLocaleLowerCase().replaceAll(' ', '-').replaceAll('ó', 'o');
+const estadosNumericos: Record<number, (typeof estadosExpediente)[number]> = {
+  0: 'Borrador',
+  1: 'En revisión',
+  2: 'Finalizado',
+  3: 'Anulado',
+};
+
+function estadoClass(estado: number | string): string {
+  return estadoLabel(estado).toLocaleLowerCase().replaceAll(' ', '-').replaceAll('ó', 'o');
 }

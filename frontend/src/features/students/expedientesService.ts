@@ -2,34 +2,25 @@ const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
 
-export const estadosExpediente = [
-  'Pendiente',
-  'En revisión',
-  'Aprobado',
-  'Rechazado',
-] as const;
-
+export const estadosExpediente = ['Borrador', 'En revisión', 'Finalizado', 'Anulado'] as const;
 export type EstadoExpediente = (typeof estadosExpediente)[number];
 
 export interface Expediente {
   id: string;
   estudianteId: string;
-  cedulaEstudiante: string;
-  nombresEstudiante: string;
-  apellidosEstudiante: string;
-  carreraId: string;
-  mallaId: string;
-  estado: EstadoExpediente;
-  creadoPor: string | null;
+  carreraDestinoId: string;
+  mallaDestinoId: string;
+  profesorId: string;
+  profesorNombre: string;
+  estado: number | string;
   creadoEn: string;
-  modificadoPor: string | null;
-  modificadoEn: string;
+  actualizadoEn: string | null;
 }
 
 export interface ExpedienteCreateRequest {
-  estudianteId: string;
-  carreraId: string;
-  mallaId: string;
+  estudianteRefId: string;
+  carreraDestinoRefId: string;
+  mallaAplicableRefId: string;
 }
 
 async function request<T>(
@@ -55,7 +46,7 @@ async function request<T>(
     let detail = '';
     try {
       const problem = await response.json();
-      detail = problem.detail || problem.title || '';
+      detail = problem.detail || problem.title || problem.mensaje || problem.Mensaje || '';
     } catch {
       // Keep an HTTP status message for non-JSON error responses.
     }
@@ -66,12 +57,9 @@ async function request<T>(
 
 export const expedientesService = {
   listar(): Promise<Expediente[]> {
-    return request<Expediente[]>('/api/v1/expedientes');
+    return request<Expediente[]>('/api/v1/homologacion/expedientes');
   },
   crear(datos: ExpedienteCreateRequest): Promise<Expediente> {
-    return request<Expediente>('/api/v1/expedientes', 'POST', datos);
-  },
-  actualizarEstado(id: string, estado: EstadoExpediente): Promise<Expediente> {
-    return request<Expediente>(`/api/v1/expedientes/${id}/estado`, 'PUT', { estado });
+    return request<Expediente>('/api/v1/homologacion/expedientes', 'POST', datos);
   },
 };

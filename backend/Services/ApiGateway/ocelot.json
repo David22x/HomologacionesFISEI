@@ -52,15 +52,15 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v1/expedientes",
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
           "Host": "localhost",
-          "Port": 5194
+          "Port": 5196
         }
       ],
-      "UpstreamPathTemplate": "/api/v1/expedientes",
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes",
       "UpstreamHttpMethod": [
         "Get",
         "Post"
@@ -70,26 +70,6 @@
         "AllowedScopes": []
       }
     },
-    {
-      "DownstreamPathTemplate": "/api/v1/expedientes/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
-          "Port": 5194
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v1/expedientes/{everything}",
-      "UpstreamHttpMethod": [
-        "Get",
-        "Put"
-      ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-
     {
       "DownstreamPathTemplate": "/api/v1/documentos/importaciones/plantilla",
       "DownstreamScheme": "http",

@@ -164,7 +164,7 @@ function App() {
           path="/expedientes"
           element={
             <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
-              <ExpedientesPage />
+              <ExpedientesPage canCreate={Boolean(user?.roles.includes('Profesor'))} />
             </ProtectedRoute>
           }
         />

@@ -19,7 +19,7 @@ function response(status: number, body: unknown) {
 }
 
 describe('Gestión de expedientes', () => {
-  it('crea el expediente seleccionado y permite consultar y actualizar su estado', async () => {
+  it('crea un expediente y muestra su estado y detalles', async () => {
     const student = {
       id: 'student-1',
       cedula: '0102030405',
@@ -41,16 +41,13 @@ describe('Gestión de expedientes', () => {
     const expediente = {
       id: 'expediente-1',
       estudianteId: 'student-1',
-      cedulaEstudiante: student.cedula,
-      nombresEstudiante: student.nombres,
-      apellidosEstudiante: student.apellidos,
-      carreraId: career.id,
-      mallaId: malla.id,
-      estado: 'Pendiente',
-      creadoPor: 'admin',
+      carreraDestinoId: career.id,
+      mallaDestinoId: malla.id,
+      profesorId: 'teacher-1',
+      profesorNombre: 'Docente',
+      estado: 0,
       creadoEn: '2026-11-03T12:00:00Z',
-      modificadoPor: 'admin',
-      modificadoEn: '2026-11-03T12:00:00Z',
+      actualizadoEn: null,
     };
 
     const fetchMock = vi.fn()
@@ -59,41 +56,49 @@ describe('Gestión de expedientes', () => {
       .mockResolvedValueOnce(response(200, []))
       .mockResolvedValueOnce(response(200, [malla]))
       .mockResolvedValueOnce(response(201, expediente))
-      .mockResolvedValueOnce(response(200, [malla]))
-      .mockResolvedValueOnce(response(200, { ...expediente, estado: 'En revisión' }));
+      .mockResolvedValueOnce(response(200, [malla]));
     sessionStorage.setItem('accessToken', 'test-token');
     vi.stubGlobal('fetch', fetchMock);
-    render(<MemoryRouter><ExpedientesPage /></MemoryRouter>);
+    render(<MemoryRouter><ExpedientesPage canCreate /></MemoryRouter>);
 
     const user = userEvent.setup();
     await screen.findByText('0 expedientes');
     await user.type(screen.getByLabelText('Estudiante'), 'Paz, Ana · 0102030405');
-    await user.type(screen.getByLabelText('Carrera'), 'Ingeniería de Software · SW');
+    await user.type(screen.getByLabelText('Carrera de destino'), 'Ingeniería de Software · SW');
     await user.type(screen.getByLabelText('Malla curricular'), 'Versión 2026 · vigente');
     await user.click(screen.getByRole('button', { name: 'Crear expediente' }));
 
     expect(await screen.findByRole('heading', { name: 'Detalle del expediente' })).toBeInTheDocument();
-    expect(screen.getAllByText('Pendiente').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Borrador').length).toBeGreaterThan(0);
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
-      'http://localhost:5080/api/v1/expedientes',
+      'http://localhost:5080/api/v1/homologacion/expedientes',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ estudianteId: student.id, carreraId: career.id, mallaId: malla.id }),
+        body: JSON.stringify({
+          estudianteRefId: student.id,
+          carreraDestinoRefId: career.id,
+          mallaAplicableRefId: malla.id,
+        }),
       }),
     );
-
-    await user.selectOptions(screen.getByLabelText('Actualizar estado'), 'En revisión');
-    await user.click(screen.getByRole('button', { name: 'Guardar estado' }));
-
-    expect(await screen.findByText('El estado del expediente se actualizó correctamente.')).toBeInTheDocument();
-    expect(screen.getAllByText('En revisión').length).toBeGreaterThan(0);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'http://localhost:5080/api/v1/expedientes/expediente-1/estado',
-      expect.objectContaining({
-        method: 'PUT',
-        body: JSON.stringify({ estado: 'En revisión' }),
-      }),
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:5080/api/v1/estudiantes',
+      expect.objectContaining({ method: 'GET' }),
     );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:5080/api/v1/catalogo/carreras',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'http://localhost:5080/api/v1/homologacion/expedientes',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(screen.getAllByText('Paz, Ana').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ingeniería de Software').length).toBeGreaterThan(0);
+    expect(screen.getByText('Versión 2026')).toBeInTheDocument();
   });
 });

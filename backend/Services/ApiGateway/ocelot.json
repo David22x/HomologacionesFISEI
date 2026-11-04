@@ -51,7 +51,25 @@
         "AllowedScopes": []
       }
     },
-
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5196
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
     {
       "DownstreamPathTemplate": "/api/v1/documentos/importaciones/plantilla",
       "DownstreamScheme": "http",

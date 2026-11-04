@@ -24,6 +24,7 @@ import CatalogMaintenancePage from './features/catalog/pages/CatalogMaintenanceP
 import TemasPage from './features/catalog/pages/TemasPage';
 import StudentsPage from './features/students/pages/StudentsPage';
 import ImportHistoryPage from './features/students/pages/ImportHistoryPage';
+import ExpedientesPage from './features/students/pages/ExpedientesPage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -155,6 +156,15 @@ function App() {
           element={
             <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
               <ImportHistoryPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/expedientes"
+          element={
+            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+              <ExpedientesPage canCreate={Boolean(user?.roles.includes('Profesor'))} />
             </ProtectedRoute>
           }
         />

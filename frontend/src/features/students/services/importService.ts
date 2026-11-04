@@ -64,8 +64,8 @@ export const importService = {
     return sendFile('/api/v1/documentos/importaciones', file);
   },
 
-  async confirmarArchivo(file: File): Promise<{ creado: boolean }> {
-    const response = await sendFileResponse('/api/v1/documentos/importaciones/confirmar', file);
+  async confirmarArchivo(file: File, datos: ImportPreview): Promise<{ creado: boolean }> {
+    const response = await sendFileResponse('/api/v1/documentos/importaciones/confirmar', file, datos);
     if (!response.ok) {
       const problem = await readJson(response);
       const message = typeof problem.detail === 'string'
@@ -95,9 +95,10 @@ async function sendFile(path: string, file: File): Promise<ImportResult> {
   return result;
 }
 
-async function sendFileResponse(path: string, file: File): Promise<Response> {
+async function sendFileResponse(path: string, file: File, datos?: ImportPreview): Promise<Response> {
     const form = new FormData();
     form.append('archivo', file);
+    if (datos) form.append('datos', JSON.stringify(datos));
     return fetch(`${API_URL}${path}`, {
       method: 'POST',
       headers: authorizationHeaders(),

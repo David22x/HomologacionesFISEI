@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using ClosedXML.Excel;
@@ -7,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
 namespace DocumentsService.Tests;
@@ -86,8 +89,20 @@ public sealed class DocumentsConfirmationTests : IClassFixture<DocumentsApiFacto
             Content = multipart
         };
         if (includeToken)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "test-token");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", CreateToken());
         return request;
+    }
+
+    private static string CreateToken()
+    {
+        const string key = "documents-tests-signing-key-at-least-32-bytes";
+        var token = new JwtSecurityToken(
+            issuer: "HomologacionesFISEI",
+            audience: "HomologacionesFISEIClient",
+            claims: [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()), new Claim(ClaimTypes.Role, "Profesor")],
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256));
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static byte[] CreateValidWorkbook()
@@ -137,6 +152,7 @@ public sealed class DocumentsApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("Jwt:SecretKey", "documents-tests-signing-key-at-least-32-bytes");
         builder.ConfigureTestServices(services =>
         {
             services.AddHttpClient("StudentsService")

@@ -7,11 +7,11 @@ Lo genera `scripts/generar_plantilla_xlsx.py`; Documents Service lo sirve para d
 
 - `GET /api/v1/documentos/importaciones/plantilla`: descarga la plantilla `.xlsx`.
 - `POST /api/v1/documentos/importaciones`: recibe el archivo multipart con el campo `archivo` y valida el libro sin guardar datos.
-- `POST /api/v1/documentos/importaciones/confirmar`: recibe otra vez el archivo multipart (`archivo`), lo valida y confirma la importación en Students Service.
+- `POST /api/v1/documentos/importaciones/confirmar`: recibe el archivo multipart (`archivo`) y, opcionalmente, `datos` como JSON con los campos corregidos en la vista previa. Valida el archivo y los valores corregidos antes de confirmar en Students Service.
 
-La respuesta de validación incluye `mensaje`, `errores` y `vistaPrevia`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; si el libro es válido, `vistaPrevia` contiene el estudiante y su historial normalizado para revisión de solo lectura. Si hay errores, no se devuelve una vista previa ni se puede confirmar. El Gateway publica las tres rutas y requiere una sesión autenticada.
+La respuesta de validación incluye `mensaje`, `errores` y `vistaPrevia`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; si el libro es válido, `vistaPrevia` contiene el estudiante y su historial normalizado para revisión y corrección antes de guardar. Si hay errores, no se devuelve una vista previa ni se puede confirmar. Las rutas requieren JWT y rol `Administrador` o `Profesor`, también al llamar directamente al Documents Service.
 
-La confirmación vuelve a validar el archivo y envía el estudiante externo y sus asignaturas a `PUT /internal/estudiantes/importaciones` de Students, reenviando el JWT del usuario. Devuelve `201` al crear el estudiante o `200` si ya existía o si la misma importación se confirma otra vez. Una identificación existente de estudiante interno produce `409`. Las asignaturas de la confirmación reemplazan las importadas previamente, mientras que repetir el mismo contenido conserva los identificadores y la fecha del historial.
+La confirmación vuelve a validar el archivo y los datos editados y envía el estudiante externo y sus asignaturas a `PUT /internal/estudiantes/importaciones` de Students, reenviando el JWT del usuario. Devuelve `201` al crear el estudiante o `200` si ya existía o si la misma importación se confirma otra vez. Una identificación existente de estudiante interno produce `409`. Las asignaturas de la confirmación reemplazan las importadas previamente, mientras que repetir el mismo contenido conserva los identificadores y la fecha del historial.
 
 La ruta `/internal` no se publica por el Gateway. Students exige JWT y rol `Administrador` o `Profesor`; Documents llama directamente a la dirección configurada en `StudentsService:BaseUrl` (por defecto `http://localhost:5194`). La hoja `Contenidos` se valida, pero no se persiste.
 

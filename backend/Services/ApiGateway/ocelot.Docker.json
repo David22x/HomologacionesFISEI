@@ -33,6 +33,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/auth/usuarios",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "auth", "Port": 5192 }],
+      "UpstreamPathTemplate": "/auth/usuarios",
+      "UpstreamHttpMethod": ["Get", "Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/auth/usuarios/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "auth", "Port": 5192 }],
+      "UpstreamPathTemplate": "/auth/usuarios/{userId}",
+      "UpstreamHttpMethod": ["Put"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/estudiantes",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

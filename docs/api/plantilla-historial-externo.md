@@ -9,7 +9,7 @@ Lo genera `scripts/generar_plantilla_xlsx.py`; Documents Service lo sirve para d
 - `POST /api/v1/documentos/importaciones`: recibe el archivo multipart con el campo `archivo` y valida el libro sin guardar datos.
 - `POST /api/v1/documentos/importaciones/confirmar`: recibe otra vez el archivo multipart (`archivo`), lo valida y confirma la importación en Students Service.
 
-La respuesta de validación incluye `mensaje` y `errores`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; una carga válida devuelve una lista vacía. El Gateway publica las tres rutas y requiere una sesión autenticada.
+La respuesta de validación incluye `mensaje`, `errores` y `vistaPrevia`. Cada elemento de `errores` informa `hoja`, `fila`, `columna` y `mensaje`; si el libro es válido, `vistaPrevia` contiene el estudiante y su historial normalizado para revisión de solo lectura. Si hay errores, no se devuelve una vista previa ni se puede confirmar. El Gateway publica las tres rutas y requiere una sesión autenticada.
 
 La confirmación vuelve a validar el archivo y envía el estudiante externo y sus asignaturas a `PUT /internal/estudiantes/importaciones` de Students, reenviando el JWT del usuario. Devuelve `201` al crear el estudiante o `200` si ya existía o si la misma importación se confirma otra vez. Una identificación existente de estudiante interno produce `409`. Las asignaturas de la confirmación reemplazan las importadas previamente, mientras que repetir el mismo contenido conserva los identificadores y la fecha del historial.
 

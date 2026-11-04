@@ -373,10 +373,22 @@
 .import-summary-error { background: #fff0f0; color: #9c2525; }
 .import-errors-wrap { margin-top: 14px; }
 .import-errors-table td:last-child { min-width: 300px; }
+.import-preview { margin-top: 22px; padding: 20px; border: 1px solid #dce4ef; border-radius: 12px; background: #fbfcfe; }
+.import-preview-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.import-preview-heading .catalog-eyebrow { margin: 0 0 6px; }
+.import-preview-heading h2 { margin: 0; color: #182b49; font-size: 19px; }
+.import-preview-heading > span { color: #65748b; font-size: 13px; }
+.import-preview-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 20px; margin: 0 0 22px; }
+.import-preview-details div { min-width: 0; }
+.import-preview-details dt { color: #65748b; font-size: 12px; }
+.import-preview-details dd { margin: 5px 0 0; color: #182b49; font-weight: 600; overflow-wrap: anywhere; }
+.import-preview h3 { margin: 0 0 10px; color: #182b49; font-size: 15px; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 @media (max-width: 760px) {
   .import-panel .students-panel-heading { align-items: flex-start; flex-direction: column; }
   .import-controls { align-items: stretch; flex-direction: column; }
   .import-controls > * { width: 100%; }
+  .import-preview { padding: 16px; }
 }
 @media (max-width: 760px) {
   .maintenance-layout { grid-template-columns: 1fr; }

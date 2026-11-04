@@ -1,0 +1,32 @@
+@DocumentsService_HostAddress = http://localhost:5104
+
+@accessToken = replace-with-access-token
+
+### Download the external-history template
+GET {{DocumentsService_HostAddress}}/api/v1/documentos/importaciones/plantilla
+Authorization: Bearer {{accessToken}}
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+### Validate an external student history file
+POST {{DocumentsService_HostAddress}}/api/v1/documentos/importaciones
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=docsBoundary
+
+--docsBoundary
+Content-Disposition: form-data; name="archivo"; filename="plantilla_historial_externo.xlsx"
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+< ../../../docs/plantillas/plantilla_historial_externo.xlsx
+--docsBoundary--
+
+### Confirm an external student history import
+POST {{DocumentsService_HostAddress}}/api/v1/documentos/importaciones/confirmar
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=docsBoundary
+
+--docsBoundary
+Content-Disposition: form-data; name="archivo"; filename="plantilla_historial_externo.xlsx"
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+< ../../../docs/plantillas/plantilla_historial_externo.xlsx
+--docsBoundary--

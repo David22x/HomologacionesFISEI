@@ -137,7 +137,7 @@ function App() {
               user={user}
               allowedRoles={['Administrador']}
             >
-              <AdminPage />
+              <AdminPage currentUserId={user?.id ?? ''} />
             </ProtectedRoute>
           }
         />

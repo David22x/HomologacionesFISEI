@@ -1,10 +1,13 @@
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
+using BuildingBlocks.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Servicios base comunes
 builder.Services.AddControllers();
+builder.Services.AddCustomJwtAuthentication(builder.Configuration);
+builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomSwagger("Documents Service API");
 builder.Services.AddHttpClient("StudentsService", client =>
@@ -27,6 +30,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

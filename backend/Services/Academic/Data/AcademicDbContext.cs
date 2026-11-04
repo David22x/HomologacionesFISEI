@@ -13,6 +13,7 @@ public class AcademicDbContext : DbContext
     public DbSet<Asignatura> Asignaturas => Set<Asignatura>();
     public DbSet<Tema> Temas => Set<Tema>();
     public DbSet<Subtema> Subtemas => Set<Subtema>();
+    public DbSet<PlanAnalitico> PlanesAnaliticos => Set<PlanAnalitico>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,31 +71,44 @@ public class AcademicDbContext : DbContext
         });
 
         modelBuilder.Entity<Tema>(e =>
-{
-    e.ToTable("Temas", t =>
-    {
-        t.HasCheckConstraint("CK_Temas_Orden_Positivo", "[Orden] > 0");
-        t.HasCheckConstraint("CK_Temas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
-    });
-    e.HasKey(x => x.Id);
-    e.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
-    e.HasIndex(x => new { x.AsignaturaId, x.Nombre }).IsUnique();
-    e.HasOne(x => x.Asignatura).WithMany(a => a.Temas)
-        .HasForeignKey(x => x.AsignaturaId).OnDelete(DeleteBehavior.Cascade);
-});
+        {
+            e.ToTable("Temas", t =>
+            {
+                t.HasCheckConstraint("CK_Temas_Orden_Positivo", "[Orden] > 0");
+                t.HasCheckConstraint("CK_Temas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
+            });
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => new { x.AsignaturaId, x.Nombre }).IsUnique();
+            e.HasOne(x => x.Asignatura).WithMany(a => a.Temas)
+                .HasForeignKey(x => x.AsignaturaId).OnDelete(DeleteBehavior.Cascade);
+        });
 
-modelBuilder.Entity<Subtema>(e =>
-{
-    e.ToTable("Subtemas", t =>
-    {
-        t.HasCheckConstraint("CK_Subtemas_Orden_Positivo", "[Orden] > 0");
-        t.HasCheckConstraint("CK_Subtemas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
-    });
-    e.HasKey(x => x.Id);
-    e.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
-    e.HasIndex(x => new { x.TemaId, x.Nombre }).IsUnique();
-    e.HasOne(x => x.Tema).WithMany(t => t.Subtemas)
-        .HasForeignKey(x => x.TemaId).OnDelete(DeleteBehavior.Cascade);
-});
+        modelBuilder.Entity<Subtema>(e =>
+        {
+            e.ToTable("Subtemas", t =>
+            {
+                t.HasCheckConstraint("CK_Subtemas_Orden_Positivo", "[Orden] > 0");
+                t.HasCheckConstraint("CK_Subtemas_Horas_Positivas", "[HorasEstimadas] IS NULL OR [HorasEstimadas] > 0");
+            });
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nombre).HasMaxLength(300).IsRequired();
+            e.HasIndex(x => new { x.TemaId, x.Nombre }).IsUnique();
+            e.HasOne(x => x.Tema).WithMany(t => t.Subtemas)
+                .HasForeignKey(x => x.TemaId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PlanAnalitico>(e =>
+        {
+            e.ToTable("PlanesAnaliticos");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.NombreArchivo).HasMaxLength(260).IsRequired();
+            e.Property(x => x.Contenido).IsRequired();
+            e.Property(x => x.SubidoPor).HasMaxLength(200).IsRequired();
+            e.HasIndex(x => x.AsignaturaId).IsUnique();
+            e.HasOne(x => x.Asignatura).WithOne()
+                .HasForeignKey<PlanAnalitico>(x => x.AsignaturaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

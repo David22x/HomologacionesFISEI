@@ -111,6 +111,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5196
       ConnectionStrings__HomologationConnection: "Server=sqlserver,1433;Database=HomologationDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      StudentsService__BaseUrl: http://students:5194
+      AcademicService__BaseUrl: http://academic:5193
       Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
     ports:
       - "${HOMOLOGATION_PORT:-5196}:5196"
@@ -135,6 +137,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5104
       StudentsService__BaseUrl: http://students:5194
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
     ports:
       - "${DOCUMENTS_PORT:-5104}:5104"
     depends_on:

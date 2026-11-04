@@ -37,7 +37,7 @@ public sealed class DocumentsConfirmationTests : IClassFixture<DocumentsApiFacto
         Assert.Equal("/api/v1/estudiantes/00000000-0000-0000-0000-000000000001",
             response.Headers.Location?.OriginalString);
         Assert.Equal("/internal/estudiantes/importaciones", _factory.Handler.RequestPath);
-        Assert.Equal("Bearer test-token", _factory.Handler.Authorization);
+        Assert.Equal(request.Headers.Authorization?.ToString(), _factory.Handler.Authorization);
         using var body = JsonDocument.Parse(_factory.Handler.RequestBody!);
         var root = body.RootElement;
         Assert.Equal("AB12345", root.GetProperty("cedula").GetString());

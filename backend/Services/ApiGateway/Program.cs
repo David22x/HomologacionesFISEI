@@ -16,6 +16,7 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
+builder.Services.AddHealthChecks();
 var ocelotConfigurationPath = builder.Configuration["Ocelot:ConfigurationFile"]
     ?? Path.Combine(AppContext.BaseDirectory, "ocelot.json");
 builder.Configuration.AddJsonFile(ocelotConfigurationPath, optional: false, reloadOnChange: true);
@@ -24,6 +25,7 @@ builder.Services.AddOcelot(builder.Configuration);
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+app.UseHealthChecks("/health");
 app.UseCors("Frontend");
 app.Use(async (context, next) =>
 {

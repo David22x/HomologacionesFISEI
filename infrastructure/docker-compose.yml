@@ -3,7 +3,7 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in infrastructure/.env}
     ports:
       - "${MSSQL_PORT:-1433}:1433"
     volumes:
@@ -20,11 +20,196 @@ services:
       sqlserver:
         condition: service_healthy
     environment:
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in infrastructure/.env}
     volumes:
       - ../database/init:/init:ro
     entrypoint: /bin/bash -c '/opt/mssql-tools18/bin/sqlcmd -C -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD" -i /init/01-create-databases.sql'
     restart: "no"
+
+  auth:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Auth/AuthService.csproj
+        APP_DLL: AuthService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5192
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=AuthDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+      SeedUsers__AdministradorPassword: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in infrastructure/.env}
+      SeedUsers__ProfesorPassword: ${PROFESSOR_PASSWORD:?Set PROFESSOR_PASSWORD in infrastructure/.env}
+    ports:
+      - "${AUTH_PORT:-5192}:5192"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5192/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  academic:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Academic/AcademicService.csproj
+        APP_DLL: AcademicService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5193
+      ConnectionStrings__AcademicConnection: "Server=sqlserver,1433;Database=AcademicDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${ACADEMIC_PORT:-5193}:5193"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5193/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  students:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Students/StudentsService.csproj
+        APP_DLL: StudentsService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5194
+      ConnectionStrings__StudentsConnection: "Server=sqlserver,1433;Database=StudentsDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${STUDENTS_PORT:-5194}:5194"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5194/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  homologation:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Homologation/HomologationService.csproj
+        APP_DLL: HomologationService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5196
+      ConnectionStrings__HomologationConnection: "Server=sqlserver,1433;Database=HomologationDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${HOMOLOGATION_PORT:-5196}:5196"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5196/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  documents:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Documents/DocumentsService.csproj
+        APP_DLL: DocumentsService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5104
+      StudentsService__BaseUrl: http://students:5194
+    ports:
+      - "${DOCUMENTS_PORT:-5104}:5104"
+    depends_on:
+      students:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5104/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  template:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/TemplateService/TemplateService.csproj
+        APP_DLL: TemplateService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5158
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${TEMPLATE_PORT:-5158}:5158"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/ApiGateway/ApiGateway.csproj
+        APP_DLL: ApiGateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5080
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+      Ocelot__ConfigurationFile: /app/ocelot.Docker.json
+    ports:
+      - "${GATEWAY_PORT:-5080}:5080"
+    depends_on:
+      auth:
+        condition: service_healthy
+      academic:
+        condition: service_healthy
+      students:
+        condition: service_healthy
+      homologation:
+        condition: service_healthy
+      documents:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${PUBLIC_API_BASE_URL:-http://localhost:5080}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   sqlserver-data:

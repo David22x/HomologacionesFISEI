@@ -3,7 +3,7 @@
 ## Estructura del repositorio
 
 - `frontend/`: aplicación React, TypeScript y Vite.
-- `backend/Services/`: Auth Service, Academic Service, API Gateway y plantilla de microservicio.
+- `backend/Services/`: Auth Service, Academic Service, Homologation Service, Students Service, Documents Service, API Gateway y plantilla de microservicio.
 - `backend/BuildingBlocks/`: autenticación JWT, roles, Swagger y manejo común de errores.
 - `database/init/`: scripts iniciales de SQL Server.
 - `infrastructure/`: configuración de Docker Compose.
@@ -32,7 +32,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Compose construye e inicia los contenedores en orden: espera a que SQL Server esté saludable, crea las bases de datos y después inicia los servicios. Auth y Students aplican sus migraciones al arrancar; Academic prepara su catálogo. El frontend queda en `http://localhost:5173`, y el login usa las credenciales definidas en `ADMIN_PASSWORD` y `PROFESSOR_PASSWORD` dentro de `.env`.
+Compose construye e inicia los contenedores en orden: espera a que SQL Server esté saludable, crea las bases de datos y después inicia los servicios. Auth, Students y Homologation aplican sus migraciones al arrancar; Academic prepara su catálogo. El frontend queda en `http://localhost:5173`, y el login usa las credenciales definidas en `ADMIN_PASSWORD` y `PROFESSOR_PASSWORD` dentro de `.env`.
 
 Puedes consultar el estado y los registros con:
 
@@ -48,6 +48,7 @@ Direcciones locales:
 - Swagger de Auth: `http://localhost:5192/swagger`
 - Swagger de Academic: `http://localhost:5193/swagger`
 - Swagger de Students: `http://localhost:5194/swagger`
+- Swagger de Homologation: `http://localhost:5196/swagger`
 - Swagger de Documents: `http://localhost:5104/swagger`
 - Template Service: `http://localhost:5158/swagger`
 
@@ -75,6 +76,8 @@ $studentsConnectionString = "Server=localhost,1433;Database=StudentsDB;User Id=s
 $authProject = ".\backend\Services\Auth\AuthService.csproj"
 $academicProject = ".\backend\Services\Academic\AcademicService.csproj"
 $studentsProject = ".\backend\Services\Students\StudentsService.csproj"
+$homologationProject = ".\backend\Services\Homologation\HomologationService.csproj"
+$homologationConnectionString = "Server=localhost,1433;Database=HomologationDB;User Id=sa;Password=$saPassword;TrustServerCertificate=True"
 
 dotnet user-secrets set --project $authProject "Jwt:SecretKey" $jwtSecret
 dotnet user-secrets set --project $authProject "ConnectionStrings:DefaultConnection" $connectionString
@@ -82,6 +85,7 @@ dotnet user-secrets set --project $authProject "SeedUsers:AdministradorPassword"
 dotnet user-secrets set --project $authProject "SeedUsers:ProfesorPassword" $professorPassword
 dotnet user-secrets set --project $academicProject "ConnectionStrings:AcademicConnection" $academicConnectionString
 dotnet user-secrets set --project $studentsProject "ConnectionStrings:StudentsConnection" $studentsConnectionString
+dotnet user-secrets set --project $homologationProject "ConnectionStrings:HomologationConnection" $homologationConnectionString
 ```
 
 Usa una clave JWT aleatoria de al menos 32 caracteres. Las contraseñas iniciales deben cumplir las reglas de Identity (mínimo 6 caracteres y al menos un dígito). Auth Service y Academic Service comparten el almacén local de User Secrets, por lo que la clave JWT configurada para Auth también queda disponible para Academic. Los secretos se guardan localmente fuera del repositorio. El usuario `admin@uta.edu.ec` tiene el rol `Administrador` y `profesor@uta.edu.ec` tiene el rol `Profesor`; sus contraseñas son las que acabas de configurar.
@@ -117,7 +121,13 @@ dotnet run --project .\backend\Services\Academic\AcademicService.csproj
 dotnet run --project .\backend\Services\Students\StudentsService.csproj
 ```
 
-**Terminal 5 — Documents Service** (puerto 5104; usa `StudentsService:BaseUrl`, por defecto `http://localhost:5194`):
+**Terminal 5 — Homologation Service** (aplica las migraciones y crea las tablas en `HomologationDB`; puerto 5196):
+
+```powershell
+dotnet run --project .\backend\Services\Homologation\HomologationService.csproj
+```
+
+**Terminal 6 — Documents Service** (puerto 5104; usa `StudentsService:BaseUrl`, por defecto `http://localhost:5194`):
 
 ```powershell
 dotnet run --project .\backend\Services\Documents\DocumentsService.csproj

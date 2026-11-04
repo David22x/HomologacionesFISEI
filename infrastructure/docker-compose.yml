@@ -100,6 +100,30 @@ services:
       retries: 10
       start_period: 30s
 
+  homologation:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Homologation/HomologationService.csproj
+        APP_DLL: HomologationService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5196
+      ConnectionStrings__HomologationConnection: "Server=sqlserver,1433;Database=HomologationDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${HOMOLOGATION_PORT:-5196}:5196"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5196/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   documents:
     build:
       context: ..
@@ -157,6 +181,8 @@ services:
       academic:
         condition: service_healthy
       students:
+        condition: service_healthy
+      homologation:
         condition: service_healthy
       documents:
         condition: service_healthy

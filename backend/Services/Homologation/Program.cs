@@ -3,6 +3,8 @@ using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
 using HomologationService.Data;
 using Microsoft.EntityFrameworkCore;
+using HomologationService.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +33,22 @@ builder.Services.AddHealthChecks();
 builder.Services.AddCustomSwagger("Homologation Service API - Homologacion de materias y creditos");
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
+
+
+builder.Services.AddMemoryCache();
+
+builder.Services.AddHttpClient<
+    IComparadorContenidosIa,
+    GeminiComparadorContenidos>();
+
+builder.Services.AddSingleton(new ParametrosReglas());
+builder.Services.AddScoped<
+    IMotorReglasHomologacion,
+    MotorReglasHomologacion>();
+
+builder.Services.AddScoped<
+    IAgenteIaService,
+    AgenteIaService>();
 
 var app = builder.Build();
 

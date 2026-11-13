@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentsService", "Service
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentsService.Tests", "..\tests\backend\DocumentsService.Tests\DocumentsService.Tests.csproj", "{A1C9FB36-79AA-44AA-8D66-EB84C5907D1C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HomologationService.Tests", "..\tests\backend\HomologationService.Tests\HomologationService.Tests.csproj", "{09DA74CB-4223-4BAF-A55C-68559B8941B9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -215,6 +217,18 @@ Global
 		{A1C9FB36-79AA-44AA-8D66-EB84C5907D1C}.Release|x64.Build.0 = Release|Any CPU
 		{A1C9FB36-79AA-44AA-8D66-EB84C5907D1C}.Release|x86.ActiveCfg = Release|Any CPU
 		{A1C9FB36-79AA-44AA-8D66-EB84C5907D1C}.Release|x86.Build.0 = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|x64.Build.0 = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Debug|x86.Build.0 = Debug|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|x64.ActiveCfg = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|x64.Build.0 = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|x86.ActiveCfg = Release|Any CPU
+		{09DA74CB-4223-4BAF-A55C-68559B8941B9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

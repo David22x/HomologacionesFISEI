@@ -1,6 +1,46 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares",
+      "UpstreamHttpMethod": ["Get", "Put"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares/precargar",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares/precargar",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/evaluar-reglas",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/evaluar-reglas",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/agent-ia/evaluar-reglas",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5197 }],
+      "UpstreamPathTemplate": "/api/v1/agent-ia/evaluar-reglas",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/evaluaciones",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5197 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/evaluaciones",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/auth/login",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

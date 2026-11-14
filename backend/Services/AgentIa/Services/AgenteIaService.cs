@@ -31,10 +31,28 @@ public sealed class AgenteIaService(
         SolicitudEvaluacionIa solicitud,
         CancellationToken cancellationToken = default)
     {
-        var coincidenciasIa = await comparador.CompararAsync(
-            solicitud.ContenidosOrigen,
-            solicitud.ContenidosDestino,
-            cancellationToken);
+        var evaluacion = new EvaluacionHomologacion(
+            solicitud.CreditosOrigen,
+            solicitud.CreditosDestino,
+            solicitud.HorasOrigen,
+            solicitud.HorasDestino,
+            solicitud.OrigenAprobado,
+            solicitud.NotaOrigen,
+            solicitud.OrigenTransversal,
+            solicitud.DestinoTransversal,
+            Array.Empty<ContenidoDestino>(),
+            Array.Empty<CoincidenciaContenido>());
+
+        var resultadoBase = motor.Evaluar(evaluacion);
+        if (resultadoBase.Resultado != ResultadoHomologacion.DatosIncompletos
+            || resultadoBase.RazonCreditos is null
+            || solicitud.ContenidosDestino.Count == 0)
+            return new ResultadoAgenteIa(resultadoBase, Array.Empty<CoincidenciaIa>());
+
+        var tieneOrigen = solicitud.ContenidosOrigen.Count > 0;
+        var coincidenciasIa = tieneOrigen
+            ? await comparador.CompararAsync(solicitud.ContenidosOrigen, solicitud.ContenidosDestino, cancellationToken)
+            : Array.Empty<CoincidenciaIa>();
 
         var codigosDestino = solicitud.ContenidosDestino
             .Select(x => x.Codigo)
@@ -47,24 +65,16 @@ public sealed class AgenteIaService(
                 && x.Similitud <= 1m)
             .ToArray();
 
-        var evaluacion = new EvaluacionHomologacion(
-            solicitud.CreditosOrigen,
-            solicitud.CreditosDestino,
-            solicitud.HorasOrigen,
-            solicitud.HorasDestino,
-            solicitud.OrigenAprobado,
-            solicitud.NotaOrigen,
-            solicitud.OrigenTransversal,
-            solicitud.DestinoTransversal,
-            solicitud.ContenidosDestino
+        var resultadoReglas = motor.Evaluar(evaluacion with
+        {
+            ContenidosDestino = solicitud.ContenidosDestino
                 .Select(x => new ContenidoDestino(x.Codigo, x.Horas))
                 .ToArray(),
-            coincidenciasValidas
-                .Select(x => new CoincidenciaContenido(
-                    x.CodigoDestino, x.Similitud))
-                .ToArray());
-
-        var resultadoReglas = motor.Evaluar(evaluacion);
+            TieneContenidosOrigen = tieneOrigen,
+            Coincidencias = coincidenciasValidas
+                .Select(x => new CoincidenciaContenido(x.CodigoDestino, x.Similitud))
+                .ToArray()
+        });
 
         return new ResultadoAgenteIa(resultadoReglas, coincidenciasValidas);
     }

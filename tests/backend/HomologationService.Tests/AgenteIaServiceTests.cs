@@ -44,6 +44,39 @@ public sealed class AgenteIaServiceTests
             resultado.Reglas.Resultado);
     }
 
+    [Fact]
+    public async Task EvaluarAsync_sinContenidoOrigen_devuelveDatosIncompletos()
+    {
+        var agente = CrearAgente(new ComparadorQueNoDebeEjecutarse());
+        var solicitud = CrearSolicitud() with { ContenidosOrigen = [] };
+
+        var resultado = await agente.EvaluarAsync(solicitud);
+
+        Assert.Equal(ResultadoHomologacion.DatosIncompletos, resultado.Reglas.Resultado);
+        Assert.Null(resultado.Reglas.CoberturaContenidos);
+        Assert.Empty(resultado.CoincidenciasSugeridas);
+    }
+
+    [Fact]
+    public async Task EvaluarAsync_creditosInsuficientes_resuelveSinGemini()
+    {
+        var agente = CrearAgente(new ComparadorQueNoDebeEjecutarse());
+        var solicitud = CrearSolicitud() with { CreditosOrigen = 2m };
+
+        var resultado = await agente.EvaluarAsync(solicitud);
+
+        Assert.Equal(ResultadoHomologacion.RechazoPorCreditos, resultado.Reglas.Resultado);
+    }
+
+    private sealed class ComparadorQueNoDebeEjecutarse : IComparadorContenidosIa
+    {
+        public Task<IReadOnlyList<CoincidenciaIa>> CompararAsync(
+            IReadOnlyList<ContenidoOrigenIa> origen,
+            IReadOnlyList<ContenidoDestinoIa> destino,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Esta evaluación se resuelve sin Gemini.");
+    }
+
     private static AgenteIaService CrearAgente(
         IComparadorContenidosIa comparador) =>
         new(

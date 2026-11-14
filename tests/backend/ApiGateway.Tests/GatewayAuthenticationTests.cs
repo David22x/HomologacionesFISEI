@@ -138,9 +138,23 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
                 .StartsWith("/api/v1/homologacion/expedientes", StringComparison.Ordinal))
             .ToList();
 
-        Assert.Single(routes);
+        var expectedMethods = new Dictionary<string, string[]>
+        {
+            ["/api/v1/homologacion/expedientes"] = ["Get", "Post"],
+            ["/api/v1/homologacion/expedientes/{id}/pares"] = ["Get", "Put"],
+            ["/api/v1/homologacion/expedientes/{id}/pares/precargar"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/evaluar-reglas"] = ["Post"]
+        };
+        Assert.Equal(expectedMethods.Keys.Order(), routes
+            .Select(route => route.GetProperty("UpstreamPathTemplate").GetString()!)
+            .Order());
+
         foreach (var route in routes)
         {
+            var path = route.GetProperty("UpstreamPathTemplate").GetString()!;
+            Assert.Equal(path, route.GetProperty("DownstreamPathTemplate").GetString());
+            Assert.Equal(expectedMethods[path].Order(), route.GetProperty("UpstreamHttpMethod")
+                .EnumerateArray().Select(method => method.GetString()!).Order());
             Assert.Equal(5196, route.GetProperty("DownstreamHostAndPorts")[0].GetProperty("Port").GetInt32());
             Assert.Equal("Bearer", route.GetProperty("AuthenticationOptions")
                 .GetProperty("AuthenticationProviderKey").GetString());

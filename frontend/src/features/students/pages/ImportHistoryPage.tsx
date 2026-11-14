@@ -1,5 +1,4 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { importService, type ImportPreview, type ImportResult } from '../services/importService';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -91,7 +90,6 @@ export default function ImportHistoryPage() {
         <h1>Carga de historial académico</h1>
         <p>Descarga la plantilla, revisa los datos y confirma la importación.</p>
       </div>
-      <Link to="/estudiantes" className="catalog-back-link">Volver a estudiantes</Link>
     </header>
 
     <section className="students-panel import-panel" aria-labelledby="template-heading">

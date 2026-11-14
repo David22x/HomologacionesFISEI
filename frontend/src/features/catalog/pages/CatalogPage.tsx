@@ -192,9 +192,6 @@ export default function CatalogPage() {
           </p>
         </div>
 
-        <Link to="/home" className="catalog-back-link">
-          Volver al inicio
-        </Link>
       </header>
 
       <section className="catalog-filters" aria-label="Filtros del catálogo">

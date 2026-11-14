@@ -1,3 +1,5 @@
+import { notifySessionExpired } from '../auth/services/sessionEvents';
+
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
@@ -84,7 +86,10 @@ async function request<T>(
   });
 
   if (response.status === 404 && notFound) return notFound.value;
-  if (response.status === 401) throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+  }
   if (response.status === 403) throw new Error('No tienes permiso para administrar estudiantes.');
   if (!response.ok) {
     let detail = '';

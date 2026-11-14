@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { catalogService, type Asignatura, type Carrera, type MallaCurricular, type Nivel, type PlanAnaliticoPreview } from '../services/catalogService';
 import SearchableSelect from '../../../components/SearchableSelect';
 
@@ -149,7 +148,7 @@ export default function CatalogMaintenancePage() {
   const singular: Record<Section, string> = { carreras: 'carrera', mallas: 'malla', niveles: 'nivel', asignaturas: 'asignatura' };
 
   return <main className="catalog-page">
-    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Mantenimiento del catálogo</h1><p>Administra carreras, versiones de malla, niveles y asignaturas.</p></div><Link to="/catalogo" className="catalog-back-link">Volver a consulta</Link></header>
+    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Mantenimiento del catálogo</h1><p>Administra carreras, versiones de malla, niveles y asignaturas.</p></div></header>
     <nav className="maintenance-tabs" aria-label="Secciones del catálogo">{(['carreras','mallas','niveles','asignaturas'] as Section[]).map(tab => <button type="button" key={tab} className={section === tab ? 'active' : ''} onClick={() => { setSection(tab); setEditId(''); setSearchText(''); setError(''); setNotice(''); }}>{tab[0].toUpperCase()+tab.slice(1)}</button>)}</nav>
     <section className="maintenance-context">
       {section !== 'carreras' && <SearchableSelect key="maintenance-career" id="maintenance-carrera" label="Buscar carrera" value={carreraId} placeholder="Escribe para buscar una carrera" options={carreras.map(c => ({ value: c.id, label: `${c.nombre} (${c.codigo})` }))} onChange={id => { setCarreraId(id); setMallaId(''); setNivelId(''); }} />}

@@ -76,6 +76,7 @@ export default function CatalogMaintenancePage() {
           nivelId, codigo: String(data.get('codigo')).trim(), nombre: String(data.get('nombre')).trim(),
           creditos: Number(data.get('creditos')), horas: Number(data.get('horas')),
           unidadOrganizacional: String(data.get('unidad') || '').trim() || null,
+          esTransversal: data.get('esTransversal') === 'on',
         });
       }
       setEditId(''); setNotice(editId ? 'Cambios guardados.' : 'Registro creado.');
@@ -163,7 +164,7 @@ export default function CatalogMaintenancePage() {
         {section === 'carreras' && <><label>Código<input name="codigo" required maxLength={20} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><label className="check-field"><input name="esDemo" type="checkbox" /> Marcar como DEMO</label></>}
         {section === 'mallas' && <label>Versión<input name="version" required maxLength={20} placeholder="Ej. 2026" /></label>}
         {section === 'niveles' && <label>Número de nivel<input name="numero" type="number" required min={1} /></label>}
-        {section === 'asignaturas' && <><label>Código<input name="codigo" required maxLength={30} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><div className="maintenance-form-row"><label>Créditos<input name="creditos" type="number" required min="0.01" max="999.99" step="0.01" /></label><label>Horas<input name="horas" type="number" required min={1} /></label></div><label>Unidad organizacional<input name="unidad" maxLength={100} /></label></>}
+        {section === 'asignaturas' && <><label>Código<input name="codigo" required maxLength={30} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><div className="maintenance-form-row"><label>Créditos<input name="creditos" type="number" required min="0.01" max="999.99" step="0.01" /></label><label>Horas<input name="horas" type="number" required min={1} /></label></div><label>Unidad organizacional<input name="unidad" maxLength={100} /></label><label className="check-field"><input name="esTransversal" type="checkbox" /> Asignatura transversal</label></>}
         <div className="maintenance-actions"><button className="maintenance-primary" disabled={busy || (section !== 'carreras' && !carreraId) || ((section === 'niveles' || section === 'asignaturas') && !mallaId) || (section === 'asignaturas' && !nivelId)}>{busy ? 'Guardando…' : editId ? 'Guardar cambios' : 'Crear'}</button>{editId && <button type="button" onClick={() => setEditId('')}>Cancelar</button>}</div>
       </form>
       <section className="maintenance-list">

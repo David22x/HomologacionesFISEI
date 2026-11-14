@@ -19,4 +19,5 @@ public sealed record AsignaturaWriteRequest(
     [Required, StringLength(200)] string Nombre,
     [Range( 0.01, 999.99)] decimal Creditos,
     [Range(1, int.MaxValue)] int Horas,
-    [StringLength(100)] string? UnidadOrganizacional);
+    [StringLength(100)] string? UnidadOrganizacional,
+    bool EsTransversal = false);

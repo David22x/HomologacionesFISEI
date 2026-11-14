@@ -62,6 +62,8 @@ public class AcademicDbContext : DbContext
             e.Property(x => x.Nombre).HasMaxLength(200).IsRequired();
             e.Property(x => x.Creditos).HasPrecision(5, 2);
             e.Property(x => x.UnidadOrganizacional).HasMaxLength(100);
+            e.Property(x => x.EsTransversal).HasDefaultValue(false);
+
             e.HasIndex(x => new { x.MallaVersionId, x.Codigo }).IsUnique();
             e.HasOne(x => x.MallaVersion).WithMany(m => m.Asignaturas)
                 .HasForeignKey(x => x.MallaVersionId).OnDelete(DeleteBehavior.Cascade);

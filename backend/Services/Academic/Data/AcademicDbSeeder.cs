@@ -167,7 +167,8 @@ public static class AcademicDbSeeder
                                 Nombre = sa.Nombre.Trim(),
                                 Creditos = sa.Creditos,
                                 Horas = sa.Horas,
-                                UnidadOrganizacional = sa.UnidadOrganizacional?.Trim()
+                                UnidadOrganizacional = sa.UnidadOrganizacional?.Trim(),
+                                EsTransversal = sa.EsTransversal
                             });
                             asigNuevas++;
                         }
@@ -177,6 +178,7 @@ public static class AcademicDbSeeder
                                 || asignatura.Creditos != sa.Creditos
                                 || asignatura.Horas != sa.Horas
                                 || asignatura.UnidadOrganizacional != sa.UnidadOrganizacional?.Trim()
+                                || asignatura.EsTransversal != sa.EsTransversal
                                 || asignatura.NivelId != nivel.Id;
                             if (cambio)
                             {
@@ -184,6 +186,7 @@ public static class AcademicDbSeeder
                                 asignatura.Creditos = sa.Creditos;
                                 asignatura.Horas = sa.Horas;
                                 asignatura.UnidadOrganizacional = sa.UnidadOrganizacional?.Trim();
+                                asignatura.EsTransversal = sa.EsTransversal;
                                 asignatura.NivelId = nivel.Id;
                                 asigActualizadas++;
                             }

@@ -1,6 +1,5 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import {
   userManagementService,
   type ManagedUser,
@@ -62,17 +61,19 @@ export default function AdminPage({ currentUserId }: { currentUserId: string }) 
   }
 
   return <main className="catalog-page">
-    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Usuarios y roles</h1><p>Crea cuentas, asigna roles y cambia el estado de acceso.</p></div><Link to="/home" className="catalog-back-link">Volver al inicio</Link></header>
+    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Usuarios y roles</h1><p>Crea cuentas, asigna roles y cambia el estado de acceso.</p></div></header>
     {error && <p className="catalog-error" role="alert">{error}</p>}
     {notice && <p className="maintenance-notice" role="status">{notice}</p>}
     <section className="students-panel">
       <h2>{editingId ? 'Editar usuario' : 'Crear usuario'}</h2>
       <form id="managed-user-form" className="student-form" onSubmit={submit} key={editingId || 'new'}>
-        <label>Correo electrónico<input name="email" type="email" required maxLength={256} /></label>
-        <label>Nombre completo<input name="nombreCompleto" required minLength={2} maxLength={200} /></label>
-        {!editingId && <label>Contraseña inicial<input name="password" type="password" required minLength={6} autoComplete="new-password" /><small>Debe tener al menos 6 caracteres y un número.</small></label>}
-        <label>Rol<select name="rol" defaultValue="Profesor"><option value="Profesor">Profesor</option><option value="Administrador">Administrador</option></select></label>
-        {editingId && <label className="check-field"><input name="activo" type="checkbox" defaultChecked /> Cuenta activa</label>}
+        <div className="student-form-grid">
+          <label>Correo electrónico<input name="email" type="email" required maxLength={256} /></label>
+          <label>Nombre completo<input name="nombreCompleto" required minLength={2} maxLength={200} /></label>
+          {!editingId && <label>Contraseña inicial<input name="password" type="password" required minLength={6} autoComplete="new-password" /><small>Debe tener al menos 6 caracteres y un número.</small></label>}
+          <label>Rol<select name="rol" defaultValue="Profesor"><option value="Profesor">Profesor</option><option value="Administrador">Administrador</option></select></label>
+          {editingId && <label className="check-field"><input name="activo" type="checkbox" defaultChecked /> Cuenta activa</label>}
+        </div>
         <div className="student-form-actions"><button className="students-primary" disabled={busy}>{busy ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Crear cuenta'}</button>{editingId && <button type="button" className="students-secondary" onClick={() => setEditingId('')}>Cancelar</button>}</div>
       </form>
     </section>

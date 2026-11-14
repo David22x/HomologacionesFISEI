@@ -1,3 +1,5 @@
+import { notifySessionExpired } from './sessionEvents';
+
 
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
@@ -115,8 +117,12 @@ async function requestUsers<T>(path: string, method = 'GET', body?: unknown): Pr
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+  }
   if (!response.ok) {
-    let message = response.status === 403 ? 'Solo un administrador puede gestionar usuarios.' : 'No se pudo guardar el usuario.';
+    let message = response.status === 403 ? 'Solo un administrador puede gestionar usuarios.' : `No se pudo completar la operación con los usuarios (HTTP ${response.status}).`;
     try {
       const payload = await response.json() as { message?: string; detail?: string; errors?: string[] };
       message = payload.message ?? payload.detail ?? payload.errors?.join(' ') ?? message;

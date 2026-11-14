@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import SearchableSelect from '../../../components/SearchableSelect';
 import {
   catalogService,
@@ -128,10 +127,6 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         <p className="catalog-eyebrow">HOMOLOGACIONES FISEI · EXPEDIENTES ACADÉMICOS</p>
         <h1>Expedientes</h1>
         <p>Crea expedientes de homologación y consulta su estado actual.</p>
-      </div>
-      <div className="students-header-links">
-        <Link to="/estudiantes" className="catalog-back-link">Volver a estudiantes</Link>
-        <Link to="/home" className="catalog-back-link">Volver al inicio</Link>
       </div>
     </header>
 

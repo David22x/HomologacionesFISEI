@@ -1,0 +1,91 @@
+/*
+ * Estilo base para todos los formularios de la aplicación.
+ * Se escribe con :where() (especificidad cero) para que cualquier regla propia
+ * de una pantalla siga mandando y esto solo rellene lo que no tiene estilo.
+ */
+:where(.app-content) :where(form label) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #263750;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+:where(.app-content) :where(form label:has(input[type='checkbox'], input[type='radio'])) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+:where(.app-content) :where(
+  form input:not([type='checkbox'], [type='radio'], [type='file'], [type='hidden']),
+  form select,
+  form textarea
+) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #ccd5e2;
+  border-radius: 8px;
+  background: #fff;
+  color: #182b49;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+:where(.app-content) :where(form input[type='checkbox'], form input[type='radio']) {
+  width: 18px;
+  height: 18px;
+  accent-color: #173b70;
+}
+
+:where(.app-content) :where(form input[type='file']) {
+  font: inherit;
+  font-size: 13px;
+}
+
+:where(.app-content) :where(form textarea) {
+  resize: vertical;
+}
+
+:where(.app-content) :where(form input, form select, form textarea)::placeholder {
+  color: #8a97ab;
+}
+
+.app-content form :is(input, select, textarea):focus-visible {
+  border-color: #5677a8;
+  outline: 3px solid #9bb9e866;
+  outline-offset: 0;
+}
+
+.app-content form :is(input, select, textarea):disabled {
+  background: #f2f5fa;
+  color: #8a97ab;
+  cursor: not-allowed;
+}
+
+:where(.app-content) :where(form label small, form small) {
+  color: #65748b;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+:where(.app-content) :where(form button) {
+  font: inherit;
+}
+
+.app-content button:focus-visible,
+.app-content a:focus-visible {
+  outline: 2px solid #9bb9e8;
+  outline-offset: 2px;
+}
+
+.app-content form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

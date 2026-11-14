@@ -1,3 +1,5 @@
+import { notifySessionExpired } from '../../auth/services/sessionEvents';
+
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
@@ -47,6 +49,7 @@ export const importService = {
     const response = await fetch(`${API_URL}/api/v1/documentos/importaciones/plantilla`, {
       headers: authorizationHeaders(),
     });
+    if (response.status === 401) notifySessionExpired();
     if (!response.ok) throw new Error('No se pudo descargar la plantilla. Verifica que el servicio de documentos esté disponible.');
 
     const blob = await response.blob();
@@ -99,11 +102,13 @@ async function sendFileResponse(path: string, file: File, datos?: ImportPreview)
     const form = new FormData();
     form.append('archivo', file);
     if (datos) form.append('datos', JSON.stringify(datos));
-    return fetch(`${API_URL}${path}`, {
+    const response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       headers: authorizationHeaders(),
       body: form,
     });
+    if (response.status === 401) notifySessionExpired();
+    return response;
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {

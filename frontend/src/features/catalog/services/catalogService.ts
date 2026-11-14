@@ -34,6 +34,7 @@ export interface Asignatura {
   creditos: number;
   horas: number;
   unidadOrganizacional: string | null;
+  esTransversal: boolean;
 }
 
 export interface Tema {

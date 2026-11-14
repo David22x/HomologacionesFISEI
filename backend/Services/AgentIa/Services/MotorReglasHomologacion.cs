@@ -28,7 +28,8 @@ public sealed record EvaluacionHomologacion(
     bool OrigenTransversal,
     bool DestinoTransversal,
     IReadOnlyList<ContenidoDestino> ContenidosDestino,
-    IReadOnlyList<CoincidenciaContenido> Coincidencias);
+    IReadOnlyList<CoincidenciaContenido> Coincidencias,
+    bool TieneContenidosOrigen = true);
 
 public sealed record ResultadoReglas(
     ResultadoHomologacion Resultado,
@@ -113,6 +114,12 @@ public sealed class MotorReglasHomologacion(
         if (entrada.ContenidosDestino.Count == 0)
         {
             advertencias.Add("No hay contenidos de destino para evaluar.");
+            return Crear(ResultadoHomologacion.DatosIncompletos);
+        }
+
+        if (!entrada.TieneContenidosOrigen)
+        {
+            advertencias.Add("No hay contenidos de origen para evaluar.");
             return Crear(ResultadoHomologacion.DatosIncompletos);
         }
 

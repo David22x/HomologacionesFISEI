@@ -7,6 +7,7 @@ namespace HomologationService.Controllers;
 
 [ApiController]
 [Route("api/v1/homologacion/evaluaciones")]
+[Route("api/v1/agent-ia/evaluar-reglas")]
 [Authorize(Roles = AppRoles.Profesor)]
 public sealed class EvaluacionesController(
     IAgenteIaService agenteIa) : ControllerBase
@@ -17,9 +18,7 @@ public sealed class EvaluacionesController(
         CancellationToken cancellationToken)
     {
         if (solicitud.ContenidosOrigen is null
-            || solicitud.ContenidosDestino is null
-            || solicitud.ContenidosOrigen.Count == 0
-            || solicitud.ContenidosDestino.Count == 0)
+            || solicitud.ContenidosDestino is null)
         {
             return BadRequest(new
             {

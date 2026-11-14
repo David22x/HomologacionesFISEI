@@ -22,6 +22,32 @@ namespace HomologationService.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("HomologationService.Models.EjecucionReglas", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("EjecutadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProfesorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ResultadosJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId", "EjecutadoEn");
+
+                    b.ToTable("EjecucionesReglas", (string)null);
+                });
+
             modelBuilder.Entity("HomologationService.Models.Equivalencia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -69,6 +95,7 @@ namespace HomologationService.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("ActualizadoEn")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CarreraDestinoId")
@@ -108,6 +135,41 @@ namespace HomologationService.Migrations
                     b.ToTable("Expedientes", (string)null);
                 });
 
+            modelBuilder.Entity("HomologationService.Models.ParHomologacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AsignaturaCursadaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AsignaturaDestinoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Precargado")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId", "AsignaturaCursadaId", "AsignaturaDestinoId")
+                        .IsUnique();
+
+                    b.ToTable("ParesHomologacion", (string)null);
+                });
+
+            modelBuilder.Entity("HomologationService.Models.EjecucionReglas", b =>
+                {
+                    b.HasOne("HomologationService.Models.Expediente", null)
+                        .WithMany()
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HomologationService.Models.Equivalencia", b =>
                 {
                     b.HasOne("HomologationService.Models.Expediente", "Expediente")
@@ -128,6 +190,15 @@ namespace HomologationService.Migrations
                         .IsRequired();
 
                     b.Navigation("Equivalencia");
+                });
+
+            modelBuilder.Entity("HomologationService.Models.ParHomologacion", b =>
+                {
+                    b.HasOne("HomologationService.Models.Expediente", null)
+                        .WithMany()
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HomologationService.Models.Equivalencia", b =>

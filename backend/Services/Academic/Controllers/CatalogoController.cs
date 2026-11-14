@@ -634,6 +634,16 @@ public class CatalogoController : ControllerBase
         return Ok(asignaturas);
     }
 
+    [HttpGet("asignaturas/{asignaturaId:guid}")]
+    public async Task<ActionResult<AsignaturaCatalogoResponse>> GetAsignatura(
+        Guid asignaturaId, CancellationToken ct)
+    {
+        var asignatura = await _context.Asignaturas.AsNoTracking().Include(a => a.Nivel)
+            .SingleOrDefaultAsync(a => a.Id == asignaturaId, ct);
+
+        return asignatura is null ? NotFound() : Ok(ToResponse(asignatura, asignatura.Nivel?.Numero ?? 0));
+    }
+
     private static CarreraCatalogoResponse ToResponse(Carrera carrera) =>
         new(carrera.Id, carrera.Codigo, carrera.Nombre, carrera.EsDemo);
 

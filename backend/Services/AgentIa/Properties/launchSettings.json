@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "AgentIaService": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5197",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

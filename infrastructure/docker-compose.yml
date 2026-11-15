@@ -100,6 +100,36 @@ services:
       retries: 10
       start_period: 30s
 
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  ollama-models:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        ollama pull "$${OLLAMA_EMBEDDING_MODEL}"
+        ollama pull "$${OLLAMA_LANGUAGE_MODEL}"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-bge-m3}
+      OLLAMA_LANGUAGE_MODEL: ${OLLAMA_LANGUAGE_MODEL:-qwen2.5:7b}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
   agent-ia:
     build:
       context: ..
@@ -111,7 +141,11 @@ services:
       ASPNETCORE_URLS: http://+:5197
       Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
       Ollama__BaseUrl: http://ollama:11434/
-      Ollama__EmbeddingModel: bge-m3
+      Ollama__EmbeddingModel: ${OLLAMA_EMBEDDING_MODEL:-bge-m3}
+      Ollama__LanguageModel: ${OLLAMA_LANGUAGE_MODEL:-qwen2.5:7b}
+    depends_on:
+      ollama-models:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5197/health"]
       interval: 10s
@@ -237,3 +271,4 @@ services:
 
 volumes:
   sqlserver-data:
+  ollama-data:

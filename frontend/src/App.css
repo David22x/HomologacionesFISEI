@@ -380,6 +380,23 @@
 .expediente-details div { min-width: 0; }
 .expediente-details dt { color: #65748b; font-size: 12px; }
 .expediente-details dd { margin: 5px 0 0; color: #182b49; font-weight: 600; overflow-wrap: anywhere; }
+.eligibility-panel { padding-top: 22px; border-top: 1px solid #e0e6ef; }
+.eligibility-panel .students-panel-heading { align-items: flex-start; }
+.eligibility-panel .students-panel-heading h3 { margin: 0 0 6px; color: #182b49; font-size: 18px; }
+.eligibility-panel .students-panel-heading p { max-width: 760px; line-height: 1.5; }
+.eligibility-pair-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 12px; margin: 18px 0; }
+.eligibility-pair-picker label { display: flex; min-width: 0; flex-direction: column; gap: 7px; color: #263750; font-size: 13px; font-weight: 600; }
+.eligibility-pair-picker select { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid #ccd5e2; border-radius: 8px; background: #fff; color: #182b49; font: inherit; }
+.eligibility-pair-picker button { min-height: 42px; }
+.eligibility-results-wrap { margin-top: 16px; }
+.eligibility-results-table { min-width: 940px; }
+.eligibility-results-table td small { display: block; margin-top: 4px; color: #65748b; font-size: 11px; font-weight: 400; }
+.eligibility-results-table td .eligibility-warning { max-width: 220px; color: #855b00; font-weight: 600; }
+.eligibility-empty { padding: 22px 12px !important; color: #65748b; text-align: center; }
+.eligibility-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; }
+.eligibility-actions > span,
+.eligibility-threshold-note { color: #65748b; font-size: 12px; }
+.eligibility-threshold-note { margin: 14px 0 0; }
 .expediente-status-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .expediente-status-form label { display: flex; flex: 1 1 220px; flex-direction: column; gap: 7px; color: #263750; font-size: 13px; font-weight: 600; }
 .expediente-status-form select { max-width: 360px; }
@@ -428,5 +445,7 @@
   .students-header-links { align-items: flex-start; flex-direction: column; }
   .student-form-grid,
   .student-course-picker-grid,
-  .expediente-form { grid-template-columns: 1fr; }
+  .expediente-form,
+  .eligibility-pair-picker { grid-template-columns: 1fr; }
+  .eligibility-panel .students-panel-heading { align-items: flex-start; flex-direction: column; }
 }

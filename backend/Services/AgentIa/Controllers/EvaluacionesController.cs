@@ -58,14 +58,14 @@ public sealed class EvaluacionesController(
         }
         catch (HttpRequestException ex)
         {
-            var codigoGemini = ex.StatusCode is null
+            var codigoProveedor = ex.StatusCode is null
                 ? (int?)null
                 : (int)ex.StatusCode.Value;
 
             return StatusCode(502, new
             {
                 mensaje = "Falló la solicitud al Agente IA.",
-                codigoGemini
+                codigoProveedor
             });
         }
         catch (InvalidOperationException)

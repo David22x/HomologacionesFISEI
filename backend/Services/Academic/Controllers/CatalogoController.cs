@@ -350,7 +350,8 @@ public class CatalogoController : ControllerBase
             Nombre = request.Nombre.Trim(),
             Creditos = request.Creditos,
             Horas = request.Horas,
-            UnidadOrganizacional = NormalizarOpcional(request.UnidadOrganizacional)
+            UnidadOrganizacional = NormalizarOpcional(request.UnidadOrganizacional),
+            EsTransversal = request.EsTransversal
         };
         MarcarModificacion(malla);
         _context.Asignaturas.Add(asignatura);
@@ -419,6 +420,7 @@ public class CatalogoController : ControllerBase
         asignatura.Creditos = request.Creditos;
         asignatura.Horas = request.Horas;
         asignatura.UnidadOrganizacional = NormalizarOpcional(request.UnidadOrganizacional);
+        asignatura.EsTransversal = request.EsTransversal;
         MarcarModificacion(malla);
         if (!await GuardarAsync(ct))
         {
@@ -625,10 +627,21 @@ public class CatalogoController : ControllerBase
                 a.Nombre,
                 a.Creditos,
                 a.Horas,
-                a.UnidadOrganizacional))
+                a.UnidadOrganizacional,
+                a.EsTransversal))
             .ToListAsync(ct);
 
         return Ok(asignaturas);
+    }
+
+    [HttpGet("asignaturas/{asignaturaId:guid}")]
+    public async Task<ActionResult<AsignaturaCatalogoResponse>> GetAsignatura(
+        Guid asignaturaId, CancellationToken ct)
+    {
+        var asignatura = await _context.Asignaturas.AsNoTracking().Include(a => a.Nivel)
+            .SingleOrDefaultAsync(a => a.Id == asignaturaId, ct);
+
+        return asignatura is null ? NotFound() : Ok(ToResponse(asignatura, asignatura.Nivel?.Numero ?? 0));
     }
 
     private static CarreraCatalogoResponse ToResponse(Carrera carrera) =>
@@ -644,7 +657,7 @@ public class CatalogoController : ControllerBase
     private static AsignaturaCatalogoResponse ToResponse(Asignatura asignatura, int nivelNumero) =>
         new(asignatura.Id, asignatura.MallaVersionId, asignatura.NivelId, nivelNumero,
             asignatura.Codigo, asignatura.Nombre, asignatura.Creditos, asignatura.Horas,
-            asignatura.UnidadOrganizacional);
+            asignatura.UnidadOrganizacional, asignatura.EsTransversal);
 
     private static string? ValidarAsignatura(AsignaturaWriteRequest request)
     {

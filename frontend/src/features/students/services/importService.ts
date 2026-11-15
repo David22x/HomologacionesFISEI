@@ -1,3 +1,5 @@
+import { notifySessionExpired } from '../../auth/services/sessionEvents';
+
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
@@ -47,6 +49,7 @@ export const importService = {
     const response = await fetch(`${API_URL}/api/v1/documentos/importaciones/plantilla`, {
       headers: authorizationHeaders(),
     });
+    if (response.status === 401) notifySessionExpired();
     if (!response.ok) throw new Error('No se pudo descargar la plantilla. Verifica que el servicio de documentos esté disponible.');
 
     const blob = await response.blob();
@@ -64,8 +67,8 @@ export const importService = {
     return sendFile('/api/v1/documentos/importaciones', file);
   },
 
-  async confirmarArchivo(file: File): Promise<{ creado: boolean }> {
-    const response = await sendFileResponse('/api/v1/documentos/importaciones/confirmar', file);
+  async confirmarArchivo(file: File, datos: ImportPreview): Promise<{ creado: boolean }> {
+    const response = await sendFileResponse('/api/v1/documentos/importaciones/confirmar', file, datos);
     if (!response.ok) {
       const problem = await readJson(response);
       const message = typeof problem.detail === 'string'
@@ -95,14 +98,17 @@ async function sendFile(path: string, file: File): Promise<ImportResult> {
   return result;
 }
 
-async function sendFileResponse(path: string, file: File): Promise<Response> {
+async function sendFileResponse(path: string, file: File, datos?: ImportPreview): Promise<Response> {
     const form = new FormData();
     form.append('archivo', file);
-    return fetch(`${API_URL}${path}`, {
+    if (datos) form.append('datos', JSON.stringify(datos));
+    const response = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       headers: authorizationHeaders(),
       body: form,
     });
+    if (response.status === 401) notifySessionExpired();
+    return response;
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {

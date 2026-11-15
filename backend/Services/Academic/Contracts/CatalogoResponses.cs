@@ -29,4 +29,5 @@ public sealed record AsignaturaCatalogoResponse(
     string Nombre,
     decimal Creditos,
     int Horas,
-    string? UnidadOrganizacional);
+    string? UnidadOrganizacional,
+    bool EsTransversal);

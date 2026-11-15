@@ -3,6 +3,7 @@ using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
 using HomologationService.Data;
 using Microsoft.EntityFrameworkCore;
+using HomologationService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,12 +16,31 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<HomologationDbContext>(options =>
     options.UseSqlServer(connectionString));
+builder.Services.AddHttpClient("StudentsService", client =>
+{
+    var baseUrl = builder.Configuration["StudentsService:BaseUrl"] ?? "http://localhost:5194";
+    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+});
+builder.Services.AddHttpClient("AcademicService", client =>
+{
+    var baseUrl = builder.Configuration["AcademicService:BaseUrl"] ?? "http://localhost:5193";
+    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+});
 
+builder.Services.AddScoped<DatosEvaluacionClient>();
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomSwagger("Homologation Service API - Homologacion de materias y creditos");
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
+
+
+builder.Services.AddHttpClient("AgentIaService", client =>
+{
+    var baseUrl = builder.Configuration["AgentIaService:BaseUrl"] ?? "http://localhost:5197";
+    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(90);
+});
 
 var app = builder.Build();
 

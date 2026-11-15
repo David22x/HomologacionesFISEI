@@ -1,3 +1,5 @@
+import { notifySessionExpired } from './sessionEvents';
+
 
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
@@ -8,6 +10,24 @@ export interface AuthUser {
   email: string;
   nombreCompleto: string;
   roles: string[];
+}
+
+export interface ManagedUser extends AuthUser {
+  activo: boolean;
+}
+
+export interface CreateManagedUser {
+  email: string;
+  nombreCompleto: string;
+  password: string;
+  rol: 'Administrador' | 'Profesor';
+}
+
+export interface UpdateManagedUser {
+  email: string;
+  nombreCompleto: string;
+  rol: 'Administrador' | 'Profesor';
+  activo: boolean;
 }
 
 interface LoginResponse {
@@ -72,4 +92,42 @@ export async function getCurrentUser(
   }
 
   return response.json() as Promise<AuthUser>;
+}
+
+export const userManagementService = {
+  async listar(): Promise<ManagedUser[]> {
+    return requestUsers<ManagedUser[]>('/auth/usuarios');
+  },
+  async crear(data: CreateManagedUser): Promise<ManagedUser> {
+    return requestUsers<ManagedUser>('/auth/usuarios', 'POST', data);
+  },
+  async actualizar(id: string, data: UpdateManagedUser): Promise<ManagedUser> {
+    return requestUsers<ManagedUser>(`/auth/usuarios/${id}`, 'PUT', data);
+  },
+};
+
+async function requestUsers<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const token = sessionStorage.getItem('accessToken');
+  if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  if (response.status === 401) {
+    notifySessionExpired();
+    throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
+  }
+  if (!response.ok) {
+    let message = response.status === 403 ? 'Solo un administrador puede gestionar usuarios.' : `No se pudo completar la operación con los usuarios (HTTP ${response.status}).`;
+    try {
+      const payload = await response.json() as { message?: string; detail?: string; errors?: string[] };
+      message = payload.message ?? payload.detail ?? payload.errors?.join(' ') ?? message;
+    } catch { /* Keep a safe generic message for non-JSON responses. */ }
+    throw new Error(message);
+  }
+  return response.json() as Promise<T>;
 }

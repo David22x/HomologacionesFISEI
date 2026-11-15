@@ -107,7 +107,8 @@
                   "horas": 96,
                   "horasDocencia": 32,
                   "horasPractica": 64,
-                  "unidadOrganizacional": "Básica"
+                  "unidadOrganizacional": "Básica",
+                  "esTransversal": true
                 },
                 {
                   "codigo": "UTA-FISEI-TI-MP-UB-02-06",
@@ -725,7 +726,8 @@
                   "horas": 96,
                   "horasDocencia": 32,
                   "horasPractica": 64,
-                  "unidadOrganizacional": "Profesional"
+                  "unidadOrganizacional": "Profesional",
+                  "esTransversal": true
                 }
               ]
             },

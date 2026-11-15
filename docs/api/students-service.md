@@ -15,6 +15,7 @@ Las rutas públicas de estudiantes requieren un JWT válido enviado a través de
 
 La búsqueda está disponible para los roles `Administrador` y `Profesor`. Para cualquier otro rol autenticado, la respuesta es el mismo `404` genérico que para una cédula inexistente, sin consultar si el estudiante existe. El `traceId` de diagnóstico puede variar entre solicitudes. La búsqueda compara el identificador completo, no fragmentos.
 
+
 La ruta interna de importación también requiere JWT y rol `Administrador` o `Profesor`; solo la consume Documents Service directamente y no se publica por el API Gateway. Recibe el mismo esquema `EstudianteWriteRequest` usado por `POST /api/v1/estudiantes`, con `tipo: 1` (`Externo`) y un historial cuyas asignaturas usan `asignaturaId: null` y `codigo`. La identificación se normaliza para buscar el registro existente. Las confirmaciones repetidas no duplican historial ni asignaturas; cuando el contenido cambia, se actualizan los datos existentes y se reemplaza la colección de asignaturas importadas.
 
 ## Esquema de respuesta

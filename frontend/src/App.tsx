@@ -13,17 +13,19 @@ import {
   type AuthUser,
 } from './features/auth/services/authService';
 
+import { onSessionExpired } from './features/auth/services/sessionEvents';
 import ProtectedRoute from './components/ProtectedRoute';
+import AppLayout from './components/AppLayout';
 import HomePage from './features/auth/pages/HomePage';
 import AccessDeniedPage from './features/auth/pages/AccessDeniedPage';
 import AdminPage from './features/auth/pages/AdminPage';
-import TeacherPage from './features/auth/pages/TeacherPage';
 import './App.css';
 import CatalogPage from './features/catalog/pages/CatalogPage';
 import CatalogMaintenancePage from './features/catalog/pages/CatalogMaintenancePage';
 import TemasPage from './features/catalog/pages/TemasPage';
 import StudentsPage from './features/students/pages/StudentsPage';
 import ImportHistoryPage from './features/students/pages/ImportHistoryPage';
+import ExpedientesPage from './features/students/pages/ExpedientesPage';
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -62,6 +64,14 @@ function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    return onSessionExpired(() => {
+      sessionStorage.removeItem('accessToken');
+      setUser(null);
+      setSessionError('Tu sesión ha expirado. Inicia sesión nuevamente.');
+    });
   }, []);
 
   async function handleLogin(token: string) {
@@ -107,96 +117,82 @@ function App() {
         />
 
         <Route
-          path="/home"
           element={
             <ProtectedRoute user={user}>
-              {user && (
-                <HomePage user={user} onLogout={handleLogout} />
-              )}
+              {user && <AppLayout user={user} onLogout={handleLogout} />}
             </ProtectedRoute>
           }
-        />
+        >
+          <Route
+            path="/home"
+            element={user && <HomePage user={user} />}
+          />
 
-        <Route
-  path="/catalogo"
-  element={
-    <ProtectedRoute
-      user={user}
-      allowedRoles={['Administrador', 'Profesor']}
-    >
-      <CatalogPage />
-    </ProtectedRoute>
-  }
-/>
+          <Route
+            path="/catalogo"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+                <CatalogPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={['Administrador']}
-            >
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador']}>
+                <AdminPage currentUserId={user?.id ?? ''} />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/estudiantes"
-          element={
-            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
-              <StudentsPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/estudiantes"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+                <StudentsPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/estudiantes/importar"
-          element={
-            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
-              <ImportHistoryPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/estudiantes/importar"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+                <ImportHistoryPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/catalogo/mantenimiento"
-          element={
-            <ProtectedRoute user={user} allowedRoles={['Administrador']}>
-              <CatalogMaintenancePage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/expedientes"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+                <ExpedientesPage canCreate={Boolean(user?.roles.includes('Profesor'))} />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/catalogo/asignaturas/:asignaturaId/temas"
-          element={
-            <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
-              <TemasPage isAdmin={Boolean(user?.roles.includes('Administrador'))} />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/catalogo/mantenimiento"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador']}>
+                <CatalogMaintenancePage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/docente"
-          element={
-            <ProtectedRoute
-              user={user}
-              allowedRoles={['Profesor']}
-            >
-              <TeacherPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/catalogo/asignaturas/:asignaturaId/temas"
+            element={
+              <ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}>
+                <TemasPage isAdmin={Boolean(user?.roles.includes('Administrador'))} />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/acceso-denegado"
-          element={
-            <ProtectedRoute user={user}>
-              <AccessDeniedPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route path="/acceso-denegado" element={<AccessDeniedPage />} />
+        </Route>
 
         <Route
           path="*"

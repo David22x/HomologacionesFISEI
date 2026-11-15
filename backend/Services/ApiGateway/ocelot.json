@@ -1,6 +1,46 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares",
+      "UpstreamHttpMethod": ["Get", "Put"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares/precargar",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares/precargar",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/evaluar-reglas",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/evaluar-reglas",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/agent-ia/evaluar-reglas",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5197 }],
+      "UpstreamPathTemplate": "/api/v1/agent-ia/evaluar-reglas",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/evaluaciones",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5197 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/evaluaciones",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/auth/login",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -33,6 +73,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/auth/usuarios",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5192 }],
+      "UpstreamPathTemplate": "/auth/usuarios",
+      "UpstreamHttpMethod": ["Get", "Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/auth/usuarios/{userId}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5192 }],
+      "UpstreamPathTemplate": "/auth/usuarios/{userId}",
+      "UpstreamHttpMethod": ["Put"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/estudiantes",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -51,7 +107,25 @@
         "AllowedScopes": []
       }
     },
-
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 5196
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post"
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
     {
       "DownstreamPathTemplate": "/api/v1/documentos/importaciones/plantilla",
       "DownstreamScheme": "http",

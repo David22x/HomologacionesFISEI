@@ -1,0 +1,108 @@
+{
+  "version": "1.0.0",
+  "historia": "HU-S3-12",
+  "tarea": "T12.1",
+  "estado": "pendiente_validacion_docente",
+  "parametros": {
+    "creditos": {
+      "minimoRazon": 0.8
+    },
+    "contenidos": {
+      "minimoCobertura": 0.8,
+      "minimoSimilitud": 0.75,
+      "estadoSimilitud": "pendiente_calibracion_T13.6"
+    },
+    "cargaHoraria": {
+      "minimoRazonPropuesto": 0.8,
+      "tratamientoPropuesto": "advertencia",
+      "estado": "pendiente_validacion"
+    },
+    "aprobacion": {
+      "escalaEntradaActual": {
+        "minimo": 0,
+        "maximo": 10
+      },
+      "notaMinima": null,
+      "estado": "pendiente_validacion"
+    }
+  },
+  "reglas": [
+    {
+      "id": "R1",
+      "nombre": "Créditos",
+      "estado": "planificada",
+      "criterio": "Dividir los créditos de origen entre los créditos de destino. Cumple si la razón alcanza el mínimo inclusivo. Si es inferior, emitir Rechazo por créditos, incluso si la cobertura es suficiente.",
+      "ejemplo": "4 de 5 créditos = 80 %, cumple. 2 de 3 = 66,67 % mostrado, no cumple."
+    },
+    {
+      "id": "R2",
+      "nombre": "Contenidos",
+      "estado": "planificada",
+      "criterio": "Medir la fracción de contenidos de destino que tienen al menos una coincidencia con el origen a partir del umbral de similitud. Contar cada contenido de destino una sola vez. Ponderar por horas si todos los pesos requeridos están disponibles y usar pesos iguales cuando falten.",
+      "ejemplo": "Con cinco contenidos de igual peso, cuatro coincidencias con similitud de al menos 0,75 dan 80 % de cobertura y cumplen."
+    },
+    {
+      "id": "R3",
+      "nombre": "Carga horaria",
+      "estado": "pendiente_validacion",
+      "criterio": "Mostrar horas de origen, horas de destino y su razón si puede calcularse. El borrador del sprint propone mostrar una advertencia si la razón es inferior a 0,80 y continuar la evaluación.",
+      "ejemplo": "60 de 80 horas = 75 %. Con el criterio propuesto, se muestra una advertencia."
+    },
+    {
+      "id": "R4",
+      "nombre": "Resultado combinado",
+      "estado": "planificada",
+      "criterio": "Filtrar por aprobación de origen según R8 y aplicar la excepción R7 cuando corresponda. Si R1 falla con datos suficientes, emitir Rechazo por créditos. Si falta información requerida, emitir Datos incompletos. Si R1 cumple y R2 falla, emitir Rechazo por contenidos. Si ambos cumplen con datos suficientes, emitir Homologable.",
+      "ejemplo": "85 % de créditos y 79 % de cobertura, con los demás datos requeridos disponibles, dan Rechazo por contenidos."
+    },
+    {
+      "id": "R5",
+      "nombre": "Es recomendable homologar",
+      "estado": "planificada",
+      "criterio": "Ante un Rechazo por créditos, el profesor puede registrar la acotación Es recomendable homologar con una justificación. Conservar el resultado calculado y mostrar ambos en el informe.",
+      "ejemplo": "El profesor registra una recomendación justificada para un caso de 2 créditos frente a 3. El resultado calculado sigue siendo Rechazo por créditos."
+    },
+    {
+      "id": "R6",
+      "nombre": "Homologación compuesta",
+      "estado": "planificada",
+      "criterio": "Sumar los créditos y las horas de las asignaturas de origen distintas y aprobadas. Evaluar la cobertura sobre la unión de sus contenidos. El agente propone grupos de dos y el profesor puede agrupar manualmente más de dos.",
+      "ejemplo": "Dos materias de 2 créditos y 32 horas cada una suman 4 créditos y 64 horas. Si las dos cubren el mismo tema de destino, ese tema aporta una vez."
+    },
+    {
+      "id": "R7",
+      "nombre": "Transversales",
+      "estado": "planificada",
+      "criterio": "Emitir Transversal directa si origen y destino son transversales institucionales y el origen está aprobado. Mostrar R1 como dato informativo y omitir R2.",
+      "ejemplo": "Un origen transversal aprobado de 2 créditos y un destino transversal de 3 créditos dan Transversal directa. El 66,67 % de créditos se muestra como referencia."
+    },
+    {
+      "id": "R8",
+      "nombre": "Origen aprobado",
+      "estado": "pendiente_validacion",
+      "criterio": "Considerar solo asignaturas de origen aprobadas. Comparar la nota con un mínimo configurable e inclusivo una vez que el docente confirme el valor y su aplicación según el origen.",
+      "ejemplo": "Si el docente fijara 7 sobre 10, una nota de 7,00 pasaría el filtro y una de 6,99 quedaría excluida."
+    },
+    {
+      "id": "R9",
+      "nombre": "Uso único del origen",
+      "estado": "pendiente_validacion",
+      "criterio": "Una asignatura cursada puede respaldar como máximo un destino en el expediente. Si hay conflicto entre propuestas, mostrar una advertencia y destacar la mejor según el criterio acordado. El profesor decide la asignación final.",
+      "ejemplo": "Una materia cursada aparece en propuestas de dos destinos. Solo una equivalencia aceptada puede usar ese origen."
+    },
+    {
+      "id": "R10",
+      "nombre": "Consistencia con el histórico",
+      "estado": "planificada",
+      "criterio": "Mostrar la decisión previa y su justificación cuando exista un antecedente para el mismo par origen–destino. Calcular el resultado actual con las reglas y los datos de la ejecución.",
+      "ejemplo": "Un par previamente homologado conserva su antecedente. Si hoy obtiene 78 % de cobertura con créditos suficientes, el resultado actual es Rechazo por contenidos."
+    },
+    {
+      "id": "R11",
+      "nombre": "Estudiantes externos",
+      "estado": "pendiente_validacion",
+      "criterio": "Aplicar R1 a R9 con los contenidos de la hoja Contenidos del XLSX, asociados por código de asignatura. Identificar la procedencia como contenidos declarados en el sílabo. El criterio propuesto omite el catálogo de origen y los precedentes. Si R2 requiere temas y faltan, aplicar R4.",
+      "ejemplo": "Una materia externa con créditos suficientes y cuatro de cinco contenidos de destino cubiertos alcanza 80 % con pesos iguales. Si carece de temas y requiere R2, queda como Datos incompletos."
+    }
+  ]
+}

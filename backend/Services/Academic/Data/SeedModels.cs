@@ -35,4 +35,5 @@ public sealed class SeedAsignatura
     public decimal Creditos { get; set; }
     public int Horas { get; set; }
     public string? UnidadOrganizacional { get; set; }
+    public bool EsTransversal { get; set; }
 }

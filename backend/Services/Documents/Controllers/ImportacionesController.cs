@@ -3,11 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using BuildingBlocks.Roles;
 
 namespace DocumentsService.Controllers;
 
 [ApiController]
 [Route("api/v1/documentos/importaciones")]
+[Authorize(Roles = $"{AppRoles.Administrador},{AppRoles.Profesor}")]
 public sealed class ImportacionesController : ControllerBase
 {
     private const long MaxFileSize = 5 * 1024 * 1024;
@@ -90,20 +93,41 @@ public sealed class ImportacionesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Confirmar(
-        [FromForm] IFormFile? archivo, [FromServices] IHttpClientFactory httpClientFactory, CancellationToken ct)
+        [FromForm] IFormFile? archivo,
+        [FromForm] string? datos,
+        [FromServices] IHttpClientFactory httpClientFactory,
+        CancellationToken ct)
     {
         var outcome = ValidateFile(archivo);
         if (!outcome.IsValid)
             return BadRequest(new { mensaje = outcome.Message, errores = outcome.Errors });
         if (outcome.Import is null)
             return BadRequest(new { mensaje = "No se pudo interpretar la información del archivo." });
+        var import = outcome.Import;
+        if (!string.IsNullOrWhiteSpace(datos))
+        {
+            try
+            {
+                import = JsonSerializer.Deserialize<ExternalStudentImport>(
+                    datos, new JsonSerializerOptions(JsonSerializerDefaults.Web)
+                    { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { mensaje = "Los datos corregidos de la vista previa no tienen un formato válido." });
+            }
+            if (import is null)
+                return BadRequest(new { mensaje = "Los datos corregidos no son válidos." });
+            if (!ValidateEditedImport(import, out var validationMessage))
+                return BadRequest(new { mensaje = validationMessage ?? "Los datos corregidos no son válidos." });
+        }
         if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var authorization)
             || !string.Equals(authorization.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase))
             return Unauthorized();
 
         using var request = new HttpRequestMessage(HttpMethod.Put, "/internal/estudiantes/importaciones")
         {
-            Content = JsonContent.Create(outcome.Import, options: new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            Content = JsonContent.Create(import, options: new JsonSerializerOptions(JsonSerializerDefaults.Web))
         };
         request.Headers.Authorization = authorization;
         using var response = await httpClientFactory.CreateClient("StudentsService").SendAsync(request, ct);
@@ -118,6 +142,52 @@ public sealed class ImportacionesController : ControllerBase
             StatusCode = (int)response.StatusCode
         };
     }
+
+    private static bool ValidateEditedImport(ExternalStudentImport import, out string? message)
+    {
+        message = null;
+        if (string.IsNullOrWhiteSpace(import.Cedula) || string.IsNullOrWhiteSpace(import.Nombres)
+            || import.Nombres.Trim().Length > 150 || string.IsNullOrWhiteSpace(import.Apellidos)
+            || import.Apellidos.Trim().Length > 150 || !Enum.IsDefined(typeof(IdentificationType), import.TipoIdentificacion)
+            || import.Tipo != 1)
+        {
+            message = "Completa identificación, nombres, apellidos y tipo de estudiante externo correctamente.";
+            return false;
+        }
+        if (import.TipoIdentificacion == 0 && !IsValidEcuadorianId(import.Cedula.Trim()))
+        {
+            message = "La cédula corregida no tiene un formato válido.";
+            return false;
+        }
+        if (import.TipoIdentificacion == 1
+            && (import.Cedula.Trim().Length is < 5 or > 20 || !import.Cedula.Trim().All(char.IsLetterOrDigit)))
+        {
+            message = "El pasaporte corregido debe tener entre 5 y 20 caracteres alfanuméricos.";
+            return false;
+        }
+        var history = import.Historial;
+        if (history is null || string.IsNullOrWhiteSpace(history.CarreraOrigenNombre)
+            || history.CarreraOrigenNombre.Trim().Length > 200 || string.IsNullOrWhiteSpace(history.InstitucionOrigen)
+            || history.InstitucionOrigen.Trim().Length > 200 || history.NivelActual is <= 0
+            || history.Asignaturas is null || history.Asignaturas.Count == 0)
+        {
+            message = "Completa los datos de la institución, carrera, nivel y al menos una asignatura.";
+            return false;
+        }
+        if (history.Asignaturas.Any(subject => string.IsNullOrWhiteSpace(subject.Nombre)
+            || subject.Nombre.Trim().Length > 200 || string.IsNullOrWhiteSpace(subject.Codigo)
+            || subject.Codigo.Trim().Length > 30 || subject.Creditos is null or <= 0 or > 999.99m
+            || subject.Horas is null or <= 0 || subject.Nota is < 0 or > 10
+            || string.IsNullOrWhiteSpace(subject.Periodo) || subject.Periodo.Trim().Length > 30)
+            || history.Asignaturas.Select(subject => subject.Codigo!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != history.Asignaturas.Count)
+        {
+            message = "Revisa los códigos, nombres, créditos, horas, notas y períodos de las asignaturas.";
+            return false;
+        }
+        return true;
+    }
+
+    private enum IdentificationType { Cedula = 0, Pasaporte = 1 }
 
     private static ValidationOutcome ValidateFile(IFormFile? archivo)
     {

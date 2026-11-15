@@ -10,6 +10,7 @@ public class Asignatura
     public decimal Creditos { get; set; }
     public int Horas { get; set; }
     public string? UnidadOrganizacional { get; set; }
+    public bool EsTransversal { get; set; }
 
     public MallaVersion? MallaVersion { get; set; }
     public Nivel? Nivel { get; set; }

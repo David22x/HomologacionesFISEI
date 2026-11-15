@@ -13,6 +13,9 @@ public class HomologationDbContext : DbContext
     public DbSet<Equivalencia> Equivalencias => Set<Equivalencia>();
     public DbSet<EquivalenciaOrigen> EquivalenciasOrigen => Set<EquivalenciaOrigen>();
 
+    public DbSet<ParHomologacion> Pares => Set<ParHomologacion>();
+    public DbSet<EjecucionReglas> EjecucionesReglas => Set<EjecucionReglas>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Expediente>(e =>
@@ -20,6 +23,7 @@ public class HomologationDbContext : DbContext
             e.ToTable("Expedientes");
             e.HasKey(x => x.Id);
             e.Property(x => x.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+            e.Property(x => x.ActualizadoEn).IsConcurrencyToken();
             e.Property(x => x.ProfesorNombre).HasMaxLength(200).IsRequired();
 
             // Solo un expediente activo por estudiante y carrera de destino.
@@ -34,6 +38,21 @@ public class HomologationDbContext : DbContext
                 .WithOne(x => x.Expediente)
                 .HasForeignKey(x => x.ExpedienteId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ParHomologacion>(e =>
+        {
+            e.ToTable("ParesHomologacion");
+            e.HasOne<Expediente>().WithMany().HasForeignKey(x => x.ExpedienteId);
+            e.HasIndex(x => new { x.ExpedienteId, x.AsignaturaCursadaId, x.AsignaturaDestinoId }).IsUnique();
+        });
+
+        modelBuilder.Entity<EjecucionReglas>(e =>
+        {
+            e.ToTable("EjecucionesReglas");
+            e.Property(x => x.ResultadosJson).IsRequired();
+            e.HasOne<Expediente>().WithMany().HasForeignKey(x => x.ExpedienteId);
+            e.HasIndex(x => new { x.ExpedienteId, x.EjecutadoEn });
         });
 
         modelBuilder.Entity<Equivalencia>(e =>

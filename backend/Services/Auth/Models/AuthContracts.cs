@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BuildingBlocks.Roles;
 
 namespace AuthService.Models;
 
@@ -36,3 +37,42 @@ public sealed record LoginResponse(
     string TokenType,
     DateTimeOffset ExpiresAt,
     AuthUserResponse User);
+
+/// <summary>User data managed by an administrator.</summary>
+public sealed record ManagedUserResponse(
+    Guid Id,
+    string Email,
+    string NombreCompleto,
+    bool Activo,
+    IReadOnlyList<string> Roles);
+
+/// <summary>Data required to create a managed account.</summary>
+public sealed record CreateManagedUserRequest
+{
+    [Required, EmailAddress, MaxLength(256)]
+    public required string Email { get; init; }
+
+    [Required, StringLength(200, MinimumLength = 2)]
+    public required string NombreCompleto { get; init; }
+
+    [Required, StringLength(100, MinimumLength = 6)]
+    public required string Password { get; init; }
+
+    [Required]
+    public required string Rol { get; init; }
+}
+
+/// <summary>Data required to update a managed account and its assigned role.</summary>
+public sealed record UpdateManagedUserRequest
+{
+    [Required, EmailAddress, MaxLength(256)]
+    public required string Email { get; init; }
+
+    [Required, StringLength(200, MinimumLength = 2)]
+    public required string NombreCompleto { get; init; }
+
+    [Required]
+    public required string Rol { get; init; }
+
+    public bool Activo { get; init; } = true;
+}

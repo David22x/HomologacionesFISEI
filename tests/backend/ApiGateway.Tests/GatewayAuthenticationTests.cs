@@ -96,6 +96,72 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
     }
 
     [Theory]
+    [InlineData("GET", "/api/v1/homologacion/expedientes")]
+    [InlineData("POST", "/api/v1/homologacion/expedientes")]
+    public async Task RutaExpedientes_SinToken_Devuelve401(string method, string path)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), path)
+        {
+            Content = new StringContent("{}")
+        };
+
+        using var response = await _fixture.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("GET", "/api/v1/homologacion/expedientes")]
+    [InlineData("POST", "/api/v1/homologacion/expedientes")]
+    public async Task RutaExpedientes_ConToken_ReenviaAlServicio(string method, string path)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), path)
+        {
+            Content = new StringContent("{}")
+        };
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue(
+                "Bearer", GatewayApiFactory.CreateToken(DateTime.UtcNow.AddMinutes(5)));
+
+        using var response = await _fixture.Client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public void ConfiguracionExpedientes_UsaHomologationServiceYExigeBearer()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "ocelot.json")));
+        var routes = document.RootElement.GetProperty("Routes").EnumerateArray()
+            .Where(route => route.GetProperty("UpstreamPathTemplate").GetString()!
+                .StartsWith("/api/v1/homologacion/expedientes", StringComparison.Ordinal))
+            .ToList();
+
+        var expectedMethods = new Dictionary<string, string[]>
+        {
+            ["/api/v1/homologacion/expedientes"] = ["Get", "Post"],
+            ["/api/v1/homologacion/expedientes/{id}/pares"] = ["Get", "Put"],
+            ["/api/v1/homologacion/expedientes/{id}/pares/precargar"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/evaluar-reglas"] = ["Post"]
+        };
+        Assert.Equal(expectedMethods.Keys.Order(), routes
+            .Select(route => route.GetProperty("UpstreamPathTemplate").GetString()!)
+            .Order());
+
+        foreach (var route in routes)
+        {
+            var path = route.GetProperty("UpstreamPathTemplate").GetString()!;
+            Assert.Equal(path, route.GetProperty("DownstreamPathTemplate").GetString());
+            Assert.Equal(expectedMethods[path].Order(), route.GetProperty("UpstreamHttpMethod")
+                .EnumerateArray().Select(method => method.GetString()!).Order());
+            Assert.Equal(5196, route.GetProperty("DownstreamHostAndPorts")[0].GetProperty("Port").GetInt32());
+            Assert.Equal("Bearer", route.GetProperty("AuthenticationOptions")
+                .GetProperty("AuthenticationProviderKey").GetString());
+        }
+    }
+
+    [Theory]
     [InlineData("GET", "/api/v1/documentos/importaciones/plantilla")]
     [InlineData("POST", "/api/v1/documentos/importaciones")]
     [InlineData("POST", "/api/v1/documentos/importaciones/confirmar")]
@@ -279,6 +345,14 @@ public sealed class GatewayTestFixture : IAsyncLifetime
                 return Task.CompletedTask;
             });
         _downstream.MapMethods(
+            "/api/v1/homologacion/expedientes",
+            ["GET", "POST"],
+            context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            });
+        _downstream.MapMethods(
             "/api/v1/documentos/{**path}",
             ["GET", "POST"],
             context =>
@@ -327,6 +401,22 @@ public sealed class GatewayTestFixture : IAsyncLifetime
                     },
                     UpstreamPathTemplate = "/api/v1/estudiantes/{everything}",
                     UpstreamHttpMethod = new[] { "GET", "PUT" },
+                    AuthenticationOptions = new
+                    {
+                        AuthenticationProviderKey = "Bearer",
+                        AllowedScopes = Array.Empty<string>()
+                    }
+                },
+                new
+                {
+                    DownstreamPathTemplate = "/api/v1/homologacion/expedientes",
+                    DownstreamScheme = "http",
+                    DownstreamHostAndPorts = new[]
+                    {
+                        new { Host = "127.0.0.1", Port = downstreamPort }
+                    },
+                    UpstreamPathTemplate = "/api/v1/homologacion/expedientes",
+                    UpstreamHttpMethod = new[] { "GET", "POST" },
                     AuthenticationOptions = new
                     {
                         AuthenticationProviderKey = "Bearer",

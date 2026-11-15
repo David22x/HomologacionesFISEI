@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { catalogService, type Asignatura, type Carrera, type MallaCurricular, type Nivel } from '../services/catalogService';
+import { catalogService, type Asignatura, type Carrera, type MallaCurricular, type Nivel, type PlanAnaliticoPreview } from '../services/catalogService';
 import SearchableSelect from '../../../components/SearchableSelect';
 
 type Section = 'carreras' | 'mallas' | 'niveles' | 'asignaturas';
@@ -19,6 +18,9 @@ export default function CatalogMaintenancePage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [planFile, setPlanFile] = useState<File | null>(null);
+  const [planSubjectId, setPlanSubjectId] = useState('');
+  const [planJson, setPlanJson] = useState('');
 
   async function cargarCarreras() {
     const rows = await catalogService.obtenerCarreras();
@@ -74,6 +76,7 @@ export default function CatalogMaintenancePage() {
           nivelId, codigo: String(data.get('codigo')).trim(), nombre: String(data.get('nombre')).trim(),
           creditos: Number(data.get('creditos')), horas: Number(data.get('horas')),
           unidadOrganizacional: String(data.get('unidad') || '').trim() || null,
+          esTransversal: data.get('esTransversal') === 'on',
         });
       }
       setEditId(''); setNotice(editId ? 'Cambios guardados.' : 'Registro creado.');
@@ -118,11 +121,35 @@ export default function CatalogMaintenancePage() {
     finally { setBusy(false); }
   }
 
+  async function analizarPlan(id: string, file: File | null) {
+    if (!file) return;
+    setBusy(true); setError(''); setNotice(''); setPlanSubjectId(id); setPlanFile(file);
+    try { const preview = await catalogService.analizarPlan(id, file); setPlanJson(JSON.stringify(preview, null, 2)); setNotice('PDF analizado. Revisa y edita el JSON extraído antes de confirmar.'); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo analizar el PDF.'); setPlanSubjectId(''); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmarPlan() {
+    if (!planFile || !planSubjectId) return;
+    let data: PlanAnaliticoPreview;
+    try { data = JSON.parse(planJson) as PlanAnaliticoPreview; }
+    catch { setError('El contenido editado debe ser JSON válido.'); return; }
+    setBusy(true); setError(''); setNotice('');
+    try { await catalogService.confirmarPlan(planSubjectId, planFile, data); setPlanJson(''); setPlanSubjectId(''); setPlanFile(null); setNotice('Plan analítico guardado y datos de la asignatura actualizados.'); await cargarAsignaturas(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo guardar el plan analítico.'); }
+    finally { setBusy(false); }
+  }
+
+  async function descargarPlan(id: string) {
+    try { await catalogService.descargarPlan(id); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo descargar el plan analítico.'); }
+  }
+
   const items = section === 'carreras' ? carreras : section === 'mallas' ? mallas : section === 'niveles' ? niveles : asignaturas;
   const singular: Record<Section, string> = { carreras: 'carrera', mallas: 'malla', niveles: 'nivel', asignaturas: 'asignatura' };
 
   return <main className="catalog-page">
-    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Mantenimiento del catálogo</h1><p>Administra carreras, versiones de malla, niveles y asignaturas.</p></div><Link to="/catalogo" className="catalog-back-link">Volver a consulta</Link></header>
+    <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Mantenimiento del catálogo</h1><p>Administra carreras, versiones de malla, niveles y asignaturas.</p></div></header>
     <nav className="maintenance-tabs" aria-label="Secciones del catálogo">{(['carreras','mallas','niveles','asignaturas'] as Section[]).map(tab => <button type="button" key={tab} className={section === tab ? 'active' : ''} onClick={() => { setSection(tab); setEditId(''); setSearchText(''); setError(''); setNotice(''); }}>{tab[0].toUpperCase()+tab.slice(1)}</button>)}</nav>
     <section className="maintenance-context">
       {section !== 'carreras' && <SearchableSelect key="maintenance-career" id="maintenance-carrera" label="Buscar carrera" value={carreraId} placeholder="Escribe para buscar una carrera" options={carreras.map(c => ({ value: c.id, label: `${c.nombre} (${c.codigo})` }))} onChange={id => { setCarreraId(id); setMallaId(''); setNivelId(''); }} />}
@@ -130,13 +157,14 @@ export default function CatalogMaintenancePage() {
       {section === 'asignaturas' && <SearchableSelect key={`maintenance-nivel-${mallaId}`} id="maintenance-nivel" label="Buscar nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId} options={niveles.map(n => ({ value: n.id, label: `Nivel ${n.numero}` }))} onChange={setNivelId} />}
     </section>
     {error && <div role="alert" className="catalog-error">{error}</div>}{notice && <div role="status" className="maintenance-notice">{notice}</div>}
+    {section === 'asignaturas' && planJson && <section className="maintenance-form plan-preview"><h2>Revisar extracción del plan analítico</h2><p>Verifica y corrige nombre, código, créditos, horas, unidad organizacional y los temas/subtemas. Los temas previos de esta asignatura se reemplazarán al confirmar.</p><label>Datos extraídos (JSON editable)<textarea rows={18} value={planJson} onChange={e => setPlanJson(e.target.value)} /></label><div className="maintenance-actions"><button className="maintenance-primary" type="button" disabled={busy} onClick={() => void confirmarPlan()}>{busy ? 'Guardando…' : 'Confirmar y guardar'}</button><button type="button" disabled={busy} onClick={() => { setPlanJson(''); setPlanSubjectId(''); setPlanFile(null); }}>Cancelar</button></div></section>}
     <section className="maintenance-layout">
       <form className="maintenance-form" onSubmit={submit} key={`${section}-${editId}`}>
         <h2>{editId ? 'Editar' : 'Agregar'} {singular[section]}</h2>
         {section === 'carreras' && <><label>Código<input name="codigo" required maxLength={20} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><label className="check-field"><input name="esDemo" type="checkbox" /> Marcar como DEMO</label></>}
         {section === 'mallas' && <label>Versión<input name="version" required maxLength={20} placeholder="Ej. 2026" /></label>}
         {section === 'niveles' && <label>Número de nivel<input name="numero" type="number" required min={1} /></label>}
-        {section === 'asignaturas' && <><label>Código<input name="codigo" required maxLength={30} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><div className="maintenance-form-row"><label>Créditos<input name="creditos" type="number" required min="0.01" max="999.99" step="0.01" /></label><label>Horas<input name="horas" type="number" required min={1} /></label></div><label>Unidad organizacional<input name="unidad" maxLength={100} /></label></>}
+        {section === 'asignaturas' && <><label>Código<input name="codigo" required maxLength={30} /></label><label>Nombre<input name="nombre" required maxLength={200} /></label><div className="maintenance-form-row"><label>Créditos<input name="creditos" type="number" required min="0.01" max="999.99" step="0.01" /></label><label>Horas<input name="horas" type="number" required min={1} /></label></div><label>Unidad organizacional<input name="unidad" maxLength={100} /></label><label className="check-field"><input name="esTransversal" type="checkbox" /> Asignatura transversal</label></>}
         <div className="maintenance-actions"><button className="maintenance-primary" disabled={busy || (section !== 'carreras' && !carreraId) || ((section === 'niveles' || section === 'asignaturas') && !mallaId) || (section === 'asignaturas' && !nivelId)}>{busy ? 'Guardando…' : editId ? 'Guardar cambios' : 'Crear'}</button>{editId && <button type="button" onClick={() => setEditId('')}>Cancelar</button>}</div>
       </form>
       <section className="maintenance-list">
@@ -166,6 +194,8 @@ export default function CatalogMaintenancePage() {
               return <article key={item.id} className="maintenance-item">
                 <div><strong>{title}</strong><small>{detail}</small></div>
                 <div className="maintenance-item-actions">
+                  {section === 'asignaturas' && <label className="plan-upload-button">Subir plan PDF<input type="file" accept="application/pdf,.pdf" disabled={busy} onChange={event => { void analizarPlan(item.id, event.target.files?.[0] ?? null); event.target.value = ''; }} /></label>}
+                  {section === 'asignaturas' && <button type="button" disabled={busy} onClick={() => void descargarPlan(item.id)}>Descargar PDF</button>}
                   {malla && <button type="button" disabled={busy || malla.estado === 'Publicada'} onClick={() => void publicar(malla)}>Publicar</button>}
                   <button type="button" onClick={() => editar(item)}>Editar</button>
                 </div>

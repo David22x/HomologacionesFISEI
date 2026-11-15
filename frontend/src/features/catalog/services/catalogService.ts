@@ -1,3 +1,5 @@
+import { notifySessionExpired } from '../../auth/services/sessionEvents';
+
 
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
@@ -34,6 +36,7 @@ export interface Asignatura {
   creditos: number;
   horas: number;
   unidadOrganizacional: string | null;
+  esTransversal: boolean;
 }
 
 export interface Tema {
@@ -56,6 +59,33 @@ export interface TemaWrite {
   nombre: string;
   orden: number;
   horasEstimadas: number | null;
+}
+
+export interface PlanAnaliticoPreview {
+  nombre: string; codigo: string; creditos: number; horas: number;
+  unidadOrganizacional: string; temas: { nombre: string; subtemas: string[] }[]; advertencias: string[];
+}
+
+async function cargarPlan(asignaturaId: string, archivo: File, confirmar?: PlanAnaliticoPreview): Promise<PlanAnaliticoPreview | void> {
+  const token = sessionStorage.getItem('accessToken');
+  if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
+  const body = new FormData(); body.append('archivo', archivo);
+  const ruta = `${API_URL}/api/v1/catalogo/asignaturas/${asignaturaId}/plan-analitico/${confirmar ? 'confirmar' : 'analizar'}`;
+  if (confirmar) body.append('datos', JSON.stringify(confirmar));
+  const response = await fetch(ruta, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
+  if (response.status === 401) notifySessionExpired();
+  if (!response.ok) { let message = `No se pudo procesar el PDF (HTTP ${response.status}).`; try { const err = await response.json(); message = err.detail || err.title || message; } catch { /* mensaje HTTP */ } throw new Error(message); }
+  if (confirmar) return;
+  return response.json() as Promise<PlanAnaliticoPreview>;
+}
+
+async function descargarPlan(asignaturaId: string): Promise<void> {
+  const token = sessionStorage.getItem('accessToken');
+  const response = await fetch(`${API_URL}/api/v1/catalogo/asignaturas/${asignaturaId}/plan-analitico/archivo`, { headers: { Authorization: `Bearer ${token ?? ''}` } });
+  if (response.status === 401) notifySessionExpired();
+  if (!response.ok) { let message = 'No se pudo descargar el plan analítico.'; try { const err = await response.json(); message = err.detail || err.title || message; } catch { /* mensaje genérico */ } throw new Error(message); }
+  const blob = await response.blob(); const url = URL.createObjectURL(blob); const link = document.createElement('a');
+  link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] ?? 'plan-analitico.pdf'; link.click(); URL.revokeObjectURL(url);
 }
 
 async function solicitar<T>(ruta: string): Promise<T> {
@@ -83,6 +113,7 @@ async function solicitarConMetodo<T>(
   });
 
   if (response.status === 401) {
+    notifySessionExpired();
     throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
   }
 
@@ -106,6 +137,9 @@ async function solicitarConMetodo<T>(
 }
 
 export const catalogService = {
+  analizarPlan(asignaturaId: string, archivo: File) { return cargarPlan(asignaturaId, archivo) as Promise<PlanAnaliticoPreview>; },
+  confirmarPlan(asignaturaId: string, archivo: File, datos: PlanAnaliticoPreview) { return cargarPlan(asignaturaId, archivo, datos) as Promise<void>; },
+  descargarPlan,
   obtenerCarreras(): Promise<Carrera[]> {
     return solicitar<Carrera[]>('/api/v1/catalogo/carreras');
   },

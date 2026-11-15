@@ -192,9 +192,6 @@ export default function CatalogPage() {
           </p>
         </div>
 
-        <Link to="/home" className="catalog-back-link">
-          Volver al inicio
-        </Link>
       </header>
 
       <section className="catalog-filters" aria-label="Filtros del catálogo">
@@ -273,6 +270,7 @@ export default function CatalogPage() {
                   <th>Créditos</th>
                   <th>Horas</th>
                   <th>Unidad organizacional</th>
+                  <th>Transversal</th>
                   <th>Unidades temáticas</th>
                 </tr>
               </thead>
@@ -285,6 +283,7 @@ export default function CatalogPage() {
                     <td>{asignatura.creditos}</td>
                     <td>{asignatura.horas}</td>
                     <td>{asignatura.unidadOrganizacional ?? '—'}</td>
+                    <td>{asignatura.esTransversal ? 'Sí' : '—'}</td>
                     <td><Link className="catalog-topic-link" to={`/catalogo/asignaturas/${asignatura.id}/temas`} state={{ asignatura }}>Ver temas</Link></td>
                   </tr>
                 ))}

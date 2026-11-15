@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import SearchableSelect from '../../../components/SearchableSelect';
 import {
   catalogService,
+  type Asignatura,
   type Carrera,
   type MallaCurricular,
 } from '../../catalog/services/catalogService';
@@ -9,8 +10,10 @@ import {
   expedientesService,
   estadosExpediente,
   type Expediente,
+  type ParHomologacion,
+  type ResultadoParExpediente,
 } from '../expedientesService';
-import { studentsService, type Estudiante } from '../studentsService';
+import { studentsService, type AsignaturaCursada, type Estudiante } from '../studentsService';
 
 interface ExpedientesPageProps {
   canCreate: boolean;
@@ -23,12 +26,20 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [detailMallas, setDetailMallas] = useState<MallaCurricular[]>([]);
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [selectedExpediente, setSelectedExpediente] = useState<Expediente | null>(null);
+  const [originCourses, setOriginCourses] = useState<AsignaturaCursada[]>([]);
+  const [destinationCourses, setDestinationCourses] = useState<Asignatura[]>([]);
+  const [pairs, setPairs] = useState<ParHomologacion[]>([]);
+  const [results, setResults] = useState<ResultadoParExpediente[]>([]);
+  const [pairOriginId, setPairOriginId] = useState('');
+  const [pairDestinationId, setPairDestinationId] = useState('');
   const [studentId, setStudentId] = useState('');
   const [careerId, setCareerId] = useState('');
   const [mallaId, setMallaId] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMallas, setLoadingMallas] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const detailRequestId = useRef(0);
@@ -78,14 +89,113 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     const requestId = ++detailRequestId.current;
     setSelectedExpediente(expediente);
     setDetailMallas([]);
+    setOriginCourses([]);
+    setDestinationCourses([]);
+    setPairs([]);
+    setResults([]);
+    setPairOriginId('');
+    setPairDestinationId('');
+    setLoadingDetail(true);
     setError('');
     try {
-      const rows = await catalogService.obtenerMallas(expediente.carreraDestinoId);
-      if (requestId === detailRequestId.current) setDetailMallas(rows);
+      const student = students.find(item => item.id === expediente.estudianteId);
+      const [rows, pairRows] = await Promise.all([
+        catalogService.obtenerMallas(expediente.carreraDestinoId),
+        expedientesService.listarPares(expediente.id),
+      ]);
+      const levels = await catalogService.obtenerNiveles(expediente.mallaDestinoId);
+      const assignmentGroups = await Promise.all(levels.map(level =>
+        catalogService.obtenerAsignaturas(expediente.mallaDestinoId, level.id, ''),
+      ));
+      if (requestId === detailRequestId.current) {
+        setDetailMallas(rows);
+        setOriginCourses(student?.historial?.asignaturas ?? []);
+        setDestinationCourses(assignmentGroups.flat());
+        setPairs(pairRows);
+      }
     } catch (cause) {
       if (requestId === detailRequestId.current) {
         setError(cause instanceof Error ? cause.message : 'No se pudo cargar la malla del expediente.');
       }
+    } finally {
+      if (requestId === detailRequestId.current) setLoadingDetail(false);
+    }
+  }
+
+  function addPair() {
+    if (!selectedExpediente || !pairOriginId || !pairDestinationId) return;
+    if (pairs.some(pair => pair.asignaturaCursadaId === pairOriginId
+      && pair.asignaturaDestinoId === pairDestinationId)) {
+      setError('Ese par ya está agregado.');
+      return;
+    }
+    setPairs(current => [...current, {
+      id: `${pairOriginId}:${pairDestinationId}`,
+      expedienteId: selectedExpediente.id,
+      asignaturaCursadaId: pairOriginId,
+      asignaturaDestinoId: pairDestinationId,
+      precargado: false,
+    }]);
+    setResults([]);
+    setPairOriginId('');
+    setPairDestinationId('');
+    setError('');
+  }
+
+  async function preloadPairs() {
+    if (!selectedExpediente) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const rows = await expedientesService.precargarPares(selectedExpediente.id);
+      const keys = new Set(rows.map(pair => `${pair.asignaturaCursadaId}:${pair.asignaturaDestinoId}`));
+      const manualesPendientes = pairs.filter(pair => {
+        const key = `${pair.asignaturaCursadaId}:${pair.asignaturaDestinoId}`;
+        if (keys.has(key)) return false;
+        keys.add(key);
+        return true;
+      });
+      setPairs([...rows, ...manualesPendientes]);
+      setResults([]);
+      setNotice('Se precargaron los pares cuyos nombres coinciden exactamente.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudieron precargar los pares.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function evaluatePairs() {
+    if (!selectedExpediente) return;
+    if (pairs.length === 0) {
+      setError('Agrega al menos un par antes de evaluar.');
+      return;
+    }
+    setEvaluating(true);
+    setError('');
+    setNotice('');
+    try {
+      const savedPairs = await expedientesService.guardarPares(selectedExpediente.id,
+        pairs.map(pair => ({
+          asignaturaCursadaId: pair.asignaturaCursadaId,
+          asignaturaDestinoId: pair.asignaturaDestinoId,
+        })),
+      );
+      setPairs(savedPairs);
+      const execution = await expedientesService.evaluarPorReglas(selectedExpediente.id);
+      setResults(execution.resultados);
+      setSelectedExpediente(current => current
+        ? { ...current, estado: execution.estado }
+        : current);
+      setExpedientes(current => current.map(item => item.id === selectedExpediente.id
+        ? { ...item, estado: execution.estado }
+        : item));
+      setNotice(`Evaluación completada con la versión de reglas ${execution.resultados[0]?.evaluacion.reglas.versionReglas ?? 'vigente'}.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo evaluar el expediente.');
+    } finally {
+      setEvaluating(false);
     }
   }
 
@@ -225,8 +335,101 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         <div><dt>Profesor responsable</dt><dd>{selectedExpediente.profesorNombre || selectedExpediente.profesorId}</dd></div>
         <div><dt>Fecha de creación</dt><dd>{new Date(selectedExpediente.creadoEn).toLocaleString()}</dd></div>
       </dl>
+      <section className="eligibility-panel" aria-labelledby="eligibility-heading">
+        <div className="students-panel-heading">
+          <div>
+            <h3 id="eligibility-heading">Elegibilidad por reglas</h3>
+            <p>Selecciona las asignaturas de origen y destino para comparar créditos, contenidos y carga horaria.</p>
+          </div>
+          {canCreate && <button className="students-secondary" type="button" onClick={() => { void preloadPairs(); }} disabled={saving || loadingDetail || originCourses.length === 0 || destinationCourses.length === 0}>
+            {saving ? 'Precargando…' : 'Precargar coincidencias'}
+          </button>}
+        </div>
+        {loadingDetail ? <p className="catalog-message" role="status">Cargando historial, asignaturas y pares…</p> : <>
+          {originCourses.length === 0 && <p className="catalog-message">El estudiante no tiene asignaturas cursadas disponibles en su historial.</p>}
+          {destinationCourses.length === 0 && <p className="catalog-message">La malla de destino no tiene asignaturas disponibles.</p>}
+          {canCreate && <div className="eligibility-pair-picker">
+            <label>Asignatura de origen
+              <select value={pairOriginId} onChange={event => setPairOriginId(event.target.value)} disabled={originCourses.length === 0}>
+                <option value="">Selecciona del historial</option>
+                {originCourses.filter(course => course.id).map(course => <option key={course.id} value={course.id}>
+                  {course.codigo ? `${course.codigo} · ` : ''}{course.nombre} · {course.creditos ?? '—'} créditos
+                </option>)}
+              </select>
+            </label>
+            <label>Asignatura de destino
+              <select value={pairDestinationId} onChange={event => setPairDestinationId(event.target.value)} disabled={destinationCourses.length === 0}>
+                <option value="">Selecciona de la malla</option>
+                {destinationCourses.map(course => <option key={course.id} value={course.id}>
+                  {course.codigo} · {course.nombre} · {course.creditos} créditos
+                </option>)}
+              </select>
+            </label>
+            <button className="students-secondary" type="button" onClick={addPair} disabled={!pairOriginId || !pairDestinationId}>Agregar par</button>
+          </div>}
+          <div className="student-table-wrap eligibility-results-wrap">
+            <table className="student-table eligibility-results-table">
+              <thead><tr><th>Asignatura de origen</th><th>Asignatura de destino</th><th>Créditos</th><th>% contenidos</th><th>Umbral</th><th>Resultado</th><th>Carga horaria</th>{canCreate && <th>Acción</th>}</tr></thead>
+              <tbody>{pairs.map(pair => {
+                const origin = originCourses.find(course => course.id === pair.asignaturaCursadaId);
+                const destination = destinationCourses.find(course => course.id === pair.asignaturaDestinoId);
+                const result = results.find(item => item.parId === pair.id
+                  || (item.asignaturaCursadaId === pair.asignaturaCursadaId && item.asignaturaDestinoId === pair.asignaturaDestinoId));
+                const rules = result?.evaluacion.reglas;
+                const hoursWarning = rules?.advertencias.find(item => /horas|carga horaria/i.test(item));
+                return <tr key={pair.id}>
+                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
+                  <td>{result?.nombreDestino ?? destination?.nombre ?? 'Asignatura no disponible'}{destination?.codigo ? <small>{destination.codigo}</small> : null}</td>
+                  <td>{origin?.creditos ?? '—'} / {destination?.creditos ?? '—'}{rules?.razonCreditos != null && <small>{formatPercent(rules.razonCreditos)}</small>}</td>
+                  <td>{rules?.coberturaContenidos == null ? '—' : formatPercent(rules.coberturaContenidos)}</td>
+                  <td>Créditos 80%<small>Contenidos 80%</small></td>
+                  <td>{rules ? resultadoLabel(rules.resultado) : 'Pendiente'}</td>
+                  <td>{rules?.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}{hoursWarning && <small className="eligibility-warning">{hoursWarning}</small>}</td>
+                  {canCreate && <td><button className="students-remove" type="button" onClick={() => {
+                    setPairs(current => current.filter(item => item.id !== pair.id));
+                    setResults(current => current.filter(item => item.parId !== pair.id));
+                  }}>Quitar</button></td>}
+                </tr>;
+              })}
+              {pairs.length === 0 && <tr><td colSpan={canCreate ? 8 : 7} className="eligibility-empty">Aún no hay pares. Selecciona asignaturas o precarga coincidencias por nombre.</td></tr>}</tbody>
+            </table>
+          </div>
+          {canCreate && <div className="eligibility-actions">
+            <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0}>
+              {evaluating ? 'Evaluando…' : 'Evaluar por reglas'}
+            </button>
+            {results.length > 0 && <span>Evaluación guardada · {new Date().toLocaleString()}</span>}
+          </div>}
+          {results.length > 0 && <p className="eligibility-threshold-note">Umbrales aplicados: mínimo 80% de créditos y 80% de contenidos. La carga horaria se muestra como advertencia cuando queda bajo el 80%.</p>}
+        </>}
+      </section>
     </section>}
   </main>;
+}
+
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat('es-EC', { style: 'percent', maximumFractionDigits: 2 }).format(value);
+}
+
+function resultadoLabel(value: string | number): string {
+  const labels: Record<number, string> = {
+    0: 'Homologable',
+    1: 'Rechazo por créditos',
+    2: 'Rechazo por contenidos',
+    3: 'Datos incompletos',
+    4: 'Transversal directa',
+    5: 'Origen no aprobado',
+  };
+  if (typeof value === 'number') return labels[value] ?? `Resultado ${value}`;
+  const labelsByName: Record<string, string> = {
+    Homologable: 'Homologable',
+    RechazoPorCreditos: 'Rechazo por créditos',
+    RechazoPorContenidos: 'Rechazo por contenidos',
+    DatosIncompletos: 'Datos incompletos',
+    TransversalDirecta: 'Transversal directa',
+    OrigenNoAprobado: 'Origen no aprobado',
+  };
+  return labelsByName[value] ?? value;
 }
 
 function estadoLabel(estado: number | string): string {

@@ -25,6 +25,39 @@ export interface ExpedienteCreateRequest {
   mallaAplicableRefId: string;
 }
 
+export interface ParHomologacion {
+  id: string;
+  expedienteId: string;
+  asignaturaCursadaId: string;
+  asignaturaDestinoId: string;
+  precargado: boolean;
+}
+
+export interface ResultadoReglasExpediente {
+  resultado: string | number;
+  razonCreditos: number | null;
+  coberturaContenidos: number | null;
+  razonHoras: number | null;
+  advertencias: string[];
+  versionReglas: string;
+}
+
+export interface ResultadoParExpediente {
+  parId: string;
+  asignaturaCursadaId: string;
+  nombreOrigen: string;
+  asignaturaDestinoId: string;
+  nombreDestino: string;
+  evaluacion: { reglas: ResultadoReglasExpediente };
+}
+
+export interface EjecucionReglasExpediente {
+  id: string;
+  ejecutadoEn: string;
+  estado: string;
+  resultados: ResultadoParExpediente[];
+}
+
 async function request<T>(
   path: string,
   method: 'GET' | 'POST' | 'PUT' = 'GET',
@@ -66,5 +99,17 @@ export const expedientesService = {
   },
   crear(datos: ExpedienteCreateRequest): Promise<Expediente> {
     return request<Expediente>('/api/v1/homologacion/expedientes', 'POST', datos);
+  },
+  listarPares(expedienteId: string): Promise<ParHomologacion[]> {
+    return request<ParHomologacion[]>(`/api/v1/homologacion/expedientes/${expedienteId}/pares`);
+  },
+  guardarPares(expedienteId: string, pares: Array<Pick<ParHomologacion, 'asignaturaCursadaId' | 'asignaturaDestinoId'>>): Promise<ParHomologacion[]> {
+    return request<ParHomologacion[]>(`/api/v1/homologacion/expedientes/${expedienteId}/pares`, 'PUT', pares);
+  },
+  precargarPares(expedienteId: string): Promise<ParHomologacion[]> {
+    return request<ParHomologacion[]>(`/api/v1/homologacion/expedientes/${expedienteId}/pares/precargar`, 'POST');
+  },
+  evaluarPorReglas(expedienteId: string): Promise<EjecucionReglasExpediente> {
+    return request<EjecucionReglasExpediente>(`/api/v1/homologacion/expedientes/${expedienteId}/evaluar-reglas`, 'POST');
   },
 };

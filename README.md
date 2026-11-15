@@ -34,6 +34,19 @@ docker compose ps
 
 Compose construye e inicia los contenedores en orden: espera a que SQL Server esté saludable, crea las bases de datos y después inicia los servicios. Auth, Students y Homologation aplican sus migraciones al arrancar; Academic prepara su catálogo. El frontend queda en `http://localhost:5173`, y el login usa las credenciales definidas en `ADMIN_PASSWORD` y `PROFESSOR_PASSWORD` dentro de `.env`.
 
+### Ollama y modelos locales
+
+El primer inicio descarga automáticamente los modelos configurados en `infrastructure/.env`: `bge-m3` para embeddings y `qwen2.5:7b` para lenguaje. Compose espera a que Ollama responda y a que termine la descarga antes de iniciar Agent IA. Los modelos se guardan en el volumen persistente `ollama-data`, así que no vuelven a descargarse mientras conserves ese volumen. El modelo de lenguaje queda preparado para la tarea de explicación; el comparador actual usa `OLLAMA_EMBEDDING_MODEL`.
+
+Las descargas iniciales ocupan aproximadamente 5.9 GB (BGE-M3: 1.2 GB; Qwen2.5 7B: 4.7 GB), además del espacio para imágenes Docker. Reserva al menos 10 GB de memoria para Docker y usa un equipo con 16 GB de RAM para la demostración; el consumo real varía según el contexto y los modelos que se estén ejecutando. Ollama puede funcionar por CPU, aunque la primera evaluación puede tardar más.
+
+Puedes cambiar los nombres de modelo en `.env` y comprobar que quedaron disponibles con:
+
+```powershell
+docker compose exec ollama ollama list
+docker compose logs ollama ollama-models agent-ia
+```
+
 Puedes consultar el estado y los registros con:
 
 ```powershell

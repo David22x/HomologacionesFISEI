@@ -1,8 +1,10 @@
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Net.Http.Json;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace HomologationService.Services;
@@ -27,12 +29,18 @@ public interface IComparadorContenidosIa
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Genera embeddings locales con Ollama. La cache guarda cada contenido del
+/// catalogo por separado, de modo que se reutiliza aunque cambie el expediente.
+/// </summary>
 public sealed class OllamaComparadorContenidos(
     HttpClient httpClient,
     IConfiguration configuration,
     IMemoryCache cache) : IComparadorContenidosIa
 {
     private const string ModeloPredeterminado = "bge-m3";
+    private const int IntentosMaximos = 3;
+    private static readonly TimeSpan DuracionCache = TimeSpan.FromHours(24);
 
     public async Task<IReadOnlyList<CoincidenciaIa>> CompararAsync(
         IReadOnlyList<ContenidoOrigenIa> origen,
@@ -44,53 +52,15 @@ public sealed class OllamaComparadorContenidos(
 
         var modelo = configuration["Ollama:EmbeddingModel"]
             ?? ModeloPredeterminado;
-        var textos = origen.Select(x => x.Descripcion.Trim())
-            .Concat(destino.Select(x => x.Descripcion.Trim()))
+
+        // Incluir codigo y nombre permite que el indice distinga contenidos
+        // homonimos de asignaturas diferentes. La normalizacion estabiliza la clave.
+        var textos = origen
+            .Select(x => NormalizarTexto($"{x.Codigo} {x.Descripcion}"))
+            .Concat(destino.Select(x => NormalizarTexto($"{x.Codigo} {x.Descripcion}")))
             .ToArray();
-        var datos = JsonSerializer.Serialize(new { modelo, textos });
-        var hash = Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(datos)));
-        var cacheKey = $"ollama:embeddings:{hash}";
+        var embeddings = await ObtenerEmbeddingsAsync(modelo, textos, cancellationToken);
 
-        if (!cache.TryGetValue(cacheKey, out float[][]? embeddings)
-            || embeddings is null)
-        {
-            using var respuesta = await httpClient.PostAsJsonAsync(
-                "api/embed",
-                new { model = modelo, input = textos },
-                cancellationToken);
-
-            if (!respuesta.IsSuccessStatusCode)
-            {
-                var estado = respuesta.StatusCode;
-                throw new HttpRequestException(
-                    $"Ollama respondiÃ³ con HTTP {(int)estado}.",
-                    inner: null,
-                    statusCode: estado);
-            }
-
-            var documento = await respuesta.Content
-                .ReadFromJsonAsync<RespuestaEmbeddings>(
-                    cancellationToken: cancellationToken);
-            embeddings = documento?.Embeddings;
-            if (embeddings is null || embeddings.Length != textos.Length
-                || embeddings.Any(x => x.Length == 0))
-            {
-                throw new InvalidOperationException(
-                    "Ollama no devolviÃ³ los embeddings esperados. Verifica el modelo de embeddings.");
-            }
-
-            cache.Set(cacheKey, embeddings, TimeSpan.FromHours(12));
-        }
-
-        return CrearCoincidencias(origen, destino, embeddings);
-    }
-
-    private static IReadOnlyList<CoincidenciaIa> CrearCoincidencias(
-        IReadOnlyList<ContenidoOrigenIa> origen,
-        IReadOnlyList<ContenidoDestinoIa> destino,
-        float[][] embeddings)
-    {
         var resultados = new List<CoincidenciaIa>(destino.Count);
         for (var indiceDestino = 0; indiceDestino < destino.Count; indiceDestino++)
         {
@@ -113,13 +83,125 @@ public sealed class OllamaComparadorContenidos(
                 (decimal)Math.Clamp(mejorSimilitud, 0d, 1d),
                 $"Mayor similitud con {origen[mejorIndice].Codigo}: {origen[mejorIndice].Descripcion}"));
         }
+
         return resultados;
+    }
+
+    private async Task<float[][]> ObtenerEmbeddingsAsync(
+        string modelo,
+        string[] textos,
+        CancellationToken cancellationToken)
+    {
+        var resultado = new float[textos.Length][];
+        var indicesFaltantes = new List<int>();
+        for (var i = 0; i < textos.Length; i++)
+        {
+            var clave = CrearClaveCache(modelo, textos[i]);
+            if (cache.TryGetValue(clave, out float[]? embedding) && embedding is { Length: > 0 })
+                resultado[i] = embedding;
+            else
+                indicesFaltantes.Add(i);
+        }
+
+        if (indicesFaltantes.Count > 0)
+        {
+            var textosFaltantes = indicesFaltantes.Select(i => textos[i]).ToArray();
+            var nuevos = await SolicitarEmbeddingsConReintentosAsync(
+                modelo, textosFaltantes, cancellationToken);
+
+            for (var i = 0; i < indicesFaltantes.Count; i++)
+            {
+                var indice = indicesFaltantes[i];
+                resultado[indice] = nuevos[i];
+                cache.Set(
+                    CrearClaveCache(modelo, textos[indice]),
+                    nuevos[i],
+                    new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = DuracionCache });
+            }
+        }
+
+        return resultado;
+    }
+
+    private async Task<float[][]> SolicitarEmbeddingsConReintentosAsync(
+        string modelo,
+        string[] textos,
+        CancellationToken cancellationToken)
+    {
+        for (var intento = 1; ; intento++)
+        {
+            try
+            {
+                using var respuesta = await httpClient.PostAsJsonAsync(
+                    "api/embed",
+                    new { model = modelo, input = textos },
+                    cancellationToken);
+
+                if (EsReintentable(respuesta.StatusCode) && intento < IntentosMaximos)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+                    continue;
+                }
+
+                if (!respuesta.IsSuccessStatusCode)
+                    throw new HttpRequestException(
+                        $"Ollama respondio con HTTP {(int)respuesta.StatusCode}.",
+                        inner: null,
+                        statusCode: respuesta.StatusCode);
+
+                var documento = await respuesta.Content.ReadFromJsonAsync<RespuestaEmbeddings>(
+                    cancellationToken: cancellationToken);
+                var embeddings = documento?.Embeddings;
+                if (embeddings is null || embeddings.Length != textos.Length
+                    || embeddings.Any(x => x is null || x.Length == 0))
+                    throw new InvalidOperationException(
+                        "Ollama no devolvio todos los embeddings esperados. Verifica que el modelo bge-m3 este descargado.");
+
+                return embeddings;
+            }
+            catch (HttpRequestException ex) when (
+                intento < IntentosMaximos && (ex.StatusCode is null || EsReintentable(ex.StatusCode.Value)))
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+            }
+            catch (TaskCanceledException) when (
+                !cancellationToken.IsCancellationRequested && intento < IntentosMaximos)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+            }
+        }
+    }
+
+    private static bool EsReintentable(HttpStatusCode estado) =>
+        estado == HttpStatusCode.RequestTimeout
+        || (int)estado == 429
+        || (int)estado >= 500;
+
+    private static string NormalizarTexto(string texto)
+    {
+        var descompuesto = texto.Normalize(NormalizationForm.FormD);
+        var limpio = new StringBuilder(descompuesto.Length);
+        foreach (var caracter in descompuesto)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark)
+                limpio.Append(char.ToLowerInvariant(caracter));
+        }
+
+        return string.Join(' ', limpio.ToString()
+            .Normalize(NormalizationForm.FormC)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string CrearClaveCache(string modelo, string texto)
+    {
+        var contenido = Encoding.UTF8.GetBytes($"{modelo}\n{texto}");
+        return $"ollama:catalogo:{Convert.ToHexString(SHA256.HashData(contenido))}";
     }
 
     private static double Coseno(float[] a, float[] b)
     {
         if (a.Length != b.Length)
-            throw new InvalidOperationException("Ollama devolviÃ³ embeddings incompatibles.");
+            throw new InvalidOperationException("Ollama devolvio embeddings incompatibles.");
 
         double producto = 0, normaA = 0, normaB = 0;
         for (var i = 0; i < a.Length; i++)

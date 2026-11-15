@@ -140,3 +140,4 @@ public class CrearExpedienteDto
     public Guid CarreraDestinoRefId { get; set; }
     public Guid MallaAplicableRefId { get; set; }
 }
+//

@@ -8,7 +8,14 @@ builder.Services.AddHealthChecks();
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient<IComparadorContenidosIa, GeminiComparadorContenidos>();
+var ollamaBaseUrl = builder.Configuration["Ollama:BaseUrl"]
+    ?? "http://localhost:11434/";
+builder.Services.AddHttpClient<IComparadorContenidosIa, OllamaComparadorContenidos>(client =>
+{
+    client.BaseAddress = new Uri(ollamaBaseUrl, UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(
+        builder.Configuration.GetValue("Ollama:TimeoutSeconds", 120));
+});
 builder.Services.AddSingleton(new ParametrosReglas());
 builder.Services.AddScoped<IMotorReglasHomologacion, MotorReglasHomologacion>();
 builder.Services.AddScoped<IAgenteIaService, AgenteIaService>();

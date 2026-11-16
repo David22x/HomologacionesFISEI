@@ -436,6 +436,7 @@ function estadoLabel(estado: number | string): string {
   if (typeof estado === 'number') {
     return estadosNumericos[estado] ?? `Estado no reconocido (${estado})`;
   }
+  if (estado === 'AnalizadoConIa') return 'Analizado con IA';
   if (estado === 'EnRevision') return 'En revisión';
   return estadosExpediente.find(value => value === estado) ?? `Estado no reconocido (${estado})`;
 }
@@ -445,6 +446,7 @@ const estadosNumericos: Record<number, (typeof estadosExpediente)[number]> = {
   1: 'En revisión',
   2: 'Finalizado',
   3: 'Anulado',
+  4: 'Analizado con IA',
 };
 
 function estadoClass(estado: number | string): string {

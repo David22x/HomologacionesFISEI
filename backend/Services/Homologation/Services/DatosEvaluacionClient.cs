@@ -22,6 +22,20 @@ public sealed class DatosEvaluacionClient(IHttpClientFactory clients)
     internal async Task<Subtema[]> SubtemasAsync(Guid id, AuthenticationHeaderValue bearer, CancellationToken ct) =>
         await LeerAsync<Subtema[]>("AcademicService", $"/api/v1/catalogo/temas/{id}/subtemas", bearer, ct) ?? [];
 
+    internal async Task<Contenido[]> ContenidosAsync(Guid asignaturaId, AuthenticationHeaderValue bearer, CancellationToken ct)
+    {
+        var temas = await TemasAsync(asignaturaId, bearer, ct);
+        var contenidos = new List<Contenido>(temas.Length);
+        foreach (var tema in temas)
+        {
+            var subtemas = await SubtemasAsync(tema.Id, bearer, ct);
+            var descripcion = string.Join(" | ", subtemas.Select(x => x.Nombre).Prepend(tema.Nombre));
+            contenidos.Add(new(tema.Id.ToString(), descripcion, tema.HorasEstimadas));
+        }
+
+        return contenidos.ToArray();
+    }
+
     internal async Task<JsonElement> EvaluarAsync(SolicitudReglas solicitud, AuthenticationHeaderValue bearer, CancellationToken ct)
     {
         var resultado = await EnviarAsync<JsonElement>("AgentIaService",
@@ -63,7 +77,7 @@ public sealed class DatosEvaluacionClient(IHttpClientFactory clients)
     internal sealed record Subtema(string Nombre);
     internal sealed record Contenido(string Codigo, string Descripcion, int? Horas = null);
     internal sealed record SolicitudReglas(decimal? CreditosOrigen, decimal CreditosDestino,
-        int? HorasOrigen, int HorasDestino, bool OrigenAprobado, decimal NotaOrigen,
+        decimal? HorasOrigen, int HorasDestino, bool OrigenAprobado, decimal NotaOrigen,
         bool OrigenTransversal, bool DestinoTransversal,
         IReadOnlyList<Contenido> ContenidosOrigen, IReadOnlyList<Contenido> ContenidosDestino);
 }

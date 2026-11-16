@@ -17,6 +17,15 @@
       "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
     },
     {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analizar-ia",
+      "Timeout": 300,
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analizar-ia",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/evaluar-reglas",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "localhost", "Port": 5196 }],

@@ -6,5 +6,6 @@ public sealed class EjecucionReglas
     public Guid ExpedienteId { get; set; }
     public Guid ProfesorId { get; set; }
     public DateTime EjecutadoEn { get; set; } = DateTime.UtcNow;
+    public bool EsAnalisisIa { get; set; }
     public string ResultadosJson { get; set; } = string.Empty;
 }

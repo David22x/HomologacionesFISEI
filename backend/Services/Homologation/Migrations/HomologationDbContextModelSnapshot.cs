@@ -31,6 +31,9 @@ namespace HomologationService.Migrations
                     b.Property<DateTime>("EjecutadoEn")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("EsAnalisisIa")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("ExpedienteId")
                         .HasColumnType("uniqueidentifier");
 
@@ -42,6 +45,10 @@ namespace HomologationService.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId")
+                        .IsUnique()
+                        .HasFilter("[EsAnalisisIa] = 1");
 
                     b.HasIndex("ExpedienteId", "EjecutadoEn");
 
@@ -130,7 +137,7 @@ namespace HomologationService.Migrations
                     b.HasIndex("EstudianteId", "CarreraDestinoId")
                         .IsUnique()
                         .HasDatabaseName("UX_Expedientes_UnoActivoPorEstudianteYCarrera")
-                        .HasFilter("[Estado] IN ('Borrador','EnRevision')");
+                        .HasFilter("[Estado] IN ('Borrador','EnRevision','AnalizadoConIa')");
 
                     b.ToTable("Expedientes", (string)null);
                 });

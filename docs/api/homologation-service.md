@@ -40,3 +40,11 @@ dotnet run --project backend/Services/AgentIa/AgentIaService.csproj
 ```
 
 Homologation usa `http://localhost:5197` por defecto. En Docker, Compose configura la URL interna `http://agent-ia:5197`.
+
+## Generación de propuestas con IA
+
+`POST /api/v1/homologacion/expedientes/{id}/analizar-ia` no requiere cuerpo. Debe usar el JWT del profesor asignado. El análisis parte del historial y de la malla del expediente. Devuelve `id`, `ejecutadoEn`, `estado`, `propuestas` y `advertencias`.
+
+Por cada destino, se preseleccionan hasta tres materias. El orden prioriza la misma referencia de catálogo, el nombre exacto, las palabras en común y la cercanía de créditos. El identificador resuelve empates. Cada candidata se evalúa por separado y se generan las combinaciones de dos materias distintas. Las compuestas suman los créditos y las horas disponibles de ambas materias y evalúan la unión de los contenidos. Si falta un dato obligatorio en uno de los orígenes, R4 determina si el resultado es `DatosIncompletos` o si ya procede un rechazo por créditos.
+
+Al completar el análisis se guarda una ejecución y el expediente pasa a `AnalizadoConIa`. Un historial o una malla sin materias devuelve una lista vacía con advertencias. Un reintento posterior a un análisis guardado devuelve la misma ejecución. Si un servicio falla durante el proceso, se conserva el estado previo y se puede reintentar. Si dos peticiones se cruzan y una devuelve 409, reintentar permite recuperar la ejecución guardada.

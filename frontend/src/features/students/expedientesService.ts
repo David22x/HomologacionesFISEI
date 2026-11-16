@@ -4,7 +4,7 @@ const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
 
-export const estadosExpediente = ['Borrador', 'En revisión', 'Finalizado', 'Anulado'] as const;
+export const estadosExpediente = ['Borrador', 'En revisión', 'Finalizado', 'Anulado', 'Analizado con IA'] as const;
 export type EstadoExpediente = (typeof estadosExpediente)[number];
 
 export interface Expediente {

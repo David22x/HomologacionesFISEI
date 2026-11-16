@@ -19,7 +19,8 @@ public sealed record ContenidoDestinoIa(
 public sealed record CoincidenciaIa(
     string CodigoDestino,
     decimal Similitud,
-    string Evidencia);
+    string Evidencia,
+    string? CodigoOrigen = null);
 
 public interface IComparadorContenidosIa
 {
@@ -81,7 +82,8 @@ public sealed class OllamaComparadorContenidos(
             resultados.Add(new CoincidenciaIa(
                 destino[indiceDestino].Codigo,
                 (decimal)Math.Clamp(mejorSimilitud, 0d, 1d),
-                $"Mayor similitud con {origen[mejorIndice].Codigo}: {origen[mejorIndice].Descripcion}"));
+                $"Mayor similitud con {origen[mejorIndice].Codigo}: {origen[mejorIndice].Descripcion}",
+                origen[mejorIndice].Codigo));
         }
 
         return resultados;

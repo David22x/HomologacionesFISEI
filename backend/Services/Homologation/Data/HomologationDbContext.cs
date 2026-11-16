@@ -30,7 +30,7 @@ public class HomologationDbContext : DbContext
             e.HasIndex(x => new { x.EstudianteId, x.CarreraDestinoId })
                 .IsUnique()
                 .HasDatabaseName("UX_Expedientes_UnoActivoPorEstudianteYCarrera")
-                .HasFilter("[Estado] IN ('Borrador','EnRevision')");
+                .HasFilter("[Estado] IN ('Borrador','EnRevision','AnalizadoConIa')");
 
             e.HasIndex(x => x.ProfesorId);
 
@@ -53,6 +53,7 @@ public class HomologationDbContext : DbContext
             e.Property(x => x.ResultadosJson).IsRequired();
             e.HasOne<Expediente>().WithMany().HasForeignKey(x => x.ExpedienteId);
             e.HasIndex(x => new { x.ExpedienteId, x.EjecutadoEn });
+            e.HasIndex(x => x.ExpedienteId).IsUnique().HasFilter("[EsAnalisisIa] = 1");
         });
 
         modelBuilder.Entity<Equivalencia>(e =>

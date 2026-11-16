@@ -161,19 +161,43 @@ public sealed class ParesExpedienteController(
                 if (contenidos.TryGetValue(asignaturaId, out var guardados))
                     return guardados;
 
-                var temas = await datos.TemasAsync(asignaturaId, bearer, ct);
-                var lista = new List<Contenido>(temas.Length);
-                foreach (var tema in temas)
-                {
-                    var subtemas = await datos.SubtemasAsync(tema.Id, bearer, ct);
-                    var descripcion = string.Join(" | ", subtemas.Select(x => x.Nombre).Prepend(tema.Nombre));
-                    lista.Add(new(tema.Id.ToString(), descripcion, tema.HorasEstimadas));
-                }
-
-                var cargados = lista.ToArray();
+                var cargados = await datos.ContenidosAsync(asignaturaId, bearer, ct);
                 contenidos.Add(asignaturaId, cargados);
                 return cargados;
             }
+        }, ct);
+
+    [HttpPost("analizar-ia")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> AnalizarIa(Guid expedienteId, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, bearer) =>
+        {
+            var ejecucion = await db.EjecucionesReglas.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            if (ejecucion is null)
+            {
+                var analisis = await new GeneradorPropuestas(datos).GenerarAsync(expediente, bearer, ct);
+                ejecucion = new EjecucionReglas
+                {
+                    ExpedienteId = expedienteId,
+                    ProfesorId = expediente.ProfesorId,
+                    EsAnalisisIa = true,
+                    ResultadosJson = JsonSerializer.Serialize(analisis, JsonWeb)
+                };
+                db.EjecucionesReglas.Add(ejecucion);
+                expediente.Estado = EstadoExpediente.AnalizadoConIa;
+                await GuardarAsync(expediente, ct);
+            }
+
+            var resultado = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb)!;
+            return Ok(new
+            {
+                ejecucion.Id,
+                ejecutadoEn = DateTime.SpecifyKind(ejecucion.EjecutadoEn, DateTimeKind.Utc),
+                estado = expediente.Estado.ToString(),
+                resultado.Propuestas,
+                resultado.Advertencias
+            });
         }, ct);
 
     private async Task<IActionResult> EditarAsync(Guid id,
@@ -183,7 +207,7 @@ public sealed class ParesExpedienteController(
         if (expediente is null)
             return NotFound();
 
-        if (expediente.Estado is not (EstadoExpediente.Borrador or EstadoExpediente.EnRevision))
+        if (expediente.Estado is not (EstadoExpediente.Borrador or EstadoExpediente.EnRevision or EstadoExpediente.AnalizadoConIa))
             return Conflict(new { mensaje = "El estado del expediente impide modificar o evaluar sus pares." });
 
         if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var bearer)
@@ -200,7 +224,7 @@ public sealed class ParesExpedienteController(
         }
         catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
         {
-            return Conflict(new { mensaje = "Los pares cambiaron durante la operación. Vuelve a consultarlos." });
+            return Conflict(new { mensaje = "El expediente cambió durante la operación. Vuelve a consultarlo." });
         }
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.TooManyRequests)
         {

@@ -58,6 +58,37 @@ export interface EjecucionReglasExpediente {
   resultados: ResultadoParExpediente[];
 }
 
+export interface TemaPropuestaIa {
+  codigoDestino: string;
+  descripcion: string;
+  horas: number | null;
+  similitud: number | null;
+  codigoOrigen: string | null;
+  evidencia: string | null;
+}
+
+export interface PropuestaExpedienteIa {
+  asignaturaDestinoId: string;
+  nombreDestino: string;
+  origenes: Array<{ asignaturaCursadaId: string; nombre: string }>;
+  evaluacion: {
+    reglas: ResultadoReglasExpediente;
+    cobertura: {
+      porcentaje: number | null;
+      temasCoincidentes: TemaPropuestaIa[];
+      temasAusentes: TemaPropuestaIa[];
+    };
+  };
+}
+
+export interface AnalisisExpedienteIa {
+  id: string;
+  ejecutadoEn: string;
+  estado: string;
+  propuestas: PropuestaExpedienteIa[];
+  advertencias: string[];
+}
+
 async function request<T>(
   path: string,
   method: 'GET' | 'POST' | 'PUT' = 'GET',
@@ -111,5 +142,8 @@ export const expedientesService = {
   },
   evaluarPorReglas(expedienteId: string): Promise<EjecucionReglasExpediente> {
     return request<EjecucionReglasExpediente>(`/api/v1/homologacion/expedientes/${expedienteId}/evaluar-reglas`, 'POST');
+  },
+  analizarConIa(expedienteId: string): Promise<AnalisisExpedienteIa> {
+    return request<AnalisisExpedienteIa>(`/api/v1/homologacion/expedientes/${expedienteId}/analizar-ia`, 'POST');
   },
 };

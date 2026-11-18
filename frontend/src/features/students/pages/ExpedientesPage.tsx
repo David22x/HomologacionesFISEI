@@ -9,8 +9,10 @@ import {
 import {
   expedientesService,
   estadosExpediente,
+  type AnalisisExpedienteIa,
   type Expediente,
   type ParHomologacion,
+  type PropuestaExpedienteIa,
   type ResultadoParExpediente,
 } from '../expedientesService';
 import { studentsService, type AsignaturaCursada, type Estudiante } from '../studentsService';
@@ -30,6 +32,9 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [destinationCourses, setDestinationCourses] = useState<Asignatura[]>([]);
   const [pairs, setPairs] = useState<ParHomologacion[]>([]);
   const [results, setResults] = useState<ResultadoParExpediente[]>([]);
+  const [iaAnalysis, setIaAnalysis] = useState<AnalisisExpedienteIa | null>(null);
+  const [analyzingIa, setAnalyzingIa] = useState(false);
+  const [iaError, setIaError] = useState('');
   const [pairOriginId, setPairOriginId] = useState('');
   const [pairDestinationId, setPairDestinationId] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -93,6 +98,8 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setDestinationCourses([]);
     setPairs([]);
     setResults([]);
+    setIaAnalysis(null);
+    setIaError('');
     setPairOriginId('');
     setPairDestinationId('');
     setLoadingDetail(true);
@@ -199,6 +206,29 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     }
   }
 
+  async function analyzeWithIa() {
+    if (!selectedExpediente) return;
+    setAnalyzingIa(true);
+    setIaError('');
+    setNotice('');
+    try {
+      const analysis = await expedientesService.analizarConIa(selectedExpediente.id);
+      setIaAnalysis(analysis);
+      setSelectedExpediente(current => current
+        ? { ...current, estado: analysis.estado }
+        : current);
+      setExpedientes(current => current.map(item => item.id === selectedExpediente.id
+        ? { ...item, estado: analysis.estado }
+        : item));
+      setNotice('El análisis con IA se completó. Las propuestas quedaron guardadas en el expediente.');
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : 'Error inesperado.';
+      setIaError(`No se pudo completar el análisis con IA. Verifica que Agent IA y Ollama estén disponibles y vuelve a intentarlo. ${detail}`);
+    } finally {
+      setAnalyzingIa(false);
+    }
+  }
+
   async function createExpediente(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!studentId || !careerId || !mallaId) {
@@ -230,6 +260,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const selectedStudent = students.find(student => student.id === selectedExpediente?.estudianteId);
   const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraDestinoId);
   const selectedMalla = detailMallas.find(malla => malla.id === selectedExpediente?.mallaDestinoId);
+  const proposalsByDestination = iaAnalysis?.propuestas.reduce<Record<string, PropuestaExpedienteIa[]>>((groups, proposal) => {
+    (groups[proposal.asignaturaDestinoId] ??= []).push(proposal);
+    return groups;
+  }, {}) ?? {};
 
   return <main className="catalog-page expediente-page">
     <header className="catalog-header">
@@ -401,6 +435,66 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             {results.length > 0 && <span>Evaluación guardada · {new Date().toLocaleString()}</span>}
           </div>}
           {results.length > 0 && <p className="eligibility-threshold-note">Umbrales aplicados: mínimo 80% de créditos y 80% de contenidos. La carga horaria se muestra como advertencia cuando queda bajo el 80%.</p>}
+        </>}
+      </section>
+      <section className="ia-analysis-panel" aria-labelledby="ia-analysis-heading">
+        <div className="students-panel-heading ia-analysis-header">
+          <div>
+            <h3 id="ia-analysis-heading">Análisis con IA</h3>
+            <p>Genera propuestas de equivalencia agrupadas por asignatura de destino. La decisión final corresponde al profesor.</p>
+          </div>
+          {canCreate && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail}>
+            {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
+          </button>}
+        </div>
+        {iaError && <p className="ia-error" role="alert">{iaError}</p>}
+        {analyzingIa && <p className="catalog-message" role="status">El agente está analizando los contenidos del expediente. Esto puede tardar unos minutos.</p>}
+        {iaAnalysis && <>
+          <p className="ia-analysis-meta" role="status">Análisis {iaAnalysis.estado.toLowerCase()} · {new Date(iaAnalysis.ejecutadoEn).toLocaleString()} · {iaAnalysis.propuestas.length} propuestas</p>
+          {iaAnalysis.advertencias.length > 0 && <div className="ia-warnings" role="note">
+            <strong>Advertencias del análisis</strong>
+            <ul>{iaAnalysis.advertencias.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>
+          </div>}
+          {Object.keys(proposalsByDestination).length === 0
+            ? <p className="catalog-message">El análisis terminó sin propuestas para las asignaturas de destino.</p>
+            : <div className="ia-destinations">{Object.entries(proposalsByDestination).map(([destinationId, proposals]) => {
+              const destination = destinationCourses.find(course => course.id === destinationId);
+              return <section className="ia-destination" key={destinationId} aria-label={`Propuestas para ${proposals[0].nombreDestino}`}>
+                <h4>{destination?.codigo ? `${destination.codigo} · ` : ''}{proposals[0].nombreDestino}</h4>
+                <div className="ia-proposals">{proposals.map((proposal, index) => {
+                  const rules = proposal.evaluacion.reglas;
+                  const coverage = proposal.evaluacion.cobertura;
+                  const contentPercent = coverage.porcentaje ?? rules.coberturaContenidos;
+                  const originNames = proposal.origenes.map(origin => origin.nombre);
+                  return <article className="ia-proposal-card" key={`${destinationId}-${index}`}>
+                    <div className="ia-proposal-title">
+                      <div><h5>{originNames.length > 1 ? 'Propuesta combinada' : 'Asignatura de origen'}</h5>
+                        <p>{originNames.length ? originNames.join(' + ') : 'Origen no disponible'}</p></div>
+                      <span className={`ia-result ia-result-${String(rules.resultado).toLowerCase()}`}>{resultadoLabel(rules.resultado)}</span>
+                    </div>
+                    <dl className="ia-proposal-metrics">
+                      <div><dt>Créditos</dt><dd>{rules.razonCreditos == null ? 'Datos incompletos' : formatPercent(rules.razonCreditos)}</dd></div>
+                      <div><dt>Contenidos</dt><dd>{contentPercent == null ? 'Datos incompletos' : formatPercent(contentPercent)}</dd></div>
+                      <div><dt>Carga horaria</dt><dd>{rules.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}</dd></div>
+                    </dl>
+                    <div className="ia-topic-columns">
+                      <div><h6>Temas coincidentes ({coverage.temasCoincidentes.length})</h6>
+                        {coverage.temasCoincidentes.length ? <ul className="ia-topic-list">{coverage.temasCoincidentes.map((topic, topicIndex) => <li key={`${topic.codigoDestino}-${topicIndex}`}>
+                          <span>{topic.descripcion}</span><small>{topic.similitud == null ? 'Coincidencia sugerida' : `Similitud ${formatPercent(topic.similitud)}`}{topic.codigoOrigen ? ` · ${topic.codigoOrigen}` : ''}</small>
+                          {topic.evidencia && <small className="ia-topic-evidence">Evidencia: {topic.evidencia}</small>}
+                        </li>)}</ul> : <p className="ia-topic-empty">No se identificaron temas coincidentes.</p>}
+                      </div>
+                      <div><h6>Temas ausentes ({coverage.temasAusentes.length})</h6>
+                        {coverage.temasAusentes.length ? <ul className="ia-topic-list">{coverage.temasAusentes.map((topic, topicIndex) => <li key={`${topic.codigoDestino}-${topicIndex}`}>
+                          <span>{topic.descripcion}</span>{topic.horas != null && <small>{topic.horas} horas de destino</small>}
+                        </li>)}</ul> : <p className="ia-topic-empty">No se identificaron temas ausentes.</p>}
+                      </div>
+                    </div>
+                    {rules.advertencias.length > 0 && <ul className="ia-rule-warnings">{rules.advertencias.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
+                  </article>;
+                })}</div>
+              </section>;
+            })}</div>}
         </>}
       </section>
     </section>}

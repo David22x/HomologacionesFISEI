@@ -93,6 +93,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   async function selectExpediente(expediente: Expediente) {
     const requestId = ++detailRequestId.current;
     setSelectedExpediente(expediente);
+    setAnalyzingIa(false);
     setDetailMallas([]);
     setOriginCourses([]);
     setDestinationCourses([]);
@@ -208,24 +209,28 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   async function analyzeWithIa() {
     if (!selectedExpediente) return;
+    const expedienteId = selectedExpediente.id;
+    const requestId = detailRequestId.current;
     setAnalyzingIa(true);
     setIaError('');
     setNotice('');
     try {
-      const analysis = await expedientesService.analizarConIa(selectedExpediente.id);
+      const analysis = await expedientesService.analizarConIa(expedienteId);
+      if (requestId !== detailRequestId.current) return;
       setIaAnalysis(analysis);
       setSelectedExpediente(current => current
         ? { ...current, estado: analysis.estado }
         : current);
-      setExpedientes(current => current.map(item => item.id === selectedExpediente.id
+      setExpedientes(current => current.map(item => item.id === expedienteId
         ? { ...item, estado: analysis.estado }
         : item));
       setNotice('El análisis con IA se completó. Las propuestas quedaron guardadas en el expediente.');
     } catch (cause) {
+      if (requestId !== detailRequestId.current) return;
       const detail = cause instanceof Error ? cause.message : 'Error inesperado.';
       setIaError(`No se pudo completar el análisis con IA. Verifica que Agent IA y Ollama estén disponibles y vuelve a intentarlo. ${detail}`);
     } finally {
-      setAnalyzingIa(false);
+      if (requestId === detailRequestId.current) setAnalyzingIa(false);
     }
   }
 
@@ -470,7 +475,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                     <div className="ia-proposal-title">
                       <div><h5>{originNames.length > 1 ? 'Propuesta combinada' : 'Asignatura de origen'}</h5>
                         <p>{originNames.length ? originNames.join(' + ') : 'Origen no disponible'}</p></div>
-                      <span className={`ia-result ia-result-${String(rules.resultado).toLowerCase()}`}>{resultadoLabel(rules.resultado)}</span>
+                      <span className={`ia-result ${resultadoClass(rules.resultado)}`}>{resultadoLabel(rules.resultado)}</span>
                     </div>
                     <dl className="ia-proposal-metrics">
                       <div><dt>Créditos</dt><dd>{rules.razonCreditos == null ? 'Datos incompletos' : formatPercent(rules.razonCreditos)}</dd></div>
@@ -524,6 +529,24 @@ function resultadoLabel(value: string | number): string {
     OrigenNoAprobado: 'Origen no aprobado',
   };
   return labelsByName[value] ?? value;
+}
+
+function resultadoClass(value: string | number): string {
+  const classesByNumber: Record<number, string> = {
+    0: 'ia-result-homologable',
+    1: 'ia-result-rechazoporcreditos',
+    2: 'ia-result-rechazoporcontenidos',
+    3: 'ia-result-datosincompletos',
+    4: 'ia-result-transversaldirecta',
+    5: 'ia-result-origennoaprobado',
+  };
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (Number.isInteger(numericValue) && String(value).trim() !== '') {
+    return classesByNumber[numericValue] ?? 'ia-result-unknown';
+  }
+  const normalized = String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '');
+  return `ia-result-${normalized || 'unknown'}`;
 }
 
 function estadoLabel(estado: number | string): string {

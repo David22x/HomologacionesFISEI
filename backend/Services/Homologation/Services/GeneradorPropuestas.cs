@@ -110,6 +110,9 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
 
     private sealed record Candidato(Origen Origen, decimal? Creditos, int? Horas, bool Transversal, Contenido[] Contenidos);
     internal sealed record OrigenPropuesta(Guid AsignaturaCursadaId, string Nombre);
-    internal sealed record Propuesta(Guid AsignaturaDestinoId, string NombreDestino, OrigenPropuesta[] Origenes, JsonElement Evaluacion);
+    internal sealed record Propuesta(Guid AsignaturaDestinoId, string NombreDestino, OrigenPropuesta[] Origenes,
+        JsonElement Evaluacion, IReadOnlyList<RevisionDocentePropuesta>? RevisionesDocente = null);
+    internal sealed record RevisionDocentePropuesta(string Tipo, int ResultadoFinal,
+        string? Observacion, DateTime RevisadoEn, Guid ProfesorId, string ProfesorNombre);
     internal sealed record Analisis(IReadOnlyList<Propuesta> Propuestas, IReadOnlyList<string> Advertencias);
 }

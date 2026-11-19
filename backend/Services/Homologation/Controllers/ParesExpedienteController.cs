@@ -200,6 +200,87 @@ public sealed class ParesExpedienteController(
             });
         }, ct);
 
+    [HttpPut("analisis-ia/propuestas/revision")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> RevisarPropuestaIa(Guid expedienteId,
+        [FromBody] RevisionPropuestaIaDto request, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, _) =>
+        {
+            if (request.AsignaturaDestinoId == Guid.Empty
+                || request.OrigenIds is null
+                || request.OrigenIds.Count == 0
+                || request.OrigenIds.Any(id => id == Guid.Empty)
+                || request.OrigenIds.Distinct().Count() != request.OrigenIds.Count)
+                return BadRequest(new { mensaje = "Selecciona una propuesta válida para revisar." });
+
+            if (request.AceptarPropuestaIa == request.ResultadoPropio.HasValue)
+                return BadRequest(new { mensaje = "Acepta la recomendación de IA o indica una conclusión propia, pero no ambas." });
+
+            var observacion = request.Observacion?.Trim();
+            if (observacion?.Length > 2000)
+                return BadRequest(new { mensaje = "La observación no puede superar 2000 caracteres." });
+            if (!request.AceptarPropuestaIa && string.IsNullOrWhiteSpace(observacion))
+                return BadRequest(new { mensaje = "Explica brevemente el motivo de tu conclusión." });
+
+            if (request.ResultadoPropio is int resultadoPropio
+                && resultadoPropio is < 0 or > 5)
+                return BadRequest(new { mensaje = "La conclusión seleccionada no es válida." });
+
+            var ejecucion = await db.EjecucionesReglas.SingleOrDefaultAsync(
+                x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            if (ejecucion is null)
+                return NotFound(new { mensaje = "Primero genera el análisis con IA." });
+
+            var analisis = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb);
+            if (analisis is null)
+                return Problem(statusCode: 500, detail: "No se pudo leer el análisis guardado.");
+
+            var origenesSolicitados = request.OrigenIds.Order().ToArray();
+            var propuestas = analisis.Propuestas.ToArray();
+            var indice = Array.FindIndex(propuestas, propuesta =>
+                propuesta.AsignaturaDestinoId == request.AsignaturaDestinoId
+                && propuesta.Origenes.Select(origen => origen.AsignaturaCursadaId).Order()
+                    .SequenceEqual(origenesSolicitados));
+            if (indice < 0)
+                return NotFound(new { mensaje = "La propuesta ya no forma parte del análisis guardado." });
+
+            int resultadoFinal;
+            if (request.AceptarPropuestaIa)
+            {
+                var reglas = propuestas[indice].Evaluacion.GetProperty("reglas");
+                var valorResultado = reglas.GetProperty("resultado");
+                if (valorResultado.ValueKind != JsonValueKind.Number
+                    || !valorResultado.TryGetInt32(out resultadoFinal)
+                    || resultadoFinal is < 0 or > 5)
+                    return Problem(statusCode: 502, detail: "La propuesta de IA no contiene un resultado de reglas válido.");
+            }
+            else
+            {
+                resultadoFinal = request.ResultadoPropio!.Value;
+            }
+
+            var profesorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var revision = new GeneradorPropuestas.RevisionDocentePropuesta(
+                request.AceptarPropuestaIa ? "AceptaPropuestaIa" : "ConclusionPropia",
+                resultadoFinal,
+                string.IsNullOrWhiteSpace(observacion) ? null : observacion,
+                DateTime.UtcNow,
+                profesorId,
+                User.FindFirstValue(ClaimTypes.Name) ?? string.Empty);
+
+            var propuestaRevisada = propuestas[indice];
+            propuestas[indice] = propuestaRevisada with
+            {
+                RevisionesDocente = (propuestaRevisada.RevisionesDocente ?? [])
+                    .Append(revision).ToArray()
+            };
+            ejecucion.ResultadosJson = JsonSerializer.Serialize(analisis with { Propuestas = propuestas }, JsonWeb);
+            expediente.Estado = EstadoExpediente.EnRevision;
+            await GuardarAsync(expediente, ct);
+
+            return Ok(revision);
+        }, ct);
+
     private async Task<IActionResult> EditarAsync(Guid id,
         Func<Expediente, AuthenticationHeaderValue, Task<IActionResult>> operacion, CancellationToken ct)
     {
@@ -276,6 +357,8 @@ public sealed class ParesExpedienteController(
         };
 
     public sealed record ParSolicitud(Guid AsignaturaCursadaId, Guid AsignaturaDestinoId);
+    public sealed record RevisionPropuestaIaDto(Guid AsignaturaDestinoId, IReadOnlyList<Guid> OrigenIds,
+        bool AceptarPropuestaIa, int? ResultadoPropio, string? Observacion);
     private sealed record ResultadoPar(Guid ParId, Guid AsignaturaCursadaId, string NombreOrigen,
         Guid AsignaturaDestinoId, string NombreDestino, JsonElement Evaluacion);
 }

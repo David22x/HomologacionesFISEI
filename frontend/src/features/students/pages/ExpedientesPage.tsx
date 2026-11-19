@@ -35,6 +35,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [iaAnalysis, setIaAnalysis] = useState<AnalisisExpedienteIa | null>(null);
   const [analyzingIa, setAnalyzingIa] = useState(false);
   const [iaError, setIaError] = useState('');
+  const [reviewFormKey, setReviewFormKey] = useState<string | null>(null);
+  const [reviewOutcome, setReviewOutcome] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [savingReviewKey, setSavingReviewKey] = useState<string | null>(null);
   const [pairOriginId, setPairOriginId] = useState('');
   const [pairDestinationId, setPairDestinationId] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -101,6 +105,9 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setResults([]);
     setIaAnalysis(null);
     setIaError('');
+    setReviewFormKey(null);
+    setReviewOutcome('');
+    setReviewComment('');
     setPairOriginId('');
     setPairDestinationId('');
     setLoadingDetail(true);
@@ -231,6 +238,56 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
       setIaError(`No se pudo completar el análisis con IA. Verifica que Agent IA y Ollama estén disponibles y vuelve a intentarlo. ${detail}`);
     } finally {
       if (requestId === detailRequestId.current) setAnalyzingIa(false);
+    }
+  }
+
+  function openOwnConclusion(proposal: PropuestaExpedienteIa) {
+    setReviewFormKey(proposalReviewKey(proposal));
+    setReviewOutcome('');
+    setReviewComment('');
+    setIaError('');
+  }
+
+  async function saveProposalReview(proposal: PropuestaExpedienteIa, acceptIa: boolean) {
+    if (!selectedExpediente) return;
+    const key = proposalReviewKey(proposal);
+    if (!acceptIa && (!reviewOutcome || !reviewComment.trim())) {
+      setIaError('Selecciona tu conclusión y escribe brevemente el motivo.');
+      return;
+    }
+
+    setSavingReviewKey(key);
+    setIaError('');
+    setNotice('');
+    try {
+      const revision = await expedientesService.revisarPropuestaIa(selectedExpediente.id, {
+        asignaturaDestinoId: proposal.asignaturaDestinoId,
+        origenIds: proposal.origenes.map(origen => origen.asignaturaCursadaId),
+        aceptarPropuestaIa: acceptIa,
+        resultadoPropio: acceptIa ? null : Number(reviewOutcome),
+        observacion: reviewComment.trim() || null,
+      });
+      setIaAnalysis(current => current ? {
+        ...current,
+        estado: 'EnRevision',
+        propuestas: current.propuestas.map(item => proposalReviewKey(item) === key
+          ? { ...item, revisionesDocente: [...(item.revisionesDocente ?? []), revision] }
+          : item),
+      } : current);
+      setSelectedExpediente(current => current ? { ...current, estado: 'EnRevision' } : current);
+      setExpedientes(current => current.map(item => item.id === selectedExpediente.id
+        ? { ...item, estado: 'EnRevision' }
+        : item));
+      setReviewFormKey(null);
+      setReviewOutcome('');
+      setReviewComment('');
+      setNotice(acceptIa
+        ? 'Se guardó la aceptación de la propuesta de IA como resultado del profesor.'
+        : 'Se guardó tu conclusión y el motivo en el expediente.');
+    } catch (cause) {
+      setIaError(cause instanceof Error ? cause.message : 'No se pudo guardar la revisión del profesor.');
+    } finally {
+      setSavingReviewKey(null);
     }
   }
 
@@ -471,17 +528,28 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   const coverage = proposal.evaluacion.cobertura;
                   const contentPercent = coverage.porcentaje ?? rules.coberturaContenidos;
                   const originNames = proposal.origenes.map(origin => origin.nombre);
+                  const reviewKey = proposalReviewKey(proposal);
+                  const latestReview = proposal.revisionesDocente?.[proposal.revisionesDocente.length - 1];
                   return <article className="ia-proposal-card" key={`${destinationId}-${index}`}>
                     <div className="ia-proposal-title">
                       <div><h5>{originNames.length > 1 ? 'Propuesta combinada' : 'Asignatura de origen'}</h5>
                         <p>{originNames.length ? originNames.join(' + ') : 'Origen no disponible'}</p></div>
-                      <span className={`ia-result ${resultadoClass(rules.resultado)}`}>{resultadoLabel(rules.resultado)}</span>
+                      <div className="ia-result-stack">
+                        <span className={`ia-result ${resultadoClass(rules.resultado)}`}>IA: {resultadoLabel(rules.resultado)}</span>
+                        {latestReview && <span className={`ia-result ia-result-teacher ${resultadoClass(latestReview.resultadoFinal)}`}>
+                          Profesor: {resultadoLabel(latestReview.resultadoFinal)}
+                        </span>}
+                      </div>
                     </div>
                     <dl className="ia-proposal-metrics">
                       <div><dt>Créditos</dt><dd>{rules.razonCreditos == null ? 'Datos incompletos' : formatPercent(rules.razonCreditos)}</dd></div>
                       <div><dt>Contenidos</dt><dd>{contentPercent == null ? 'Datos incompletos' : formatPercent(contentPercent)}</dd></div>
                       <div><dt>Carga horaria</dt><dd>{rules.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}</dd></div>
                     </dl>
+                    <div className="ia-proposal-explanation">
+                      <strong>Explicación de la propuesta</strong>
+                      <p>{explicarPropuesta(proposal)}</p>
+                    </div>
                     <div className="ia-topic-columns">
                       <div><h6>Temas coincidentes ({coverage.temasCoincidentes.length})</h6>
                         {coverage.temasCoincidentes.length ? <ul className="ia-topic-list">{coverage.temasCoincidentes.map((topic, topicIndex) => <li key={`${topic.codigoDestino}-${topicIndex}`}>
@@ -496,6 +564,44 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                       </div>
                     </div>
                     {rules.advertencias.length > 0 && <ul className="ia-rule-warnings">{rules.advertencias.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
+                    {latestReview && <p className="ia-teacher-review" role="status">
+                      <strong>{latestReview.tipo === 'AceptaPropuestaIa' ? 'El profesor aceptó la propuesta de IA' : 'Conclusión registrada por el profesor'}</strong>
+                      {' · Resultado: '}{resultadoLabel(latestReview.resultadoFinal)}
+                      {latestReview.observacion && <span> · Motivo: {latestReview.observacion}</span>}
+                      <small>{latestReview.profesorNombre || 'Profesor'} · {new Date(latestReview.revisadoEn).toLocaleString()}</small>
+                    </p>}
+                    {canCreate && <div className="ia-review-controls">
+                      <div className="ia-review-actions">
+                        <button className="students-primary" type="button" onClick={() => { void saveProposalReview(proposal, true); }} disabled={savingReviewKey !== null}>
+                          {savingReviewKey === reviewKey ? 'Guardando…' : 'Aceptar resultado de IA'}
+                        </button>
+                        <button className="students-secondary" type="button" onClick={() => openOwnConclusion(proposal)} disabled={savingReviewKey !== null}>
+                          Registrar mi conclusión
+                        </button>
+                      </div>
+                      {reviewFormKey === reviewKey && <form className="ia-review-form" onSubmit={event => { event.preventDefault(); void saveProposalReview(proposal, false); }}>
+                        <label>Mi conclusión
+                          <select value={reviewOutcome} onChange={event => setReviewOutcome(event.target.value)} required>
+                            <option value="">Selecciona el resultado</option>
+                            <option value="0">Homologable</option>
+                            <option value="1">Rechazo por créditos</option>
+                            <option value="2">Rechazo por contenidos</option>
+                            <option value="3">Datos incompletos</option>
+                            <option value="4">Transversal directa</option>
+                            <option value="5">Origen no aprobado</option>
+                          </select>
+                        </label>
+                        <label>Motivo de la decisión
+                          <textarea value={reviewComment} onChange={event => setReviewComment(event.target.value)} maxLength={2000} rows={3} required placeholder="Explica brevemente por qué aceptas otro resultado." />
+                        </label>
+                        <div className="ia-review-actions">
+                          <button className="students-primary" type="submit" disabled={savingReviewKey !== null || !reviewOutcome || !reviewComment.trim()}>
+                            {savingReviewKey === reviewKey ? 'Guardando…' : 'Guardar mi conclusión'}
+                          </button>
+                          <button className="students-secondary" type="button" onClick={() => setReviewFormKey(null)} disabled={savingReviewKey !== null}>Cancelar</button>
+                        </div>
+                      </form>}
+                    </div>}
                   </article>;
                 })}</div>
               </section>;
@@ -508,6 +614,31 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
 function formatPercent(value: number): string {
   return new Intl.NumberFormat('es-EC', { style: 'percent', maximumFractionDigits: 2 }).format(value);
+}
+
+function proposalReviewKey(proposal: PropuestaExpedienteIa): string {
+  const origins = proposal.origenes.map(origin => origin.asignaturaCursadaId).sort().join(',');
+  return `${proposal.asignaturaDestinoId}:${origins}`;
+}
+
+function explicarPropuesta(proposal: PropuestaExpedienteIa): string {
+  const { reglas, cobertura } = proposal.evaluacion;
+  const total = cobertura.temasCoincidentes.length + cobertura.temasAusentes.length;
+  const porcentaje = cobertura.porcentaje ?? reglas.coberturaContenidos;
+  const partes = [`La recomendación es “${resultadoLabel(reglas.resultado)}”.`];
+
+  if (porcentaje == null || total === 0) {
+    partes.push('No hay información suficiente de contenidos para calcular la cobertura.');
+  } else {
+    partes.push(`Coinciden ${cobertura.temasCoincidentes.length} de ${total} temas destino (${formatPercent(porcentaje)}).`);
+  }
+  partes.push(reglas.razonCreditos == null
+    ? 'No se pudo calcular la razón de créditos.'
+    : `La razón de créditos es ${formatPercent(reglas.razonCreditos)}.`);
+  if (reglas.razonHoras != null) partes.push(`La razón de horas es ${formatPercent(reglas.razonHoras)}.`);
+  if (cobertura.temasAusentes.length > 0) partes.push(`Quedan ${cobertura.temasAusentes.length} temas destino sin coincidencia suficiente.`);
+  partes.push('La evidencia por tema aparece abajo; el profesor conserva la decisión final.');
+  return partes.join(' ');
 }
 
 function resultadoLabel(value: string | number): string {

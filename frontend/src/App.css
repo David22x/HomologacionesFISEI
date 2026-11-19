@@ -413,7 +413,9 @@
 .ia-proposal-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ia-proposal-title h5 { margin: 0 0 5px; color: #263750; font-size: 14px; }
 .ia-proposal-title p { margin: 0; color: #52647d; }
+.ia-result-stack { display: grid; justify-items: end; gap: 5px; }
 .ia-result { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e8f6ee; color: #17683c; font-size: 12px; font-weight: 700; }
+.ia-result-teacher { border: 1px solid #b7d6c5; background: #fff; }
 .ia-result-rechazoporcreditos, .ia-result-rechazoporcontenidos, .ia-result-datosincompletos, .ia-result-origennoaprobado { background: #fff0f0; color: #9c2525; }
 .ia-result-unknown { background: #eef1f5; color: #52647d; }
 .ia-proposal-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
@@ -429,6 +431,17 @@
 .ia-topic-evidence { overflow-wrap: anywhere; }
 .ia-topic-empty { margin: 0; }
 .ia-rule-warnings { color: #855b00; font-size: 12px; }
+.ia-proposal-explanation { margin: 12px 0 14px; padding: 11px 13px; border-left: 3px solid #4b75c9; border-radius: 5px; background: #f0f4fa; color: #34465f; font-size: 13px; line-height: 1.5; }
+.ia-proposal-explanation strong { color: #263750; }
+.ia-proposal-explanation p { margin: 4px 0 0; }
+.ia-teacher-review { display: grid; gap: 4px; margin: 14px 0 0; padding: 12px 14px; border-radius: 8px; background: #e8f6ee; color: #17683c; font-size: 13px; }
+.ia-teacher-review small { color: #52647d; }
+.ia-review-controls { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #dce4ef; }
+.ia-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ia-review-form { display: grid; gap: 10px; padding: 14px; border: 1px solid #dce4ef; border-radius: 8px; background: #fff; }
+.ia-review-form label { display: grid; gap: 6px; color: #263750; font-size: 13px; font-weight: 600; }
+.ia-review-form select, .ia-review-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ccd5e2; border-radius: 7px; padding: 9px 10px; color: #263750; font: inherit; }
+.ia-review-form textarea { resize: vertical; }
 .expediente-status-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .expediente-status-form label { display: flex; flex: 1 1 220px; flex-direction: column; gap: 7px; color: #263750; font-size: 13px; font-weight: 600; }
 .expediente-status-form select { max-width: 360px; }

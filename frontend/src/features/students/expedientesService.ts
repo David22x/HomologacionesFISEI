@@ -71,6 +71,7 @@ export interface PropuestaExpedienteIa {
   asignaturaDestinoId: string;
   nombreDestino: string;
   origenes: Array<{ asignaturaCursadaId: string; nombre: string }>;
+  revisionesDocente?: RevisionDocentePropuesta[] | null;
   evaluacion: {
     reglas: ResultadoReglasExpediente;
     cobertura: {
@@ -79,6 +80,23 @@ export interface PropuestaExpedienteIa {
       temasAusentes: TemaPropuestaIa[];
     };
   };
+}
+
+export interface RevisionDocentePropuesta {
+  tipo: 'AceptaPropuestaIa' | 'ConclusionPropia';
+  resultadoFinal: string | number;
+  observacion: string | null;
+  revisadoEn: string;
+  profesorId: string;
+  profesorNombre: string;
+}
+
+export interface RevisionPropuestaIaRequest {
+  asignaturaDestinoId: string;
+  origenIds: string[];
+  aceptarPropuestaIa: boolean;
+  resultadoPropio: number | null;
+  observacion: string | null;
 }
 
 export interface AnalisisExpedienteIa {
@@ -145,5 +163,10 @@ export const expedientesService = {
   },
   analizarConIa(expedienteId: string): Promise<AnalisisExpedienteIa> {
     return request<AnalisisExpedienteIa>(`/api/v1/homologacion/expedientes/${expedienteId}/analizar-ia`, 'POST');
+  },
+  revisarPropuestaIa(expedienteId: string, datos: RevisionPropuestaIaRequest): Promise<RevisionDocentePropuesta> {
+    return request<RevisionDocentePropuesta>(
+      `/api/v1/homologacion/expedientes/${expedienteId}/analisis-ia/propuestas/revision`, 'PUT', datos,
+    );
   },
 };

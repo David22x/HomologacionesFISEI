@@ -48,3 +48,20 @@ Homologation usa `http://localhost:5197` por defecto. En Docker, Compose configu
 Por cada destino, se preseleccionan hasta tres materias. El orden prioriza la misma referencia de catálogo, el nombre exacto, las palabras en común y la cercanía de créditos. El identificador resuelve empates. Cada candidata se evalúa por separado y se generan las combinaciones de dos materias distintas. Las compuestas suman los créditos y las horas disponibles de ambas materias y evalúan la unión de los contenidos. Si falta un dato obligatorio en uno de los orígenes, R4 determina si el resultado es `DatosIncompletos` o si ya procede un rechazo por créditos.
 
 Al completar el análisis se guarda una ejecución y el expediente pasa a `AnalizadoConIa`. Un historial o una malla sin materias devuelve una lista vacía con advertencias. Un reintento posterior a un análisis guardado devuelve la misma ejecución. Si un servicio falla durante el proceso, se conserva el estado previo y se puede reintentar. Si dos peticiones se cruzan y una devuelve 409, reintentar permite recuperar la ejecución guardada.
+
+## Explicación de respaldo (SDH-83)
+
+Cada evaluación de Agent IA devuelve `explicacion` y `fuenteExplicacion: "plantilla"`. El texto se construye con el resultado del motor, las razones de créditos y horas, la cobertura disponible, las advertencias y la versión de reglas. La pantalla de propuestas muestra este texto y admite evaluaciones antiguas sin esos campos.
+
+La integración actual compara contenidos con embeddings de Ollama. Si la conexión falla, vence el tiempo de espera o la respuesta no supera la validación, se devuelve una explicación con `DatosIncompletos` cuando todavía hace falta comparar contenidos. Los rechazos por créditos y las excepciones transversales siguen resolviéndose con los datos suficientes. La cobertura desconocida queda en null y no se marcan temas como ausentes por una caída del proveedor. La cancelación solicitada por el usuario se propaga.
+
+La prueba `OllamaSinEscuchar_endpointDevuelvePlantillaYDatosIncompletos` usa el cliente HTTP real contra un puerto local sin servidor y verifica la respuesta del controlador. Para verificar manualmente con Docker:
+
+1. Levantar los servicios y preparar un expediente con contenidos de origen y destino.
+2. Ejecutar `docker compose -f infrastructure/docker-compose.yml stop ollama`.
+3. Reiniciar Agent IA para vaciar su caché en memoria y forzar una consulta al proveedor.
+4. Consumir `POST /api/v1/agent-ia/evaluar-reglas` con un JWT de profesor y créditos suficientes.
+5. Comprobar HTTP 200, explicación de plantilla, cobertura null y advertencia del servicio.
+6. Ejecutar `docker compose -f infrastructure/docker-compose.yml start ollama`.
+
+Las ejecuciones ya guardadas conservan su resultado. El endpoint analizar-ia recupera la ejecución previa en sus reintentos, según el comportamiento definido en SDH-78.

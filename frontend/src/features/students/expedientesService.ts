@@ -73,6 +73,8 @@ export interface PropuestaExpedienteIa {
   origenes: Array<{ asignaturaCursadaId: string; nombre: string }>;
   revisionesDocente?: RevisionDocentePropuesta[] | null;
   evaluacion: {
+    explicacion?: string;
+    fuenteExplicacion?: string;
     reglas: ResultadoReglasExpediente;
     cobertura: {
       porcentaje: number | null;

@@ -530,6 +530,11 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   const originNames = proposal.origenes.map(origin => origin.nombre);
                   const reviewKey = proposalReviewKey(proposal);
                   const latestReview = proposal.revisionesDocente?.[proposal.revisionesDocente.length - 1];
+                  const serviceExplanation = proposal.evaluacion.explicacion?.trim();
+                  const explanation = serviceExplanation || explicarPropuesta(proposal);
+                  const explanationSource = serviceExplanation
+                    ? proposal.evaluacion.fuenteExplicacion || 'plantilla'
+                    : 'plantilla';
                   return <article className="ia-proposal-card" key={`${destinationId}-${index}`}>
                     <div className="ia-proposal-title">
                       <div><h5>{originNames.length > 1 ? 'Propuesta combinada' : 'Asignatura de origen'}</h5>
@@ -547,8 +552,13 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                       <div><dt>Carga horaria</dt><dd>{rules.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}</dd></div>
                     </dl>
                     <div className="ia-proposal-explanation">
-                      <strong>Explicación de la propuesta</strong>
-                      <p>{explicarPropuesta(proposal)}</p>
+                      <div className="ia-explanation-heading">
+                        <strong>Explicación de la propuesta</strong>
+                        <span className={`ia-explanation-source ${explicacionEsLlm(explanationSource) ? 'source-llm' : 'source-template'}`}>
+                          Origen: {explicacionEsLlm(explanationSource) ? 'LLM' : 'Plantilla'}
+                        </span>
+                      </div>
+                      <p>{explanation}</p>
                     </div>
                     <div className="ia-topic-columns">
                       <div><h6>Temas coincidentes ({coverage.temasCoincidentes.length})</h6>
@@ -563,7 +573,6 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         </li>)}</ul> : <p className="ia-topic-empty">No se identificaron temas ausentes.</p>}
                       </div>
                     </div>
-                    {proposal.evaluacion.explicacion && <p>{proposal.evaluacion.explicacion}</p>}
                     {rules.advertencias.length > 0 && <ul className="ia-rule-warnings">{rules.advertencias.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
                     {latestReview && <p className="ia-teacher-review" role="status">
                       <strong>{latestReview.tipo === 'AceptaPropuestaIa' ? 'El profesor aceptó la propuesta de IA' : 'Conclusión registrada por el profesor'}</strong>
@@ -640,6 +649,11 @@ function explicarPropuesta(proposal: PropuestaExpedienteIa): string {
   if (cobertura.temasAusentes.length > 0) partes.push(`Quedan ${cobertura.temasAusentes.length} temas destino sin coincidencia suficiente.`);
   partes.push('La evidencia por tema aparece abajo; el profesor conserva la decisión final.');
   return partes.join(' ');
+}
+
+function explicacionEsLlm(source: string): boolean {
+  const normalized = source.trim().toLocaleLowerCase();
+  return normalized === 'llm' || normalized.includes('ollama') || normalized.includes('gemini');
 }
 
 function resultadoLabel(value: string | number): string {

@@ -434,6 +434,10 @@
 .ia-proposal-explanation { margin: 12px 0 14px; padding: 11px 13px; border-left: 3px solid #4b75c9; border-radius: 5px; background: #f0f4fa; color: #34465f; font-size: 13px; line-height: 1.5; }
 .ia-proposal-explanation strong { color: #263750; }
 .ia-proposal-explanation p { margin: 4px 0 0; }
+.ia-explanation-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.ia-explanation-source { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.ia-explanation-source.source-llm { background: #e8edff; color: #344a9a; }
+.ia-explanation-source.source-template { background: #fff2d9; color: #79520a; }
 .ia-teacher-review { display: grid; gap: 4px; margin: 14px 0 0; padding: 12px 14px; border-radius: 8px; background: #e8f6ee; color: #17683c; font-size: 13px; }
 .ia-teacher-review small { color: #52647d; }
 .ia-review-controls { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #dce4ef; }

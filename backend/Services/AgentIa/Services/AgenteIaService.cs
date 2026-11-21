@@ -28,7 +28,11 @@ public sealed record CoberturaContenidosIa(
 public sealed record ResultadoAgenteIa(
     ResultadoReglas Reglas,
     IReadOnlyList<CoincidenciaIa> CoincidenciasSugeridas,
-    CoberturaContenidosIa Cobertura);
+    CoberturaContenidosIa Cobertura)
+{
+    public string Explicacion => ExplicacionPlantilla.Crear(Reglas);
+    public string FuenteExplicacion => "plantilla";
+}
 
 public interface IAgenteIaService
 {
@@ -81,16 +85,33 @@ public sealed class AgenteIaService : IAgenteIaService
         }
 
         var tieneOrigen = solicitud.ContenidosOrigen.Count > 0;
-        var coincidenciasIa = tieneOrigen
-            ? await comparador.CompararAsync(
-                solicitud.ContenidosOrigen,
-                solicitud.ContenidosDestino,
-                cancellationToken)
-            : Array.Empty<CoincidenciaIa>();
+        IReadOnlyList<CoincidenciaIa> coincidenciasIa;
+        try
+        {
+            coincidenciasIa = tieneOrigen
+                ? await comparador.CompararAsync(solicitud.ContenidosOrigen, solicitud.ContenidosDestino, cancellationToken)
+                : Array.Empty<CoincidenciaIa>();
+        }
+        catch (Exception ex) when (
+            !cancellationToken.IsCancellationRequested &&
+            ex is HttpRequestException or OperationCanceledException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return CrearRespaldo("No se pudo validar la comparación de contenidos. Reintenta el análisis cuando el servicio esté disponible.");
+        }
 
         var codigosDestino = solicitud.ContenidosDestino
             .Select(x => x.Codigo)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (coincidenciasIa.Any(x => !codigosDestino.Contains(x.CodigoDestino)
+            || x.Similitud < 0m || x.Similitud > 1m))
+        {
+            // Se conservan las coincidencias válidas para los clientes existentes.
+            // Una respuesta sin ninguna coincidencia válida requiere revisión.
+            if (!coincidenciasIa.Any(x => codigosDestino.Contains(x.CodigoDestino)
+                && x.Similitud >= 0m && x.Similitud <= 1m))
+                return CrearRespaldo("La respuesta de IA no contiene coincidencias válidas.");
+        }
 
         var coincidenciasValidas = coincidenciasIa
             .Where(x => codigosDestino.Contains(x.CodigoDestino)
@@ -123,6 +144,18 @@ public sealed class AgenteIaService : IAgenteIaService
         }
 
         return CrearResultado(resultadoReglas, coincidenciasValidas, solicitud.ContenidosDestino);
+
+        ResultadoAgenteIa CrearRespaldo(string motivo)
+        {
+            var reglas = resultadoBase with
+            {
+                Advertencias = resultadoBase.Advertencias
+                    .Where(x => x != "No hay contenidos de destino para evaluar.")
+                    .Append(motivo).ToArray()
+            };
+            return new ResultadoAgenteIa(reglas, Array.Empty<CoincidenciaIa>(),
+                new CoberturaContenidosIa(null, Array.Empty<TemaCoberturaIa>(), Array.Empty<TemaCoberturaIa>()));
+        }
     }
 
     private ResultadoAgenteIa CrearResultado(

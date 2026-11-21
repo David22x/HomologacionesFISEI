@@ -563,6 +563,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         </li>)}</ul> : <p className="ia-topic-empty">No se identificaron temas ausentes.</p>}
                       </div>
                     </div>
+                    {proposal.evaluacion.explicacion && <p>{proposal.evaluacion.explicacion}</p>}
                     {rules.advertencias.length > 0 && <ul className="ia-rule-warnings">{rules.advertencias.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
                     {latestReview && <p className="ia-teacher-review" role="status">
                       <strong>{latestReview.tipo === 'AceptaPropuestaIa' ? 'El profesor aceptó la propuesta de IA' : 'Conclusión registrada por el profesor'}</strong>

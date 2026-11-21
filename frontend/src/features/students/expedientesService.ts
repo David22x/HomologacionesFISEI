@@ -4,7 +4,7 @@ const API_URL = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080'
 ).replace(/\/$/, '');
 
-export const estadosExpediente = ['Borrador', 'En revisión', 'Finalizado', 'Anulado', 'Analizado con IA'] as const;
+export const estadosExpediente = ['Borrador', 'En revisión', 'Finalizado', 'Anulado', 'Analizado con IA', 'Resuelto'] as const;
 export type EstadoExpediente = (typeof estadosExpediente)[number];
 
 export interface Expediente {
@@ -141,10 +141,15 @@ async function request<T>(
     }
     throw new Error(detail || `No se pudo completar la operación (HTTP ${response.status}).`);
   }
+  if (response.status === 204) return null as T;
   return response.json() as Promise<T>;
 }
 
 export const expedientesService = {
+  consultarAnalisis(expedienteId: string): Promise<AnalisisExpedienteIa | null> {
+    return request<AnalisisExpedienteIa | null>(
+      '/api/v1/homologacion/expedientes/' + expedienteId + '/analisis-ia');
+  },
   listar(): Promise<Expediente[]> {
     return request<Expediente[]>('/api/v1/homologacion/expedientes');
   },

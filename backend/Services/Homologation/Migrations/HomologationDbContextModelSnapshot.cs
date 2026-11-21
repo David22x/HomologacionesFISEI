@@ -22,6 +22,45 @@ namespace HomologationService.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("HomologationService.Models.Decision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AsignaturaDestinoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Justificacion")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("OrigenIdsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ProfesorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RegistradoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ResultadoCalculado")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResultadoFinal")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId", "AsignaturaDestinoId");
+
+                    b.ToTable("Decisiones");
+                });
+
             modelBuilder.Entity("HomologationService.Models.EjecucionReglas", b =>
                 {
                     b.Property<Guid>("Id")
@@ -93,6 +132,32 @@ namespace HomologationService.Migrations
                         .IsUnique();
 
                     b.ToTable("EquivalenciasOrigen", (string)null);
+                });
+
+            modelBuilder.Entity("HomologationService.Models.EventoAuditoria", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CambiosJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ExpedienteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpedienteId", "Fecha");
+
+                    b.ToTable("EventosAuditoria");
                 });
 
             modelBuilder.Entity("HomologationService.Models.Expediente", b =>
@@ -168,6 +233,15 @@ namespace HomologationService.Migrations
                     b.ToTable("ParesHomologacion", (string)null);
                 });
 
+            modelBuilder.Entity("HomologationService.Models.Decision", b =>
+                {
+                    b.HasOne("HomologationService.Models.Expediente", null)
+                        .WithMany()
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HomologationService.Models.EjecucionReglas", b =>
                 {
                     b.HasOne("HomologationService.Models.Expediente", null)
@@ -197,6 +271,15 @@ namespace HomologationService.Migrations
                         .IsRequired();
 
                     b.Navigation("Equivalencia");
+                });
+
+            modelBuilder.Entity("HomologationService.Models.EventoAuditoria", b =>
+                {
+                    b.HasOne("HomologationService.Models.Expediente", null)
+                        .WithMany()
+                        .HasForeignKey("ExpedienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HomologationService.Models.ParHomologacion", b =>

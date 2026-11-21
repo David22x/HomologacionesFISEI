@@ -6,5 +6,6 @@ public enum EstadoExpediente
     EnRevision = 1,
     Finalizado = 2,
     Anulado = 3,
-    AnalizadoConIa = 4
+    AnalizadoConIa = 4,
+    Resuelto = 5
 }

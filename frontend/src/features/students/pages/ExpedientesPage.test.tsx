@@ -58,6 +58,7 @@ describe('Gestión de expedientes', () => {
       .mockResolvedValueOnce(response(201, expediente))
       .mockResolvedValueOnce(response(200, [malla]))
       .mockResolvedValueOnce(response(200, []))
+      .mockResolvedValueOnce(response(204, null))
       .mockResolvedValueOnce(response(200, []));
     sessionStorage.setItem('accessToken', 'test-token');
     vi.stubGlobal('fetch', fetchMock);

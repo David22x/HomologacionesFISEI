@@ -88,7 +88,8 @@ public class ExpedientesController : ControllerBase
         bool existeActivo = await _context.Expedientes.AnyAsync(e =>
             e.EstudianteId == request.EstudianteRefId && 
             e.CarreraDestinoId == request.CarreraDestinoRefId && 
-            e.Estado != EstadoExpediente.Finalizado && 
+            e.Estado != EstadoExpediente.Finalizado &&
+            e.Estado != EstadoExpediente.Resuelto &&
             e.Estado != EstadoExpediente.Anulado, ct);
             
         if (existeActivo)

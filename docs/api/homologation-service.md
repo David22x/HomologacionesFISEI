@@ -65,3 +65,23 @@ La prueba `OllamaSinEscuchar_endpointDevuelvePlantillaYDatosIncompletos` usa el 
 6. Ejecutar `docker compose -f infrastructure/docker-compose.yml start ollama`.
 
 Las ejecuciones ya guardadas conservan su resultado. El endpoint analizar-ia recupera la ejecución previa en sus reintentos, según el comportamiento definido en SDH-78.
+
+## Decisiones y auditoría (SDH-85)
+
+La revisión existente `PUT /analisis-ia/propuestas/revision` guarda una entidad Decisión además de la revisión del JSON. Conserva el resultado calculado, el resultado final, los orígenes, la justificación, el profesor y la fecha. Cada revisión agrega un registro. La decisión vigente de un destino es la última registrada.
+
+Se exige una justificación de hasta 2000 caracteres cuando el profesor formula una conclusión propia, cambia el resultado o acepta un rechazo, origen no aprobado o datos incompletos. Una asignatura de origen puede respaldar un solo destino aceptado.
+
+| Ruta relativa a /api/v1/homologacion/expedientes/{id} | Uso |
+|---|---|
+| GET /decisiones | Decisiones vigentes por destino |
+| GET /auditoria | Historial de cambios con actor, fecha y valores anteriores y posteriores |
+| GET /analisis-ia | Recupera el análisis guardado, incluso después del cierre. Devuelve 204 si todavía no existe |
+| POST /en-revision | Inicia la revisión si existe una evaluación previa |
+| POST /resolver | Resuelve un expediente en revisión con una decisión concluyente por cada destino propuesto |
+
+El profesor asignado realiza los cambios. Administrador y profesor asignado pueden consultar. Resolver exige que exista un análisis, que todos sus destinos tengan una decisión y que ninguna decisión vigente sea DatosIncompletos. Resuelto, Finalizado y Anulado son estados de solo lectura. Las rutas de modificación responden 409 en esos estados. Se conserva el valor numérico de los estados existentes y se incorpora Resuelto = 5.
+
+La auditoría y los cambios se guardan juntos mediante SaveChangesAsync. Los conflictos concurrentes se detectan con el campo ActualizadoEn del expediente. Las operaciones rechazadas y las consultas no generan eventos de modificación.
+
+Las revisiones históricas de SDH-82 permanecen visibles en su JSON. Antes de resolver un expediente antiguo deben registrarse sus decisiones mediante el endpoint de revisión, aplicando las nuevas reglas de justificación. La auditoría comienza con los cambios realizados después de esta migración.

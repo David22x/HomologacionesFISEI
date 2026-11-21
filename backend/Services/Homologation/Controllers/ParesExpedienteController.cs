@@ -259,6 +259,28 @@ public sealed class ParesExpedienteController(
                 resultadoFinal = request.ResultadoPropio!.Value;
             }
 
+            var resultadoCalculado = propuestas[indice].Evaluacion.GetProperty("reglas").GetProperty("resultado").GetInt32();
+            if ((resultadoFinal != resultadoCalculado || resultadoFinal is not (0 or 4))
+                && string.IsNullOrWhiteSpace(observacion))
+                return BadRequest(new { mensaje = "La modificación, el rechazo o los datos incompletos requieren una justificación." });
+
+            var vigentes = await DecisionesVigentesAsync(expedienteId, ct);
+            if (resultadoFinal is 0 or 4 && vigentes.Any(d =>
+                d.AsignaturaDestinoId != request.AsignaturaDestinoId && d.ResultadoFinal is 0 or 4
+                && JsonSerializer.Deserialize<Guid[]>(d.OrigenIdsJson)!.Intersect(origenesSolicitados).Any()))
+                return Conflict(new { mensaje = "Una asignatura de origen ya respalda otro destino aceptado." });
+
+            db.Decisiones.Add(new Decision
+            {
+                ExpedienteId = expedienteId,
+                AsignaturaDestinoId = request.AsignaturaDestinoId,
+                OrigenIdsJson = JsonSerializer.Serialize(origenesSolicitados),
+                ResultadoCalculado = resultadoCalculado,
+                ResultadoFinal = resultadoFinal,
+                Justificacion = string.IsNullOrWhiteSpace(observacion) ? null : observacion,
+                ProfesorId = expediente.ProfesorId
+            });
+
             var profesorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var revision = new GeneradorPropuestas.RevisionDocentePropuesta(
                 request.AceptarPropuestaIa ? "AceptaPropuestaIa" : "ConclusionPropia",
@@ -280,6 +302,81 @@ public sealed class ParesExpedienteController(
 
             return Ok(revision);
         }, ct);
+
+    [HttpGet("analisis-ia")]
+    public async Task<IActionResult> ConsultarAnalisis(Guid expedienteId, CancellationToken ct)
+    {
+        var expediente = await BuscarAsync(expedienteId, ct);
+        if (expediente is null) return NotFound();
+        var ejecucion = await db.EjecucionesReglas.AsNoTracking().SingleOrDefaultAsync(
+            x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+        if (ejecucion is null) return NoContent();
+        var resultado = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb)!;
+        return Ok(new { ejecucion.Id,
+            ejecutadoEn = DateTime.SpecifyKind(ejecucion.EjecutadoEn, DateTimeKind.Utc),
+            estado = expediente.Estado.ToString(), resultado.Propuestas, resultado.Advertencias });
+    }
+
+    [HttpGet("decisiones")]
+    public async Task<IActionResult> ConsultarDecisiones(Guid expedienteId, CancellationToken ct)
+    {
+        if (await BuscarAsync(expedienteId, ct) is null) return NotFound();
+        return Ok(await DecisionesVigentesAsync(expedienteId, ct));
+    }
+
+    [HttpGet("auditoria")]
+    public async Task<IActionResult> ConsultarAuditoria(Guid expedienteId, CancellationToken ct)
+    {
+        if (await BuscarAsync(expedienteId, ct) is null) return NotFound();
+        return Ok(await db.EventosAuditoria.AsNoTracking().Where(x => x.ExpedienteId == expedienteId)
+            .OrderBy(x => x.Fecha).ToListAsync(ct));
+    }
+
+    [HttpPost("en-revision")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> IniciarRevision(Guid expedienteId, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, _) =>
+        {
+            if (expediente.Estado == EstadoExpediente.EnRevision) return Ok(new { estado = "EnRevision" });
+            if (!await db.EjecucionesReglas.AnyAsync(x => x.ExpedienteId == expedienteId, ct))
+                return Conflict(new { mensaje = "Evalúa el expediente antes de iniciar la revisión." });
+            expediente.Estado = EstadoExpediente.EnRevision;
+            await GuardarAsync(expediente, ct);
+            return Ok(new { estado = "EnRevision" });
+        }, ct);
+
+    [HttpPost("resolver")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> Resolver(Guid expedienteId, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, _) =>
+        {
+            if (expediente.Estado != EstadoExpediente.EnRevision)
+                return Conflict(new { mensaje = "Solo se puede resolver un expediente en revisión." });
+            var ejecucion = await db.EjecucionesReglas.AsNoTracking().SingleOrDefaultAsync(
+                x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            if (ejecucion is null)
+                return Conflict(new { mensaje = "Primero genera y revisa las propuestas." });
+            var analisis = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb)!;
+            var destinos = analisis.Propuestas.Select(x => x.AsignaturaDestinoId).Distinct().ToHashSet();
+            var decisiones = await DecisionesVigentesAsync(expedienteId, ct);
+            if (destinos.Count == 0 || !destinos.SetEquals(decisiones.Select(x => x.AsignaturaDestinoId))
+                || decisiones.Any(x => x.ResultadoFinal == 3))
+                return Conflict(new { mensaje = "Registra una decisión concluyente por cada destino antes de resolver." });
+            var origenes = decisiones.Where(x => x.ResultadoFinal is 0 or 4)
+                .SelectMany(x => JsonSerializer.Deserialize<Guid[]>(x.OrigenIdsJson)!).ToArray();
+            if (origenes.Distinct().Count() != origenes.Length)
+                return Conflict(new { mensaje = "Una asignatura de origen no puede respaldar dos destinos aceptados." });
+            expediente.Estado = EstadoExpediente.Resuelto;
+            await GuardarAsync(expediente, ct);
+            return Ok(new { estado = "Resuelto", soloLectura = true });
+        }, ct);
+
+    private async Task<List<Decision>> DecisionesVigentesAsync(Guid expedienteId, CancellationToken ct)
+    {
+        var decisiones = await db.Decisiones.AsNoTracking().Where(x => x.ExpedienteId == expedienteId)
+            .OrderByDescending(x => x.RegistradoEn).ThenByDescending(x => x.Id).ToListAsync(ct);
+        return decisiones.DistinctBy(x => x.AsignaturaDestinoId).ToList();
+    }
 
     private async Task<IActionResult> EditarAsync(Guid id,
         Func<Expediente, AuthenticationHeaderValue, Task<IActionResult>> operacion, CancellationToken ct)

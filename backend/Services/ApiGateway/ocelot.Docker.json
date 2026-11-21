@@ -1,6 +1,54 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision",
+      "UpstreamHttpMethod": ["Put"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia",
+      "UpstreamHttpMethod": ["Get"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/resolver",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/resolver",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/en-revision",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/en-revision",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/auditoria",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/auditoria",
+      "UpstreamHttpMethod": ["Get"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/decisiones",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/decisiones",
+      "UpstreamHttpMethod": ["Get"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/pares",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],

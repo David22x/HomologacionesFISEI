@@ -144,7 +144,13 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
             ["/api/v1/homologacion/expedientes/{id}/pares"] = ["Get", "Put"],
             ["/api/v1/homologacion/expedientes/{id}/pares/precargar"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/evaluar-reglas"] = ["Post"],
-            ["/api/v1/homologacion/expedientes/{id}/analizar-ia"] = ["Post"]
+            ["/api/v1/homologacion/expedientes/{id}/analizar-ia"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/decisiones"] = ["Get"],
+            ["/api/v1/homologacion/expedientes/{id}/auditoria"] = ["Get"],
+            ["/api/v1/homologacion/expedientes/{id}/en-revision"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/resolver"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/analisis-ia"] = ["Get"],
+            ["/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision"] = ["Put"]
         };
         Assert.Equal(expectedMethods.Keys.Order(), routes
             .Select(route => route.GetProperty("UpstreamPathTemplate").GetString()!)

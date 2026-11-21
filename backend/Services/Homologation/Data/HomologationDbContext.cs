@@ -16,6 +16,47 @@ public class HomologationDbContext : DbContext
     public DbSet<ParHomologacion> Pares => Set<ParHomologacion>();
     public DbSet<EjecucionReglas> EjecucionesReglas => Set<EjecucionReglas>();
 
+    public DbSet<Decision> Decisiones => Set<Decision>();
+    public DbSet<EventoAuditoria> EventosAuditoria => Set<EventoAuditoria>();
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ChangeTracker.DetectChanges();
+        var expedientes = ChangeTracker.Entries<Expediente>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified).ToArray();
+        foreach (var expediente in expedientes)
+        {
+            var id = expediente.Entity.Id;
+            var cambios = ChangeTracker.Entries()
+                .Where(e => e.Entity is not EventoAuditoria
+                    && e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                .Where(e => e.Entity == expediente.Entity
+                    || e.Metadata.FindProperty("ExpedienteId") is not null
+                    && (Guid)e.Property("ExpedienteId").CurrentValue! == id)
+                .Select(e => new
+                {
+                    entidad = e.Metadata.ClrType.Name,
+                    operacion = e.State.ToString(),
+                    antes = e.State == EntityState.Added ? null :
+                        e.Properties.ToDictionary(p => p.Metadata.Name, p => p.OriginalValue),
+                    despues = e.State == EntityState.Deleted ? null :
+                        e.Properties.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue)
+                }).ToArray();
+            // Solo se serializan propiedades escalares para evitar ciclos de navegación.
+            var opciones = new System.Text.Json.JsonSerializerOptions
+            {
+                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
+            };
+            EventosAuditoria.Add(new EventoAuditoria
+            {
+                ExpedienteId = id,
+                ActorId = expediente.Entity.ProfesorId,
+                CambiosJson = System.Text.Json.JsonSerializer.Serialize(cambios, opciones)
+            });
+        }
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Expediente>(e =>
@@ -38,6 +79,18 @@ public class HomologationDbContext : DbContext
                 .WithOne(x => x.Expediente)
                 .HasForeignKey(x => x.ExpedienteId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Decision>(e =>
+        {
+            e.HasOne<Expediente>().WithMany().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.Justificacion).HasMaxLength(2000);
+            e.HasIndex(x => new { x.ExpedienteId, x.AsignaturaDestinoId });
+        });
+        modelBuilder.Entity<EventoAuditoria>(e =>
+        {
+            e.HasOne<Expediente>().WithMany().HasForeignKey(x => x.ExpedienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.ExpedienteId, x.Fecha });
         });
 
         modelBuilder.Entity<ParHomologacion>(e =>

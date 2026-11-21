@@ -114,9 +114,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setError('');
     try {
       const student = students.find(item => item.id === expediente.estudianteId);
-      const [rows, pairRows] = await Promise.all([
+      const [rows, pairRows, analisisGuardado] = await Promise.all([
         catalogService.obtenerMallas(expediente.carreraDestinoId),
         expedientesService.listarPares(expediente.id),
+        expedientesService.consultarAnalisis(expediente.id),
       ]);
       const levels = await catalogService.obtenerNiveles(expediente.mallaDestinoId);
       const assignmentGroups = await Promise.all(levels.map(level =>
@@ -127,6 +128,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         setOriginCourses(student?.historial?.asignaturas ?? []);
         setDestinationCourses(assignmentGroups.flat());
         setPairs(pairRows);
+        setIaAnalysis(analisisGuardado);
       }
     } catch (cause) {
       if (requestId === detailRequestId.current) {
@@ -319,6 +321,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     }
   }
 
+  const soloLectura = selectedExpediente != null &&
+    [2, 3, 5, 'Finalizado', 'Anulado', 'Resuelto'].includes(selectedExpediente.estado);
+  const puedeEditar = canCreate && !soloLectura;
+
   const selectedStudent = students.find(student => student.id === selectedExpediente?.estudianteId);
   const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraDestinoId);
   const selectedMalla = detailMallas.find(malla => malla.id === selectedExpediente?.mallaDestinoId);
@@ -437,14 +443,14 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             <h3 id="eligibility-heading">Elegibilidad por reglas</h3>
             <p>Selecciona las asignaturas de origen y destino para comparar créditos, contenidos y carga horaria.</p>
           </div>
-          {canCreate && <button className="students-secondary" type="button" onClick={() => { void preloadPairs(); }} disabled={saving || loadingDetail || originCourses.length === 0 || destinationCourses.length === 0}>
+          {puedeEditar && <button className="students-secondary" type="button" onClick={() => { void preloadPairs(); }} disabled={saving || loadingDetail || originCourses.length === 0 || destinationCourses.length === 0}>
             {saving ? 'Precargando…' : 'Precargar coincidencias'}
           </button>}
         </div>
         {loadingDetail ? <p className="catalog-message" role="status">Cargando historial, asignaturas y pares…</p> : <>
           {originCourses.length === 0 && <p className="catalog-message">El estudiante no tiene asignaturas cursadas disponibles en su historial.</p>}
           {destinationCourses.length === 0 && <p className="catalog-message">La malla de destino no tiene asignaturas disponibles.</p>}
-          {canCreate && <div className="eligibility-pair-picker">
+          {puedeEditar && <div className="eligibility-pair-picker">
             <label>Asignatura de origen
               <select value={pairOriginId} onChange={event => setPairOriginId(event.target.value)} disabled={originCourses.length === 0}>
                 <option value="">Selecciona del historial</option>
@@ -465,7 +471,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
           </div>}
           <div className="student-table-wrap eligibility-results-wrap">
             <table className="student-table eligibility-results-table">
-              <thead><tr><th>Asignatura de origen</th><th>Asignatura de destino</th><th>Créditos</th><th>% contenidos</th><th>Umbral</th><th>Resultado</th><th>Carga horaria</th>{canCreate && <th>Acción</th>}</tr></thead>
+              <thead><tr><th>Asignatura de origen</th><th>Asignatura de destino</th><th>Créditos</th><th>% contenidos</th><th>Umbral</th><th>Resultado</th><th>Carga horaria</th>{puedeEditar && <th>Acción</th>}</tr></thead>
               <tbody>{pairs.map(pair => {
                 const origin = originCourses.find(course => course.id === pair.asignaturaCursadaId);
                 const destination = destinationCourses.find(course => course.id === pair.asignaturaDestinoId);
@@ -481,16 +487,16 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   <td>Créditos 80%<small>Contenidos 80%</small></td>
                   <td>{rules ? resultadoLabel(rules.resultado) : 'Pendiente'}</td>
                   <td>{rules?.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}{hoursWarning && <small className="eligibility-warning">{hoursWarning}</small>}</td>
-                  {canCreate && <td><button className="students-remove" type="button" onClick={() => {
+                  {puedeEditar && <td><button className="students-remove" type="button" onClick={() => {
                     setPairs(current => current.filter(item => item.id !== pair.id));
                     setResults(current => current.filter(item => item.parId !== pair.id));
                   }}>Quitar</button></td>}
                 </tr>;
               })}
-              {pairs.length === 0 && <tr><td colSpan={canCreate ? 8 : 7} className="eligibility-empty">Aún no hay pares. Selecciona asignaturas o precarga coincidencias por nombre.</td></tr>}</tbody>
+              {pairs.length === 0 && <tr><td colSpan={puedeEditar ? 8 : 7} className="eligibility-empty">Aún no hay pares. Selecciona asignaturas o precarga coincidencias por nombre.</td></tr>}</tbody>
             </table>
           </div>
-          {canCreate && <div className="eligibility-actions">
+          {puedeEditar && <div className="eligibility-actions">
             <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0}>
               {evaluating ? 'Evaluando…' : 'Evaluar por reglas'}
             </button>
@@ -505,7 +511,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             <h3 id="ia-analysis-heading">Análisis con IA</h3>
             <p>Genera propuestas de equivalencia agrupadas por asignatura de destino. La decisión final corresponde al profesor.</p>
           </div>
-          {canCreate && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail}>
+          {puedeEditar && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail}>
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>
@@ -580,7 +586,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                       {latestReview.observacion && <span> · Motivo: {latestReview.observacion}</span>}
                       <small>{latestReview.profesorNombre || 'Profesor'} · {new Date(latestReview.revisadoEn).toLocaleString()}</small>
                     </p>}
-                    {canCreate && <div className="ia-review-controls">
+                    {puedeEditar && <div className="ia-review-controls">
                       <div className="ia-review-actions">
                         <button className="students-primary" type="button" onClick={() => { void saveProposalReview(proposal, true); }} disabled={savingReviewKey !== null}>
                           {savingReviewKey === reviewKey ? 'Guardando…' : 'Aceptar resultado de IA'}
@@ -699,6 +705,7 @@ function estadoLabel(estado: number | string): string {
   if (typeof estado === 'number') {
     return estadosNumericos[estado] ?? `Estado no reconocido (${estado})`;
   }
+  if (estado === 'Resuelto') return 'Resuelto';
   if (estado === 'AnalizadoConIa') return 'Analizado con IA';
   if (estado === 'EnRevision') return 'En revisión';
   return estadosExpediente.find(value => value === estado) ?? `Estado no reconocido (${estado})`;
@@ -710,6 +717,7 @@ const estadosNumericos: Record<number, (typeof estadosExpediente)[number]> = {
   2: 'Finalizado',
   3: 'Anulado',
   4: 'Analizado con IA',
+  5: 'Resuelto',
 };
 
 function estadoClass(estado: number | string): string {

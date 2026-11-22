@@ -32,6 +32,7 @@ public sealed record ResultadoAgenteIa(
 {
     public string Explicacion => ExplicacionPlantilla.Crear(Reglas);
     public string FuenteExplicacion => "plantilla";
+    public bool FalloComparacion { get; init; }
 }
 
 public interface IAgenteIaService
@@ -154,7 +155,8 @@ public sealed class AgenteIaService : IAgenteIaService
                     .Append(motivo).ToArray()
             };
             return new ResultadoAgenteIa(reglas, Array.Empty<CoincidenciaIa>(),
-                new CoberturaContenidosIa(null, Array.Empty<TemaCoberturaIa>(), Array.Empty<TemaCoberturaIa>()));
+                new CoberturaContenidosIa(null, Array.Empty<TemaCoberturaIa>(), Array.Empty<TemaCoberturaIa>()))
+            { FalloComparacion = true };
         }
     }
 

@@ -102,3 +102,11 @@ Las revisiones históricas de SDH-82 permanecen visibles en su JSON. Antes de re
 ```
 
 Después se registra la decisión con `PUT /analisis-ia/propuestas/revision`, usando el destino y la lista de orígenes de la propuesta agrupada. `GET /decisiones` devuelve la decisión vigente por destino, `POST /en-revision` permite iniciar la revisión y `POST /resolver` cierra el expediente cuando cada destino del análisis tiene una decisión concluyente y ningún origen respaldó dos destinos aceptados. El Gateway publica estas rutas tanto para ejecución local como para Docker.
+
+## Estabilidad de la comparación de contenidos
+
+Los embeddings se calculan con la descripción académica normalizada. Los códigos enlazan las evidencias y no se envían como texto al modelo. Se rechazan vectores vacíos, nulos, incompatibles o con valores no finitos.
+
+La llamada a embeddings tiene un presupuesto total de 60 segundos, incluidos los reintentos, configurable mediante Ollama:OperationTimeoutSeconds. El análisis automático completo tiene un presupuesto de 240 segundos. La cancelación del solicitante se propaga.
+
+Agent IA indica falloComparacion cuando usa el respaldo por indisponibilidad o respuesta inválida del proveedor. Homologation reconoce esta marca y responde 503 sin guardar la ejecución ni cambiar el estado. Esto permite reintentar cuando Ollama vuelve a estar disponible. Los datos académicos incompletos siguen siendo resultados válidos. Los análisis ya guardados conservan su contenido.

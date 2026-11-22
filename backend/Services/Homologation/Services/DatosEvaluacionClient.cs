@@ -48,6 +48,12 @@ public sealed class DatosEvaluacionClient(IHttpClientFactory clients)
             || !reglas.TryGetProperty("versionReglas", out _))
             throw new JsonException("Agent IA devolvió una evaluación no válida.");
 
+        if (resultado.TryGetProperty("falloComparacion", out var fallo)
+            && fallo.ValueKind == JsonValueKind.True)
+            throw new HttpRequestException(
+                "La comparación de contenidos no pudo completarse. Reintenta cuando Ollama esté disponible.",
+                null, HttpStatusCode.ServiceUnavailable);
+
         return resultado;
     }
 

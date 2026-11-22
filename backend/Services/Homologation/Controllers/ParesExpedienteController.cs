@@ -176,7 +176,9 @@ public sealed class ParesExpedienteController(
                 .SingleOrDefaultAsync(x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
             if (ejecucion is null)
             {
-                var analisis = await new GeneradorPropuestas(datos).GenerarAsync(expediente, bearer, ct);
+                using var presupuesto = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                presupuesto.CancelAfter(TimeSpan.FromSeconds(240));
+                var analisis = await new GeneradorPropuestas(datos).GenerarAsync(expediente, bearer, presupuesto.Token);
                 ejecucion = new EjecucionReglas
                 {
                     ExpedienteId = expedienteId,

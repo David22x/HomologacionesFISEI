@@ -17,10 +17,11 @@ namespace HomologationService.Tests;
 public sealed class AnalisisIaExpedienteTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    public async Task Analizar_generaPropuestasYReutilizaLaEjecucion(bool fallaPrimero, bool sinHistorial)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, true)]
+    public async Task Analizar_generaPropuestasYReutilizaLaEjecucion(bool fallaPrimero, bool sinHistorial, bool falloConPlantilla)
     {
         await using var conexion = new SqliteConnection("Data Source=:memory:");
         await conexion.OpenAsync();
@@ -31,7 +32,8 @@ public sealed class AnalisisIaExpedienteTests
         db.Expedientes.Add(expediente);
         await db.SaveChangesAsync();
 
-        using var servicios = new ServiciosAnalisis(sinHistorial) { FallarEn = fallaPrimero ? 4 : null };
+        using var servicios = new ServiciosAnalisis(sinHistorial)
+            { FallarEn = fallaPrimero ? 4 : null, FalloConPlantilla = falloConPlantilla };
         var controlador = new ParesExpedienteController(db, new DatosEvaluacionClient(servicios))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
@@ -94,6 +96,7 @@ public sealed class AnalisisIaExpedienteTests
         private readonly IAgenteIaService _agente = new AgenteIaService(
             new MotorReglasHomologacion(new ParametrosReglas()), new ComparadorDePrueba());
         public int? FallarEn { get; init; }
+        public bool FalloConPlantilla { get; init; }
         public int Llamadas { get; private set; }
 
         public HttpClient CreateClient(string name) => new(this, false) { BaseAddress = new Uri("http://localhost/") };
@@ -129,7 +132,9 @@ public sealed class AnalisisIaExpedienteTests
 
             Assert.Equal("/api/v1/agent-ia/evaluar-reglas", path);
             if (++Llamadas == FallarEn)
-                return new(HttpStatusCode.ServiceUnavailable);
+                return FalloConPlantilla
+                    ? Ok(new { falloComparacion = true, reglas = new { resultado = 3, versionReglas = "1.0.0" } })
+                    : new(HttpStatusCode.ServiceUnavailable);
 
             var solicitud = await request.Content!.ReadFromJsonAsync<SolicitudEvaluacionIa>(cancellationToken: ct);
             return Ok(await _agente.EvaluarAsync(solicitud!, ct));

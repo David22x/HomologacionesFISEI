@@ -109,6 +109,31 @@ export interface AnalisisExpedienteIa {
   advertencias: string[];
 }
 
+export interface DecisionExpediente {
+  id: string;
+  expedienteId: string;
+  asignaturaDestinoId: string;
+  origenIdsJson: string;
+  resultadoCalculado: number;
+  resultadoFinal: number;
+  justificacion: string | null;
+  profesorId: string;
+  registradoEn: string;
+}
+
+export interface EventoAuditoriaExpediente {
+  id: string;
+  expedienteId: string;
+  actorId: string;
+  fecha: string;
+  cambiosJson: string;
+}
+
+export interface AgruparOrigenesRequest {
+  asignaturaDestinoId: string;
+  origenIds: string[];
+}
+
 async function request<T>(
   path: string,
   method: 'GET' | 'POST' | 'PUT' = 'GET',
@@ -175,5 +200,22 @@ export const expedientesService = {
     return request<RevisionDocentePropuesta>(
       `/api/v1/homologacion/expedientes/${expedienteId}/analisis-ia/propuestas/revision`, 'PUT', datos,
     );
+  },
+  agruparOrigenes(expedienteId: string, datos: AgruparOrigenesRequest): Promise<PropuestaExpedienteIa> {
+    return request<PropuestaExpedienteIa>(
+      `/api/v1/homologacion/expedientes/${expedienteId}/analisis-ia/propuestas/agrupar`, 'POST', datos,
+    );
+  },
+  listarDecisiones(expedienteId: string): Promise<DecisionExpediente[]> {
+    return request<DecisionExpediente[]>(`/api/v1/homologacion/expedientes/${expedienteId}/decisiones`);
+  },
+  listarAuditoria(expedienteId: string): Promise<EventoAuditoriaExpediente[]> {
+    return request<EventoAuditoriaExpediente[]>(`/api/v1/homologacion/expedientes/${expedienteId}/auditoria`);
+  },
+  iniciarRevision(expedienteId: string): Promise<{ estado: string }> {
+    return request<{ estado: string }>(`/api/v1/homologacion/expedientes/${expedienteId}/en-revision`, 'POST');
+  },
+  resolver(expedienteId: string): Promise<{ estado: string; soloLectura: boolean }> {
+    return request<{ estado: string; soloLectura: boolean }>(`/api/v1/homologacion/expedientes/${expedienteId}/resolver`, 'POST');
   },
 };

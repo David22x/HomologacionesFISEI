@@ -1,6 +1,14 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/agrupar",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],
+      "UpstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/agrupar",
+      "UpstreamHttpMethod": ["Post"],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer", "AllowedScopes": [] }
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [{ "Host": "homologation", "Port": 5196 }],

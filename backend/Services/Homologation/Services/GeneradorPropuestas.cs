@@ -7,6 +7,59 @@ namespace HomologationService.Services;
 
 internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
 {
+    internal async Task<Propuesta?> GenerarGrupoAsync(Expediente expediente, Guid destinoId,
+        IReadOnlyCollection<Guid> origenIds, AuthenticationHeaderValue bearer, CancellationToken ct)
+    {
+        if (origenIds.Count < 2 || origenIds.Any(id => id == Guid.Empty)
+            || origenIds.Distinct().Count() != origenIds.Count)
+            return null;
+
+        var historial = await datos.HistorialAsync(expediente.EstudianteId, bearer, ct);
+        var origenesPorId = historial?.Asignaturas.ToDictionary(x => x.Id) ?? [];
+        if (origenIds.Any(id => !origenesPorId.ContainsKey(id)))
+            return null;
+
+        var destinos = await datos.DestinosAsync(expediente.MallaDestinoId, bearer, ct);
+        var destino = destinos.SingleOrDefault(x => x.Id == destinoId);
+        if (destino is null)
+            return null;
+
+        var origenes = origenIds.Select(id => origenesPorId[id]).ToArray();
+        if (origenes.Where(x => x.AsignaturaId.HasValue).Select(x => x.AsignaturaId)
+            .Distinct().Count() != origenes.Count(x => x.AsignaturaId.HasValue))
+            return null;
+
+        var grupos = new List<(Origen Origen, decimal? Creditos, int? Horas, bool Transversal, Contenido[] Contenidos)>();
+        foreach (var origen in origenes)
+        {
+            Asignatura? ficha = null;
+            Contenido[] temas = [];
+            if (origen.AsignaturaId is Guid asignaturaId)
+            {
+                ficha = await datos.AsignaturaAsync(asignaturaId, bearer, ct);
+                if (ficha is not null)
+                    temas = await datos.ContenidosAsync(asignaturaId, bearer, ct);
+            }
+
+            grupos.Add((origen, origen.Creditos ?? ficha?.Creditos, origen.Horas ?? ficha?.Horas,
+                ficha?.EsTransversal ?? false, temas));
+        }
+
+        var contenidosOrigen = grupos.All(x => x.Contenidos.Length > 0)
+            ? grupos.SelectMany(x => x.Contenidos).DistinctBy(x => x.Codigo).ToArray()
+            : [];
+        var contenidosDestino = await datos.ContenidosAsync(destino.Id, bearer, ct);
+        var solicitud = new SolicitudReglas(
+            grupos.All(x => x.Creditos.HasValue) ? grupos.Sum(x => x.Creditos!.Value) : null,
+            destino.Creditos,
+            grupos.All(x => x.Horas.HasValue) ? grupos.Sum(x => x.Horas!.Value) : null,
+            destino.Horas, true, grupos.Min(x => x.Origen.Nota), false, destino.EsTransversal,
+            contenidosOrigen, contenidosDestino);
+        var evaluacion = await datos.EvaluarAsync(solicitud, bearer, ct);
+        return new Propuesta(destino.Id, destino.Nombre,
+            grupos.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre)).ToArray(), evaluacion);
+    }
+
     internal async Task<Analisis> GenerarAsync(Expediente expediente, AuthenticationHeaderValue bearer, CancellationToken ct)
     {
         var historial = await datos.HistorialAsync(expediente.EstudianteId, bearer, ct);

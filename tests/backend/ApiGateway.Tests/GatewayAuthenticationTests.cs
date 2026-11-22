@@ -150,6 +150,7 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
             ["/api/v1/homologacion/expedientes/{id}/en-revision"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/resolver"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/analisis-ia"] = ["Get"],
+            ["/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/agrupar"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision"] = ["Put"]
         };
         Assert.Equal(expectedMethods.Keys.Order(), routes

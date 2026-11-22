@@ -200,6 +200,45 @@ public sealed class ParesExpedienteController(
             });
         }, ct);
 
+    [HttpPost("analisis-ia/propuestas/agrupar")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> AgruparOrigenes(Guid expedienteId,
+        [FromBody] AgruparOrigenesDto request, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, bearer) =>
+        {
+            if (request.AsignaturaDestinoId == Guid.Empty || request.OrigenIds is null
+                || request.OrigenIds.Count < 2 || request.OrigenIds.Any(id => id == Guid.Empty)
+                || request.OrigenIds.Distinct().Count() != request.OrigenIds.Count)
+                return BadRequest(new { mensaje = "Selecciona un destino y al menos dos orígenes distintos." });
+
+            var ejecucion = await db.EjecucionesReglas.SingleOrDefaultAsync(
+                x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            if (ejecucion is null)
+                return Conflict(new { mensaje = "Primero genera el análisis con IA." });
+
+            var analisis = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb);
+            if (analisis is null)
+                return Problem(statusCode: 500, detail: "No se pudo leer el análisis guardado.");
+
+            var origenes = request.OrigenIds.Order().ToArray();
+            var existente = analisis.Propuestas.FirstOrDefault(propuesta =>
+                propuesta.AsignaturaDestinoId == request.AsignaturaDestinoId
+                && propuesta.Origenes.Select(origen => origen.AsignaturaCursadaId).Order().SequenceEqual(origenes));
+            if (existente is not null)
+                return Ok(existente);
+
+            var propuesta = await new GeneradorPropuestas(datos).GenerarGrupoAsync(
+                expediente, request.AsignaturaDestinoId, origenes, bearer, ct);
+            if (propuesta is null)
+                return BadRequest(new { mensaje = "El destino o los orígenes no pertenecen al expediente, o el grupo repite una asignatura de catálogo." });
+
+            ejecucion.ResultadosJson = JsonSerializer.Serialize(
+                analisis with { Propuestas = analisis.Propuestas.Append(propuesta).ToArray() }, JsonWeb);
+            expediente.Estado = EstadoExpediente.AnalizadoConIa;
+            await GuardarAsync(expediente, ct);
+            return Ok(propuesta);
+        }, ct);
+
     [HttpPut("analisis-ia/propuestas/revision")]
     [Authorize(Roles = AppRoles.Profesor)]
     public Task<IActionResult> RevisarPropuestaIa(Guid expedienteId,
@@ -454,6 +493,7 @@ public sealed class ParesExpedienteController(
         };
 
     public sealed record ParSolicitud(Guid AsignaturaCursadaId, Guid AsignaturaDestinoId);
+    public sealed record AgruparOrigenesDto(Guid AsignaturaDestinoId, IReadOnlyList<Guid> OrigenIds);
     public sealed record RevisionPropuestaIaDto(Guid AsignaturaDestinoId, IReadOnlyList<Guid> OrigenIds,
         bool AceptarPropuestaIa, int? ResultadoPropio, string? Observacion);
     private sealed record ResultadoPar(Guid ParId, Guid AsignaturaCursadaId, string NombreOrigen,

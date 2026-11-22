@@ -85,3 +85,20 @@ El profesor asignado realiza los cambios. Administrador y profesor asignado pued
 La auditoría y los cambios se guardan juntos mediante SaveChangesAsync. Los conflictos concurrentes se detectan con el campo ActualizadoEn del expediente. Las operaciones rechazadas y las consultas no generan eventos de modificación.
 
 Las revisiones históricas de SDH-82 permanecen visibles en su JSON. Antes de resolver un expediente antiguo deben registrarse sus decisiones mediante el endpoint de revisión, aplicando las nuevas reglas de justificación. La auditoría comienza con los cambios realizados después de esta migración.
+
+## Agrupación manual y cierre (SDH-86)
+
+`POST /api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/agrupar` permite al profesor asignado crear una propuesta compuesta con dos o más asignaturas cursadas para un destino de la malla. El servicio valida que los identificadores pertenezcan al expediente, que no se repita una asignatura de catálogo, suma créditos y horas disponibles, combina los contenidos sin duplicarlos y vuelve a evaluar las reglas. La propuesta se agrega al análisis guardado; repetir la misma combinación devuelve la propuesta existente.
+
+```json
+{
+  "asignaturaDestinoId": "22222222-2222-2222-2222-222222222222",
+  "origenIds": [
+    "11111111-1111-1111-1111-111111111111",
+    "33333333-3333-3333-3333-333333333333",
+    "44444444-4444-4444-4444-444444444444"
+  ]
+}
+```
+
+Después se registra la decisión con `PUT /analisis-ia/propuestas/revision`, usando el destino y la lista de orígenes de la propuesta agrupada. `GET /decisiones` devuelve la decisión vigente por destino, `POST /en-revision` permite iniciar la revisión y `POST /resolver` cierra el expediente cuando cada destino del análisis tiene una decisión concluyente y ningún origen respaldó dos destinos aceptados. El Gateway publica estas rutas tanto para ejecución local como para Docker.

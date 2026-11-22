@@ -431,6 +431,22 @@
 .ia-topic-evidence { overflow-wrap: anywhere; }
 .ia-topic-empty { margin: 0; }
 .ia-rule-warnings { color: #855b00; font-size: 12px; }
+.ia-decision-progress { display: grid; gap: 10px; margin: 16px 0 22px; padding: 14px; border: 1px solid #dce4ef; border-radius: 9px; background: #fbfcfe; }
+.ia-decision-progress > div:first-child { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #263750; font-size: 13px; }
+.ia-decision-progress > div:first-child span, .ia-decision-progress > small { color: #65748b; }
+.ia-progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #e5eaf1; }
+.ia-progress-track span { display: block; height: 100%; border-radius: inherit; background: #1d7a50; transition: width 180ms ease; }
+.ia-progress-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.ia-progress-list li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 7px; background: #fff; font-size: 12px; }
+.ia-progress-list li span { min-width: 0; overflow-wrap: anywhere; color: #263750; }
+.ia-progress-list li strong { flex: 0 0 auto; }
+.ia-progress-list .decision-complete strong { color: #17683c; }
+.ia-progress-list .decision-pending strong { color: #855b00; }
+.ia-review-history { margin: 14px 0 0; padding: 10px 12px; border: 1px solid #dce4ef; border-radius: 8px; background: #fff; color: #34465f; font-size: 12px; }
+.ia-review-history summary { cursor: pointer; font-weight: 700; }
+.ia-review-history ol { display: grid; gap: 9px; margin: 10px 0 0; padding-left: 20px; }
+.ia-review-history li { display: grid; gap: 3px; }
+.ia-review-history small { color: #65748b; }
 .ia-proposal-explanation { margin: 12px 0 14px; padding: 11px 13px; border-left: 3px solid #4b75c9; border-radius: 5px; background: #f0f4fa; color: #34465f; font-size: 13px; line-height: 1.5; }
 .ia-proposal-explanation strong { color: #263750; }
 .ia-proposal-explanation p { margin: 4px 0 0; }
@@ -443,6 +459,10 @@
 .ia-review-controls { display: grid; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #dce4ef; }
 .ia-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ia-review-form { display: grid; gap: 10px; padding: 14px; border: 1px solid #dce4ef; border-radius: 8px; background: #fff; }
+.ia-review-form > p { margin: 0; color: #65748b; font-size: 12px; }
+.ia-review-form .ia-origin-option, .ia-review-form .ia-annotation-option { display: flex; align-items: flex-start; gap: 8px; color: #34465f; font-size: 13px; font-weight: 400; }
+.ia-review-form .ia-origin-option input, .ia-review-form .ia-annotation-option input { margin-top: 2px; }
+.ia-group-form { max-height: 360px; overflow: auto; }
 .ia-review-form label { display: grid; gap: 6px; color: #263750; font-size: 13px; font-weight: 600; }
 .ia-review-form select, .ia-review-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #ccd5e2; border-radius: 7px; padding: 9px 10px; color: #263750; font: inherit; }
 .ia-review-form textarea { resize: vertical; }

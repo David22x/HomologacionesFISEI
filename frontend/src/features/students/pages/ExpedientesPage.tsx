@@ -10,6 +10,7 @@ import {
   expedientesService,
   estadosExpediente,
   type AnalisisExpedienteIa,
+  type DecisionExpediente,
   type Expediente,
   type ParHomologacion,
   type PropuestaExpedienteIa,
@@ -33,12 +34,19 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [pairs, setPairs] = useState<ParHomologacion[]>([]);
   const [results, setResults] = useState<ResultadoParExpediente[]>([]);
   const [iaAnalysis, setIaAnalysis] = useState<AnalisisExpedienteIa | null>(null);
+  const [decisions, setDecisions] = useState<DecisionExpediente[]>([]);
   const [analyzingIa, setAnalyzingIa] = useState(false);
   const [iaError, setIaError] = useState('');
   const [reviewFormKey, setReviewFormKey] = useState<string | null>(null);
+  const [reviewMode, setReviewMode] = useState<'accept' | 'custom' | null>(null);
   const [reviewOutcome, setReviewOutcome] = useState('');
   const [reviewComment, setReviewComment] = useState('');
+  const [recommendHomologar, setRecommendHomologar] = useState(false);
   const [savingReviewKey, setSavingReviewKey] = useState<string | null>(null);
+  const [groupFormKey, setGroupFormKey] = useState<string | null>(null);
+  const [groupOriginIds, setGroupOriginIds] = useState<string[]>([]);
+  const [grouping, setGrouping] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [pairOriginId, setPairOriginId] = useState('');
   const [pairDestinationId, setPairDestinationId] = useState('');
   const [studentId, setStudentId] = useState('');
@@ -98,26 +106,35 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     const requestId = ++detailRequestId.current;
     setSelectedExpediente(expediente);
     setAnalyzingIa(false);
+    setGrouping(false);
+    setResolving(false);
+    setSavingReviewKey(null);
     setDetailMallas([]);
     setOriginCourses([]);
     setDestinationCourses([]);
     setPairs([]);
     setResults([]);
     setIaAnalysis(null);
+    setDecisions([]);
     setIaError('');
     setReviewFormKey(null);
+    setReviewMode(null);
     setReviewOutcome('');
     setReviewComment('');
+    setRecommendHomologar(false);
+    setGroupFormKey(null);
+    setGroupOriginIds([]);
     setPairOriginId('');
     setPairDestinationId('');
     setLoadingDetail(true);
     setError('');
     try {
       const student = students.find(item => item.id === expediente.estudianteId);
-      const [rows, pairRows, analisisGuardado] = await Promise.all([
+      const [rows, pairRows, analisisGuardado, decisionRows] = await Promise.all([
         catalogService.obtenerMallas(expediente.carreraDestinoId),
         expedientesService.listarPares(expediente.id),
         expedientesService.consultarAnalisis(expediente.id),
+        expedientesService.listarDecisiones(expediente.id),
       ]);
       const levels = await catalogService.obtenerNiveles(expediente.mallaDestinoId);
       const assignmentGroups = await Promise.all(levels.map(level =>
@@ -129,6 +146,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         setDestinationCourses(assignmentGroups.flat());
         setPairs(pairRows);
         setIaAnalysis(analisisGuardado);
+        setDecisions(decisionRows);
       }
     } catch (cause) {
       if (requestId === detailRequestId.current) {
@@ -245,16 +263,99 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   function openOwnConclusion(proposal: PropuestaExpedienteIa) {
     setReviewFormKey(proposalReviewKey(proposal));
+    setReviewMode('custom');
+    setGroupFormKey(null);
     setReviewOutcome('');
     setReviewComment('');
+    setRecommendHomologar(false);
     setIaError('');
   }
 
-  async function saveProposalReview(proposal: PropuestaExpedienteIa, acceptIa: boolean) {
+  function acceptIaProposal(proposal: PropuestaExpedienteIa) {
+    const calculated = Number(proposal.evaluacion.reglas.resultado);
+    if (calculated === 0) {
+      setGroupFormKey(null);
+      setReviewFormKey(null);
+      setReviewMode(null);
+      void saveProposalReview(proposal, true, '', false);
+      return;
+    }
+    setReviewFormKey(proposalReviewKey(proposal));
+    setReviewMode('accept');
+    setGroupFormKey(null);
+    setReviewOutcome('');
+    setReviewComment('');
+    setRecommendHomologar(false);
+    setIaError('');
+  }
+
+  function toggleGroupOrigin(originId: string) {
+    setGroupOriginIds(current => current.includes(originId)
+      ? current.filter(id => id !== originId)
+      : [...current, originId]);
+  }
+
+  async function createGroupedProposal(proposal: PropuestaExpedienteIa) {
+    if (!selectedExpediente) return;
+    if (groupOriginIds.length < 2) {
+      setIaError('Selecciona al menos dos asignaturas de origen para crear una propuesta agrupada.');
+      return;
+    }
+    const expedienteId = selectedExpediente.id;
+    const requestId = detailRequestId.current;
+    setGrouping(true);
+    setIaError('');
+    setNotice('');
+    try {
+      const grouped = await expedientesService.agruparOrigenes(expedienteId, {
+        asignaturaDestinoId: proposal.asignaturaDestinoId,
+        origenIds: groupOriginIds,
+      });
+      if (requestId !== detailRequestId.current) return;
+      setIaAnalysis(current => current ? {
+        ...current,
+        estado: 'AnalizadoConIa',
+        propuestas: current.propuestas.some(item => proposalReviewKey(item) === proposalReviewKey(grouped))
+          ? current.propuestas
+          : [...current.propuestas, grouped],
+      } : current);
+      setSelectedExpediente(current => current ? { ...current, estado: 'AnalizadoConIa' } : current);
+      setExpedientes(current => current.map(item => item.id === expedienteId
+        ? { ...item, estado: 'AnalizadoConIa' }
+        : item));
+      setGroupFormKey(null);
+      setGroupOriginIds([]);
+      setReviewFormKey(proposalReviewKey(grouped));
+      setReviewMode('custom');
+      setReviewOutcome('');
+      setReviewComment('');
+      setRecommendHomologar(false);
+      setNotice('Propuesta agrupada recalculada. Registra ahora la decisión del docente.');
+    } catch (cause) {
+      if (requestId === detailRequestId.current) {
+        setIaError(cause instanceof Error ? cause.message : 'No se pudo recalcular la propuesta agrupada.');
+      }
+    } finally {
+      if (requestId === detailRequestId.current) setGrouping(false);
+    }
+  }
+
+  async function saveProposalReview(
+    proposal: PropuestaExpedienteIa,
+    acceptIa: boolean,
+    comment = reviewComment,
+    includeRecommendation = recommendHomologar,
+  ) {
     if (!selectedExpediente) return;
     const key = proposalReviewKey(proposal);
-    if (!acceptIa && (!reviewOutcome || !reviewComment.trim())) {
-      setIaError('Selecciona tu conclusión y escribe brevemente el motivo.');
+    const expedienteId = selectedExpediente.id;
+    const requestId = detailRequestId.current;
+    const calculated = Number(proposal.evaluacion.reglas.resultado);
+    const needsJustification = !acceptIa || calculated !== 0;
+    if ((!acceptIa && !reviewOutcome) || (needsJustification && !comment.trim())) {
+      setIaError(acceptIa
+        ? 'Justifica por qué aceptas una propuesta que no fue homologable.'
+        : 'Selecciona tu conclusión y escribe brevemente el motivo.');
       return;
     }
 
@@ -262,13 +363,23 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setIaError('');
     setNotice('');
     try {
-      const revision = await expedientesService.revisarPropuestaIa(selectedExpediente.id, {
+      const observationParts = [comment.trim(), includeRecommendation ? 'Es recomendable homologar' : '']
+        .filter(Boolean);
+      const revision = await expedientesService.revisarPropuestaIa(expedienteId, {
         asignaturaDestinoId: proposal.asignaturaDestinoId,
         origenIds: proposal.origenes.map(origen => origen.asignaturaCursadaId),
         aceptarPropuestaIa: acceptIa,
         resultadoPropio: acceptIa ? null : Number(reviewOutcome),
-        observacion: reviewComment.trim() || null,
+        observacion: observationParts.join(' · ') || null,
       });
+      if (requestId !== detailRequestId.current) return;
+      let refreshedDecisions: DecisionExpediente[] | null = null;
+      try {
+        refreshedDecisions = await expedientesService.listarDecisiones(expedienteId);
+      } catch {
+        // The decision is saved; the progress can be refreshed by reopening the expediente.
+      }
+      if (requestId !== detailRequestId.current) return;
       setIaAnalysis(current => current ? {
         ...current,
         estado: 'EnRevision',
@@ -277,19 +388,48 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
           : item),
       } : current);
       setSelectedExpediente(current => current ? { ...current, estado: 'EnRevision' } : current);
-      setExpedientes(current => current.map(item => item.id === selectedExpediente.id
+      setExpedientes(current => current.map(item => item.id === expedienteId
         ? { ...item, estado: 'EnRevision' }
         : item));
+      if (refreshedDecisions) setDecisions(refreshedDecisions);
       setReviewFormKey(null);
+      setReviewMode(null);
       setReviewOutcome('');
       setReviewComment('');
+      setRecommendHomologar(false);
       setNotice(acceptIa
         ? 'Se guardó la aceptación de la propuesta de IA como resultado del profesor.'
         : 'Se guardó tu conclusión y el motivo en el expediente.');
     } catch (cause) {
-      setIaError(cause instanceof Error ? cause.message : 'No se pudo guardar la revisión del profesor.');
+      if (requestId === detailRequestId.current) {
+        setIaError(cause instanceof Error ? cause.message : 'No se pudo guardar la decisión del profesor.');
+      }
     } finally {
-      setSavingReviewKey(null);
+      if (requestId === detailRequestId.current) setSavingReviewKey(null);
+    }
+  }
+
+  async function resolveExpediente() {
+    if (!selectedExpediente) return;
+    const expedienteId = selectedExpediente.id;
+    const requestId = detailRequestId.current;
+    setResolving(true);
+    setIaError('');
+    setNotice('');
+    try {
+      const result = await expedientesService.resolver(expedienteId);
+      if (requestId !== detailRequestId.current) return;
+      setSelectedExpediente(current => current ? { ...current, estado: result.estado } : current);
+      setExpedientes(current => current.map(item => item.id === expedienteId
+        ? { ...item, estado: result.estado }
+        : item));
+      setNotice('El expediente se resolvió y quedó en modo de solo lectura.');
+    } catch (cause) {
+      if (requestId === detailRequestId.current) {
+        setIaError(cause instanceof Error ? cause.message : 'No se pudo resolver el expediente.');
+      }
+    } finally {
+      if (requestId === detailRequestId.current) setResolving(false);
     }
   }
 
@@ -332,6 +472,24 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     (groups[proposal.asignaturaDestinoId] ??= []).push(proposal);
     return groups;
   }, {}) ?? {};
+  const analysisProposals = iaAnalysis?.propuestas ?? [];
+  const destinationIds = [...new Set(analysisProposals.map(proposal => proposal.asignaturaDestinoId))];
+  const decisionsByDestination = new Map(decisions.map(decision => [decision.asignaturaDestinoId, decision]));
+  const decidedDestinationCount = destinationIds.filter(id => {
+    const decision = decisionsByDestination.get(id);
+    return decision != null && decision.resultadoFinal !== 3
+      && decisionMatchesProposal(decision, id, analysisProposals);
+  }).length;
+  const canResolve = destinationIds.length > 0
+    && decidedDestinationCount === destinationIds.length
+    && decisions.every(decision => decision.resultadoFinal !== 3)
+    && reviewFormKey === null
+    && groupFormKey === null
+    && savingReviewKey === null
+    && !grouping;
+  const decisionProgressPercent = destinationIds.length
+    ? Math.round((decidedDestinationCount / destinationIds.length) * 100)
+    : 0;
 
   return <main className="catalog-page expediente-page">
     <header className="catalog-header">
@@ -519,6 +677,33 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         {analyzingIa && <p className="catalog-message" role="status">El agente está analizando los contenidos del expediente. Esto puede tardar unos minutos.</p>}
         {iaAnalysis && <>
           <p className="ia-analysis-meta" role="status">Análisis {iaAnalysis.estado.toLowerCase()} · {new Date(iaAnalysis.ejecutadoEn).toLocaleString()} · {iaAnalysis.propuestas.length} propuestas</p>
+          <div className="ia-decision-progress" aria-live="polite">
+            <div>
+              <strong>Avance de decisiones</strong>
+              <span>{decidedDestinationCount} de {destinationIds.length} asignaturas de destino decididas</span>
+            </div>
+            <div className="ia-progress-track" role="progressbar" aria-label="Avance de decisiones del expediente"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={decisionProgressPercent}>
+              <span style={{ width: `${decisionProgressPercent}%` }} />
+            </div>
+            <ul className="ia-progress-list">{destinationIds.map(id => {
+              const decision = decisionsByDestination.get(id);
+              const proposal = analysisProposals.find(item => item.asignaturaDestinoId === id);
+              const complete = decision != null && decision.resultadoFinal !== 3
+                && decisionMatchesProposal(decision, id, analysisProposals);
+              return <li key={id} className={complete ? 'decision-complete' : 'decision-pending'}>
+                <span>{proposal?.nombreDestino ?? id}</span>
+                <strong>{complete && decision
+                  ? `${resultadoLabel(decision.resultadoCalculado)} → ${resultadoLabel(decision.resultadoFinal)}`
+                  : 'Pendiente'}</strong>
+              </li>;
+            })}</ul>
+            {puedeEditar && <button className="students-primary" type="button" onClick={() => { void resolveExpediente(); }} disabled={!canResolve || resolving}>
+              {resolving ? 'Resolviendo…' : 'Resolver expediente'}
+            </button>}
+            {!canResolve && puedeEditar && <small>Registra una decisión concluyente para cada asignatura de destino antes de resolver.</small>}
+            {soloLectura && <small>Expediente resuelto: consulta disponible en solo lectura.</small>}
+          </div>
           {iaAnalysis.advertencias.length > 0 && <div className="ia-warnings" role="note">
             <strong>Advertencias del análisis</strong>
             <ul>{iaAnalysis.advertencias.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>
@@ -536,6 +721,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   const originNames = proposal.origenes.map(origin => origin.nombre);
                   const reviewKey = proposalReviewKey(proposal);
                   const latestReview = proposal.revisionesDocente?.[proposal.revisionesDocente.length - 1];
+                  const currentDecision = decisionsByDestination.get(destinationId);
+                  const hasCurrentDecision = currentDecision != null
+                    && decisionMatchesProposal(currentDecision, destinationId, analysisProposals)
+                    && decisionKey(currentDecision) === reviewKey;
                   const serviceExplanation = proposal.evaluacion.explicacion?.trim();
                   const explanation = serviceExplanation || explicarPropuesta(proposal);
                   const explanationSource = serviceExplanation
@@ -547,8 +736,11 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         <p>{originNames.length ? originNames.join(' + ') : 'Origen no disponible'}</p></div>
                       <div className="ia-result-stack">
                         <span className={`ia-result ${resultadoClass(rules.resultado)}`}>IA: {resultadoLabel(rules.resultado)}</span>
-                        {latestReview && <span className={`ia-result ia-result-teacher ${resultadoClass(latestReview.resultadoFinal)}`}>
-                          Profesor: {resultadoLabel(latestReview.resultadoFinal)}
+                        {currentDecision && hasCurrentDecision && <span className={`ia-result ia-result-teacher ${resultadoClass(currentDecision.resultadoFinal)}`}>
+                          Decisión vigente: {resultadoLabel(currentDecision.resultadoFinal)}
+                        </span>}
+                        {latestReview && !hasCurrentDecision && <span className={`ia-result ia-result-teacher ${resultadoClass(latestReview.resultadoFinal)}`}>
+                          Última decisión registrada: {resultadoLabel(latestReview.resultadoFinal)}
                         </span>}
                       </div>
                     </div>
@@ -580,23 +772,55 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                       </div>
                     </div>
                     {rules.advertencias.length > 0 && <ul className="ia-rule-warnings">{rules.advertencias.map((warning, warningIndex) => <li key={`${warningIndex}-${warning}`}>{warning}</li>)}</ul>}
-                    {latestReview && <p className="ia-teacher-review" role="status">
-                      <strong>{latestReview.tipo === 'AceptaPropuestaIa' ? 'El profesor aceptó la propuesta de IA' : 'Conclusión registrada por el profesor'}</strong>
-                      {' · Resultado: '}{resultadoLabel(latestReview.resultadoFinal)}
-                      {latestReview.observacion && <span> · Motivo: {latestReview.observacion}</span>}
-                      <small>{latestReview.profesorNombre || 'Profesor'} · {new Date(latestReview.revisadoEn).toLocaleString()}</small>
-                    </p>}
+                    {proposal.revisionesDocente?.length ? <details className="ia-review-history">
+                      <summary>{proposal.revisionesDocente.length} decisión(es) previa(s) para este origen y destino</summary>
+                      <ol>{proposal.revisionesDocente.map((review, reviewIndex) => <li key={`${review.revisadoEn}-${reviewIndex}`}>
+                        <strong>{review.tipo === 'AceptaPropuestaIa' ? 'Aceptó la propuesta de IA' : 'Registró una conclusión propia'}</strong>
+                        <span>Calculado: {resultadoLabel(rules.resultado)} → decisión: {resultadoLabel(review.resultadoFinal)}</span>
+                        {review.observacion && <span>Justificación: {review.observacion}</span>}
+                        <small>{review.profesorNombre || 'Profesor'} · {new Date(review.revisadoEn).toLocaleString()}</small>
+                      </li>)}</ol>
+                    </details> : null}
                     {puedeEditar && <div className="ia-review-controls">
                       <div className="ia-review-actions">
-                        <button className="students-primary" type="button" onClick={() => { void saveProposalReview(proposal, true); }} disabled={savingReviewKey !== null}>
+                        <button className="students-primary" type="button" onClick={() => acceptIaProposal(proposal)} disabled={savingReviewKey !== null || grouping}>
                           {savingReviewKey === reviewKey ? 'Guardando…' : 'Aceptar resultado de IA'}
                         </button>
                         <button className="students-secondary" type="button" onClick={() => openOwnConclusion(proposal)} disabled={savingReviewKey !== null}>
-                          Registrar mi conclusión
+                          Modificar o rechazar
+                        </button>
+                        <button className="students-secondary" type="button" onClick={() => {
+                          if (groupFormKey === reviewKey) {
+                            setGroupFormKey(null);
+                          } else {
+                            setReviewFormKey(null);
+                            setReviewMode(null);
+                            setGroupOriginIds(proposal.origenes.map(origin => origin.asignaturaCursadaId));
+                            setGroupFormKey(reviewKey);
+                          }
+                        }} disabled={savingReviewKey !== null || grouping}>
+                          Modificar / agrupar origen
                         </button>
                       </div>
-                      {reviewFormKey === reviewKey && <form className="ia-review-form" onSubmit={event => { event.preventDefault(); void saveProposalReview(proposal, false); }}>
-                        <label>Mi conclusión
+                      {groupFormKey === reviewKey && <form className="ia-review-form ia-group-form" onSubmit={event => { event.preventDefault(); void createGroupedProposal(proposal); }}>
+                        <strong>Recalcular con asignaturas de origen</strong>
+                        <p>Selecciona dos o más asignaturas. Para cambiar a un solo origen, elige una propuesta individual de esta asignatura destino.</p>
+                        {originCourses.filter((course): course is AsignaturaCursada & { id: string } => Boolean(course.id)).map(course => <label className="ia-origin-option" key={course.id}>
+                          <input type="checkbox" checked={groupOriginIds.includes(course.id)} onChange={() => toggleGroupOrigin(course.id)} />
+                          <span>{course.codigo ? `${course.codigo} · ` : ''}{course.nombre}</span>
+                        </label>)}
+                        <div className="ia-review-actions">
+                          <button className="students-primary" type="submit" disabled={groupOriginIds.length < 2 || grouping}>
+                            {grouping ? 'Recalculando…' : 'Recalcular propuesta agrupada'}
+                          </button>
+                          <button className="students-secondary" type="button" onClick={() => setGroupFormKey(null)} disabled={grouping}>Cancelar</button>
+                        </div>
+                      </form>}
+                      {reviewFormKey === reviewKey && reviewMode && <form className="ia-review-form" onSubmit={event => {
+                        event.preventDefault();
+                        void saveProposalReview(proposal, reviewMode === 'accept');
+                      }}>
+                        {reviewMode === 'custom' && <label>Resultado de mi decisión
                           <select value={reviewOutcome} onChange={event => setReviewOutcome(event.target.value)} required>
                             <option value="">Selecciona el resultado</option>
                             <option value="0">Homologable</option>
@@ -606,15 +830,21 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                             <option value="4">Transversal directa</option>
                             <option value="5">Origen no aprobado</option>
                           </select>
+                        </label>}
+                        <label>Justificación de la decisión
+                          <textarea value={reviewComment} onChange={event => setReviewComment(event.target.value)} maxLength={2000} rows={3}
+                            required={reviewMode === 'custom' || Number(rules.resultado) !== 0}
+                            placeholder={reviewMode === 'accept' ? 'Justifica por qué aceptas esta propuesta no homologable.' : 'Explica brevemente por qué cambias o rechazas el resultado.'} />
                         </label>
-                        <label>Motivo de la decisión
-                          <textarea value={reviewComment} onChange={event => setReviewComment(event.target.value)} maxLength={2000} rows={3} required placeholder="Explica brevemente por qué aceptas otro resultado." />
-                        </label>
+                        {Number(rules.resultado) === 1 && <label className="ia-annotation-option">
+                          <input type="checkbox" checked={recommendHomologar} onChange={event => setRecommendHomologar(event.target.checked)} />
+                          <span>Es recomendable homologar (anotación; no cambia el resultado calculado)</span>
+                        </label>}
                         <div className="ia-review-actions">
-                          <button className="students-primary" type="submit" disabled={savingReviewKey !== null || !reviewOutcome || !reviewComment.trim()}>
-                            {savingReviewKey === reviewKey ? 'Guardando…' : 'Guardar mi conclusión'}
+                          <button className="students-primary" type="submit" disabled={savingReviewKey !== null || (reviewMode === 'custom' && !reviewOutcome) || ((reviewMode === 'custom' || Number(rules.resultado) !== 0) && !reviewComment.trim())}>
+                            {savingReviewKey === reviewKey ? 'Guardando…' : reviewMode === 'accept' ? 'Aceptar propuesta con justificación' : 'Guardar mi decisión'}
                           </button>
-                          <button className="students-secondary" type="button" onClick={() => setReviewFormKey(null)} disabled={savingReviewKey !== null}>Cancelar</button>
+                          <button className="students-secondary" type="button" onClick={() => { setReviewFormKey(null); setReviewMode(null); }} disabled={savingReviewKey !== null}>Cancelar</button>
                         </div>
                       </form>}
                     </div>}
@@ -635,6 +865,25 @@ function formatPercent(value: number): string {
 function proposalReviewKey(proposal: PropuestaExpedienteIa): string {
   const origins = proposal.origenes.map(origin => origin.asignaturaCursadaId).sort().join(',');
   return `${proposal.asignaturaDestinoId}:${origins}`;
+}
+
+function decisionKey(decision: DecisionExpediente): string {
+  try {
+    const origins = (JSON.parse(decision.origenIdsJson) as string[]).sort().join(',');
+    return `${decision.asignaturaDestinoId}:${origins}`;
+  } catch {
+    return '';
+  }
+}
+
+function decisionMatchesProposal(
+  decision: DecisionExpediente,
+  destinationId: string,
+  proposals: PropuestaExpedienteIa[],
+): boolean {
+  const key = decisionKey(decision);
+  return Boolean(key) && proposals.some(proposal => proposal.asignaturaDestinoId === destinationId
+    && proposalReviewKey(proposal) === key);
 }
 
 function explicarPropuesta(proposal: PropuestaExpedienteIa): string {

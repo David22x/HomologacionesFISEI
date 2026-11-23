@@ -37,3 +37,14 @@ La ruta interna de importación también requiere JWT y rol `Administrador` o `P
 ```
 
 Cuando el estudiante tiene historial, `historial` incluye sus datos académicos y asignaturas cursadas.
+
+
+## Carga por nivel, edición y eliminación del registro activo
+
+El formulario solicita carrera y malla antes de precargar las asignaturas de los niveles 1 hasta el nivel actual inclusive. La nota y el período quedan vacíos para completarlos explícitamente; código, nombre, créditos y horas son editables. Se pueden quitar y agregar materias del catálogo. En edición, la carga masiva es una acción explícita que agrega solamente las materias faltantes y conserva las existentes. `historial.mallaOrigenId` conserva la selección de malla y es opcional para mantener la compatibilidad con registros anteriores.
+
+Al actualizar el historial se conservan los identificadores de las materias existentes; las nuevas se registran explícitamente como altas de EF y las retiradas se eliminan del historial. Esto evita errores de concurrencia al agregar una materia a un estudiante existente.
+
+`DELETE /api/v1/estudiantes/{id}` exige rol Profesor o Administrador y devuelve 204. Realiza una baja lógica, conservando historial y referencias de expedientes. El estudiante deja de aparecer en el listado y la búsqueda por cédula; no puede editarse ni utilizarse para crear nuevos expedientes. La consulta autorizada por ID conserva acceso a los datos de expedientes previos. La identificación continúa reservada. La interfaz solicita confirmación antes de eliminar.
+
+La migración `StudentLifecycleAndOriginMalla` agrega `Estudiantes.Eliminado` y `HistorialesAcademicos.MallaOrigenId`. Se aplica al arrancar Students en Development; para otros entornos, ejecutar `dotnet ef database update --project backend/Services/Students/StudentsService.csproj` con la conexión configurada.

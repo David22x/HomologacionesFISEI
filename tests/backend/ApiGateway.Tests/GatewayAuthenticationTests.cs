@@ -149,6 +149,8 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
             ["/api/v1/homologacion/expedientes/{id}/auditoria"] = ["Get"],
             ["/api/v1/homologacion/expedientes/{id}/en-revision"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/resolver"] = ["Post"],
+            ["/api/v1/homologacion/expedientes/{id}/seleccion"] = ["Get", "Put"],
+            ["/api/v1/homologacion/expedientes/{id}/informe"] = ["Get"],
             ["/api/v1/homologacion/expedientes/{id}/analisis-ia"] = ["Get"],
             ["/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/agrupar"] = ["Post"],
             ["/api/v1/homologacion/expedientes/{id}/analisis-ia/propuestas/revision"] = ["Put"]
@@ -164,6 +166,32 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
             Assert.Equal(expectedMethods[path].Order(), route.GetProperty("UpstreamHttpMethod")
                 .EnumerateArray().Select(method => method.GetString()!).Order());
             Assert.Equal(5196, route.GetProperty("DownstreamHostAndPorts")[0].GetProperty("Port").GetInt32());
+            Assert.Equal("Bearer", route.GetProperty("AuthenticationOptions")
+                .GetProperty("AuthenticationProviderKey").GetString());
+        }
+    }
+
+    [Fact]
+    public void ConfiguracionReports_ExponeGeneracionVersionesYDescargaConBearer()
+    {
+        using var document = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "ocelot.json")));
+        var expected = new Dictionary<string, string>
+        {
+            ["/api/v1/informes/expedientes/{id}"] = "Get",
+            ["/api/v1/informes/expedientes/{id}/generar"] = "Post",
+            ["/api/v1/informes/expedientes/{id}/{version}/pdf"] = "Get"
+        };
+        var routes = document.RootElement.GetProperty("Routes").EnumerateArray()
+            .Where(route => route.GetProperty("UpstreamPathTemplate").GetString()!
+                .StartsWith("/api/v1/informes/", StringComparison.Ordinal)).ToList();
+        Assert.Equal(expected.Count, routes.Count);
+        foreach (var route in routes)
+        {
+            var path = route.GetProperty("UpstreamPathTemplate").GetString()!;
+            Assert.Equal(path, route.GetProperty("DownstreamPathTemplate").GetString());
+            Assert.Equal(expected[path], route.GetProperty("UpstreamHttpMethod")[0].GetString());
+            Assert.Equal(5198, route.GetProperty("DownstreamHostAndPorts")[0].GetProperty("Port").GetInt32());
             Assert.Equal("Bearer", route.GetProperty("AuthenticationOptions")
                 .GetProperty("AuthenticationProviderKey").GetString());
         }

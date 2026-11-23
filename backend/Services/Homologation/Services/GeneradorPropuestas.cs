@@ -72,73 +72,94 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
         if (destinos.Length == 0)
             advertencias.Add("Datos incompletos: la malla no tiene asignaturas.");
 
-        var fichas = new Dictionary<Guid, Asignatura?>();
         var contenidos = new Dictionary<Guid, Contenido[]>();
-        var palabrasOrigen = origenes.ToDictionary(origen => origen.Id, origen => Palabras(origen.Nombre));
+        // Cargar una vez las fichas y sílabos, para seleccionar por contenido además del nombre.
+        var preparados = new List<Candidato>();
+        foreach (var origen in origenes)
+        {
+            Asignatura? ficha = null;
+            if (origen.AsignaturaId is Guid id)
+            {
+                ficha = await datos.AsignaturaAsync(id, bearer, ct);
+            }
+            var temas = ficha is not null ? await CargarContenidosAsync(ficha.Id) : [];
+            preparados.Add(new Candidato(origen, origen.Creditos ?? ficha?.Creditos,
+                origen.Horas ?? ficha?.Horas, ficha?.EsTransversal ?? false, temas));
+        }
         foreach (var destino in destinos.OrderBy(x => x.Id))
         {
-            if (origenes.Length == 0)
-                break;
-
-            var palabrasDestino = Palabras(destino.Nombre);
-            var candidatos = origenes
-                .OrderByDescending(x => x.AsignaturaId == destino.Id)
-                .ThenByDescending(x => string.Equals(x.Nombre.Trim(), destino.Nombre.Trim(), StringComparison.OrdinalIgnoreCase))
-                .ThenByDescending(x => palabrasOrigen[x.Id].Count(palabrasDestino.Contains))
-                .ThenBy(x => x.Creditos is decimal creditos ? Math.Abs(creditos - destino.Creditos) : decimal.MaxValue)
-                .ThenBy(x => x.Id)
-                .Take(3)
-                .ToArray();
-
-            var destinoContenidos = await CargarContenidosAsync(destino.Id);
-            var preparados = new List<Candidato>(candidatos.Length);
-            foreach (var origen in candidatos)
-            {
-                Asignatura? ficha = null;
-                Contenido[] temas = [];
-                if (origen.AsignaturaId is Guid id)
+            var temasDestino = await CargarContenidosAsync(destino.Id);
+            var nombreDestino = Palabras(destino.Nombre);
+            var palabrasDestino = Palabras(string.Join(" ", temasDestino.Select(x => x.Descripcion)));
+            var candidatos = preparados.Select(c => new
                 {
-                    if (!fichas.TryGetValue(id, out ficha))
-                    {
-                        ficha = await datos.AsignaturaAsync(id, bearer, ct);
-                        fichas.Add(id, ficha);
-                    }
+                    Candidato = c,
+                    Exacto = c.Origen.AsignaturaId == destino.Id || Normalizar(c.Origen.Nombre) == Normalizar(destino.Nombre),
+                    Nombre = Palabras(c.Origen.Nombre).Count(nombreDestino.Contains),
+                    Contenido = Palabras(string.Join(" ", c.Contenidos.Select(x => x.Descripcion))).Count(palabrasDestino.Contains)
+                })
+                .Where(x => x.Exacto || x.Nombre > 0 || x.Contenido >= 2)
+                .OrderByDescending(x => x.Exacto).ThenByDescending(x => x.Contenido)
+                .ThenByDescending(x => x.Nombre)
+                .ThenBy(x => x.Candidato.Creditos is decimal c ? Math.Abs(c - destino.Creditos) : decimal.MaxValue)
+                .ThenBy(x => x.Candidato.Origen.Id).Take(3).Select(x => x.Candidato).ToArray();
+            var evaluadas = new List<Propuesta>();
+            foreach (var candidato in candidatos) await EvaluarAsync([candidato]);
 
-                    if (ficha is not null)
-                        temas = await CargarContenidosAsync(id);
-                }
-
-                var candidato = new Candidato(origen, origen.Creditos ?? ficha?.Creditos,
-                    origen.Horas ?? ficha?.Horas, ficha?.EsTransversal ?? false, temas);
-                preparados.Add(candidato);
-                await EvaluarAsync([candidato]);
-            }
-
-            for (var i = 0; i < preparados.Count; i++)
-            for (var j = i + 1; j < preparados.Count; j++)
+            // Una equivalencia individual suficiente evita consumir otras materias innecesariamente.
+            if (!evaluadas.Any(EsViable))
             {
-                var primero = preparados[i];
-                var segundo = preparados[j];
-                if (primero.Origen.AsignaturaId is Guid id && id == segundo.Origen.AsignaturaId)
-                    continue;
-
-                await EvaluarAsync([primero, segundo]);
+                for (var i = 0; i < candidatos.Length; i++)
+                for (var j = i + 1; j < candidatos.Length; j++)
+                {
+                    var a = candidatos[i]; var b = candidatos[j];
+                    if (a.Origen.AsignaturaId == b.Origen.AsignaturaId && a.Origen.AsignaturaId.HasValue) continue;
+                    if (a.Contenidos.Length == 0 || b.Contenidos.Length == 0 || a.Creditos is null || b.Creditos is null
+                        || a.Creditos + b.Creditos < destino.Creditos * 0.80m) continue;
+                    var aporteA = Palabras(string.Join(" ", a.Contenidos.Select(x => x.Descripcion)));
+                    var aporteB = Palabras(string.Join(" ", b.Contenidos.Select(x => x.Descripcion)));
+                    aporteA.IntersectWith(palabrasDestino); aporteB.IntersectWith(palabrasDestino);
+                    // Ambos orígenes deben aportar contenido pertinente y complementario.
+                    if (!aporteA.Except(aporteB).Any() || !aporteB.Except(aporteA).Any()) continue;
+                    await EvaluarAsync([a, b]);
+                }
+            }
+            var viables = evaluadas.Where(EsViable).OrderByDescending(Cobertura)
+                .ThenBy(x => x.Origenes.Length).ThenBy(x => x.Origenes[0].AsignaturaCursadaId).ToArray();
+            if (viables.Length > 0)
+            {
+                propuestas.AddRange(viables);
+                propuestas.AddRange(evaluadas.Where(EsCercana).OrderByDescending(Cobertura).Take(2));
+            }
+            else if (evaluadas.Count > 0)
+            {
+                // Un único diagnóstico por destino, separado de las recomendaciones en la interfaz.
+                propuestas.Add(evaluadas.OrderByDescending(Cobertura).ThenBy(x => x.Origenes.Length).First());
+            }
+            else
+            {
+                var diagnostico = JsonSerializer.SerializeToElement(new
+                {
+                    reglas = new { resultado = 3, razonCreditos = (decimal?)null, coberturaContenidos = (decimal?)null,
+                        razonHoras = (decimal?)null, versionReglas = "sin-evaluacion",
+                        advertencias = new[] { "No se identificaron candidatos con afinidad académica. Revisa el historial y los sílabos." } },
+                    cobertura = new { porcentaje = (decimal?)null, temasCoincidentes = Array.Empty<object>(), temasAusentes = Array.Empty<object>() },
+                    explicacion = "Sin recomendación automática: no hay evidencia suficiente para proponer una equivalencia.", fuenteExplicacion = "plantilla"
+                });
+                propuestas.Add(new Propuesta(destino.Id, destino.Nombre, [], diagnostico));
             }
 
             async Task EvaluarAsync(Candidato[] grupo)
             {
                 var temasOrigen = grupo.All(x => x.Contenidos.Length > 0)
-                    ? grupo.SelectMany(x => x.Contenidos).DistinctBy(x => x.Codigo).ToArray()
-                    : [];
+                    ? grupo.SelectMany(x => x.Contenidos).DistinctBy(x => x.Codigo).ToArray() : [];
                 var solicitud = new SolicitudReglas(
-                    grupo.All(x => x.Creditos.HasValue) ? grupo.Sum(x => x.Creditos) : null,
-                    destino.Creditos,
-                    grupo.All(x => x.Horas.HasValue) ? grupo.Sum(x => (decimal?)x.Horas) : null,
-                    destino.Horas, true, grupo.Min(x => x.Origen.Nota),
-                    grupo.Length == 1 && grupo[0].Transversal, destino.EsTransversal,
-                    temasOrigen, destinoContenidos);
+                    grupo.All(x => x.Creditos.HasValue) ? grupo.Sum(x => x.Creditos) : null, destino.Creditos,
+                    grupo.All(x => x.Horas.HasValue) ? grupo.Sum(x => (decimal?)x.Horas) : null, destino.Horas,
+                    true, grupo.Min(x => x.Origen.Nota), grupo.Length == 1 && grupo[0].Transversal, destino.EsTransversal,
+                    temasOrigen, temasDestino);
                 var evaluacion = await datos.EvaluarAsync(solicitud, bearer, ct);
-                propuestas.Add(new Propuesta(destino.Id, destino.Nombre,
+                evaluadas.Add(new Propuesta(destino.Id, destino.Nombre,
                     grupo.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre, x.Origen.AsignaturaId)).ToArray(), evaluacion));
             }
         }
@@ -156,9 +177,31 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
         }
     }
 
+    private static bool EsViable(Propuesta propuesta) =>
+        propuesta.Evaluacion.GetProperty("reglas").GetProperty("resultado").GetInt32() is 0 or 4;
+
+    private static bool EsCercana(Propuesta p)
+    {
+        var r = p.Evaluacion.GetProperty("reglas");
+        return r.GetProperty("resultado").GetInt32() is 1 or 2
+            && r.TryGetProperty("razonCreditos", out var c) && c.ValueKind == JsonValueKind.Number && c.GetDecimal() >= .75m
+            && r.TryGetProperty("coberturaContenidos", out var t) && t.ValueKind == JsonValueKind.Number && t.GetDecimal() >= .75m
+            && r.TryGetProperty("razonHoras", out var h) && h.ValueKind == JsonValueKind.Number;
+    }
+
+    private static decimal Cobertura(Propuesta propuesta) =>
+        propuesta.Evaluacion.GetProperty("reglas").TryGetProperty("coberturaContenidos", out var valor)
+            && valor.ValueKind == JsonValueKind.Number ? valor.GetDecimal() : -1m;
+
+    private static string Normalizar(string texto) => new string(texto.Normalize(System.Text.NormalizationForm.FormD)
+        .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+        .ToArray()).ToLowerInvariant();
+
+    private static readonly HashSet<string> Genericas = new(StringComparer.OrdinalIgnoreCase)
+        { "para", "con", "del", "los", "las", "una", "por", "sus", "introduccion", "fundamentos", "basico", "basica", "taller", "aplicaciones" };
     private static HashSet<string> Palabras(string nombre) =>
-        nombre.Split([' ', '-', '/', '(', ')'], StringSplitOptions.RemoveEmptyEntries)
-            .Where(x => x.Length > 2)
+        System.Text.RegularExpressions.Regex.Matches(Normalizar(nombre), @"[a-z0-9]+")
+            .Select(x => x.Value).Where(x => x.Length > 2 && !Genericas.Contains(x))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private sealed record Candidato(Origen Origen, decimal? Creditos, int? Horas, bool Transversal, Contenido[] Contenidos);

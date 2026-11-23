@@ -32,6 +32,7 @@ public sealed record ResultadoAgenteIa(
 {
     public string Explicacion => ExplicacionPlantilla.Crear(Reglas);
     public string FuenteExplicacion => "plantilla";
+    public bool FalloComparacion { get; init; }
 }
 
 public interface IAgenteIaService
@@ -74,7 +75,9 @@ public sealed class AgenteIaService : IAgenteIaService
             Array.Empty<CoincidenciaContenido>());
 
         var resultadoBase = motor.Evaluar(evaluacion);
-        if (resultadoBase.Resultado != ResultadoHomologacion.DatosIncompletos
+        var creditosCercanos = resultadoBase.Resultado == ResultadoHomologacion.RechazoPorCreditos
+            && resultadoBase.RazonCreditos >= .75m;
+        if ((resultadoBase.Resultado != ResultadoHomologacion.DatosIncompletos && !creditosCercanos)
             || resultadoBase.RazonCreditos is null
             || solicitud.ContenidosDestino.Count == 0)
         {
@@ -121,7 +124,7 @@ public sealed class AgenteIaService : IAgenteIaService
             .Select(g => g.OrderByDescending(x => x.Similitud).First())
             .ToArray();
 
-        var resultadoReglas = motor.Evaluar(evaluacion with
+        var completa = evaluacion with
         {
             ContenidosDestino = solicitud.ContenidosDestino
                 .Select(x => new ContenidoDestino(x.Codigo, x.Horas))
@@ -130,7 +133,15 @@ public sealed class AgenteIaService : IAgenteIaService
             Coincidencias = coincidenciasValidas
                 .Select(x => new CoincidenciaContenido(x.CodigoDestino, x.Similitud))
                 .ToArray()
-        });
+        };
+        var resultadoReglas = motor.Evaluar(completa);
+        if (creditosCercanos)
+        {
+            // Medir contenidos para revisión humana sin alterar el rechazo calculado por créditos.
+            var diagnostico = motor.Evaluar(completa with { CreditosOrigen = completa.CreditosDestino });
+            resultadoReglas = resultadoReglas with { CoberturaContenidos = diagnostico.CoberturaContenidos, RazonHoras = diagnostico.RazonHoras,
+                Advertencias = resultadoReglas.Advertencias.Concat(diagnostico.Advertencias).Distinct().ToArray() };
+        }
 
         if (!tieneOrigen)
         {
@@ -154,7 +165,8 @@ public sealed class AgenteIaService : IAgenteIaService
                     .Append(motivo).ToArray()
             };
             return new ResultadoAgenteIa(reglas, Array.Empty<CoincidenciaIa>(),
-                new CoberturaContenidosIa(null, Array.Empty<TemaCoberturaIa>(), Array.Empty<TemaCoberturaIa>()));
+                new CoberturaContenidosIa(null, Array.Empty<TemaCoberturaIa>(), Array.Empty<TemaCoberturaIa>()))
+            { FalloComparacion = true };
         }
     }
 

@@ -98,6 +98,9 @@ namespace StudentsService.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("Eliminado")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("ModificadoEn")
                         .HasColumnType("datetime2");
 
@@ -157,6 +160,9 @@ namespace StudentsService.Migrations
                     b.Property<string>("InstitucionOrigen")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("MallaOrigenId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("NivelActual")
                         .HasColumnType("int");

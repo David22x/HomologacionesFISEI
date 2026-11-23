@@ -25,6 +25,9 @@ export interface ExpedienteCreateRequest {
   mallaAplicableRefId: string;
 }
 
+export interface SeleccionPropuesta { asignaturaDestinoId: string; origenIds: string[]; }
+export interface ResumenSeleccion { seleccion: SeleccionPropuesta[]; resultados: ResultadoParExpediente[]; }
+
 export interface ParHomologacion {
   id: string;
   expedienteId: string;
@@ -179,6 +182,8 @@ async function request<T>(
 }
 
 export const expedientesService = {
+  consultarSeleccion(id: string): Promise<ResumenSeleccion> { return request<ResumenSeleccion>(`/api/v1/homologacion/expedientes/${id}/seleccion`); },
+  guardarSeleccion(id: string, seleccion: SeleccionPropuesta[]): Promise<SeleccionPropuesta[]> { return request<SeleccionPropuesta[]>(`/api/v1/homologacion/expedientes/${id}/seleccion`, 'PUT', seleccion); },
   consultarAnalisis(expedienteId: string): Promise<AnalisisExpedienteIa | null> {
     return request<AnalisisExpedienteIa | null>(
       '/api/v1/homologacion/expedientes/' + expedienteId + '/analisis-ia');
@@ -201,8 +206,8 @@ export const expedientesService = {
   evaluarPorReglas(expedienteId: string): Promise<EjecucionReglasExpediente> {
     return request<EjecucionReglasExpediente>(`/api/v1/homologacion/expedientes/${expedienteId}/evaluar-reglas`, 'POST');
   },
-  analizarConIa(expedienteId: string): Promise<AnalisisExpedienteIa> {
-    return request<AnalisisExpedienteIa>(`/api/v1/homologacion/expedientes/${expedienteId}/analizar-ia`, 'POST');
+  analizarConIa(expedienteId: string, recalcular = false): Promise<AnalisisExpedienteIa> {
+    return request<AnalisisExpedienteIa>(`/api/v1/homologacion/expedientes/${expedienteId}/analizar-ia${recalcular ? '?recalcular=true' : ''}`, 'POST');
   },
   revisarPropuestaIa(expedienteId: string, datos: RevisionPropuestaIaRequest): Promise<RevisionDocentePropuesta> {
     return request<RevisionDocentePropuesta>(

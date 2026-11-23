@@ -205,6 +205,35 @@ services:
       retries: 10
       start_period: 20s
 
+  reports:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        PROJECT_PATH: backend/Services/Reports/ReportsService.csproj
+        APP_DLL: ReportsService
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5198
+      ConnectionStrings__ReportsConnection: "Server=sqlserver,1433;Database=ReportsDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True"
+      HomologationService__BaseUrl: http://homologation:5196
+      StudentsService__BaseUrl: http://students:5194
+      AcademicService__BaseUrl: http://academic:5193
+      Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
+    ports:
+      - "${REPORTS_PORT:-5198}:5198"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+      homologation:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5198/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   template:
     build:
       context: ..
@@ -241,6 +270,8 @@ services:
       students:
         condition: service_healthy
       homologation:
+        condition: service_healthy
+      reports:
         condition: service_healthy
       documents:
         condition: service_healthy

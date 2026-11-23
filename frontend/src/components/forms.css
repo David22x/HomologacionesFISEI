@@ -89,3 +89,24 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.expediente-transfer { display: flex; align-items: center; justify-content: center; gap: 2rem; padding: 1.5rem; margin: 1rem 0 1.5rem; border: 1px solid #b7d5f1; border-radius: 16px; background: linear-gradient(120deg, #eff6ff, #ecfdf5); color: #153b60; }
+.expediente-transfer > div { display: grid; gap: .3rem; flex: 1; text-align: center; }
+.expediente-transfer strong { font-size: 1.8rem; }
+.expediente-transfer small { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; }
+.transfer-arrow { font-size: 2rem; }
+.ia-summary { padding: 1rem; margin: 1rem 0; background: #edf8f3; border-left: 4px solid #25815c; border-radius: 8px; }
+.ia-diagnostics-toggle { display: flex; gap: .6rem; align-items: center; margin: 1rem 0; }
+.ia-diagnostics-toggle input { width: auto; }
+.student-course-table input { width: 100%; min-width: 5rem; box-sizing: border-box; }
+.student-course-table td:first-child { min-width: 15rem; }
+@media (max-width: 600px) { .expediente-transfer { gap: .6rem; padding: 1rem .5rem; } .expediente-transfer span { font-size: .85rem; } }
+
+/* Resumen de homologación: celdas flexibles y evidencia bajo demanda. */
+.expediente-page .eligibility-results-table, .expediente-page .compact-homologation-table { min-width: 0; width: 100%; table-layout: fixed; }
+.expediente-page .eligibility-results-table th, .expediente-page .eligibility-results-table td, .expediente-page .compact-homologation-table th, .expediente-page .compact-homologation-table td { white-space: normal; overflow-wrap: anywhere; padding: .65rem .5rem; }
+.expediente-page .eligibility-results-table th:first-child, .expediente-page .compact-homologation-table th:first-child { width: 3.2rem; }
+.expediente-page .eligibility-results-table button, .expediente-page .compact-homologation-table button { padding: .4rem .5rem; font-size: .8rem; }
+.expediente-page .eligibility-results-table input[type=checkbox], .expediente-page .compact-homologation-table input[type=checkbox] { width: 1.1rem; height: 1.1rem; }
+.definitive-panel { border-top: 4px solid #238463; margin: 1.25rem 0; }
+@media (max-width: 640px) { .expediente-page .eligibility-results-table, .expediente-page .compact-homologation-table { table-layout: auto; } .expediente-page .eligibility-results-table th, .expediente-page .compact-homologation-table th { font-size: .75rem; } }

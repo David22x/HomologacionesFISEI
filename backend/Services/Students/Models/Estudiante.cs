@@ -22,6 +22,7 @@ public class Estudiante
     public string Nombres { get; set; } = string.Empty;
     public string Apellidos { get; set; } = string.Empty;
     public TipoEstudiante Tipo { get; set; }
+    public bool Eliminado { get; set; }
     public string? CreadoPor { get; set; }
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
     public string? ModificadoPor { get; set; }

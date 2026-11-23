@@ -57,40 +57,46 @@ public static class AcademicTemasSeeder
         var asignaturas = await db.Asignaturas
             .Where(a => codigos.Contains(a.Codigo) && a.MallaVersion!.Vigente)
             .Include(a => a.Temas)
-            .ToDictionaryAsync(a => a.Codigo, ct);
+            .ToListAsync(ct);
+        var asignaturasPorCodigo = asignaturas
+            .GroupBy(a => a.Codigo)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         int cargadas = 0, omitidas = 0, noEncontradas = 0, temasNuevos = 0, subtemasNuevos = 0;
 
         foreach (var semilla in archivo.Asignaturas)
         {
-            if (!asignaturas.TryGetValue(semilla.Codigo, out var asignatura))
+            if (!asignaturasPorCodigo.TryGetValue(semilla.Codigo, out var asignaturasCoincidentes))
             {
                 noEncontradas++;
                 logger.LogWarning("Asignatura {Codigo} del archivo de temas no existe en el catalogo vigente.", semilla.Codigo);
                 continue;
             }
 
-            // Si ya tiene temas (cargados antes o editados por el Administrador) no se tocan.
-            if (asignatura.Temas.Count > 0)
+            foreach (var asignatura in asignaturasCoincidentes)
             {
-                omitidas++;
-                continue;
-            }
-
-            foreach (var t in semilla.Temas)
-            {
-                var tema = new Tema { AsignaturaId = asignatura.Id, Nombre = t.Nombre.Trim(), Orden = t.Orden };
-                foreach (var st in t.Subtemas)
+                // Si ya tiene temas (cargados antes o editados por el Administrador) no se tocan.
+                if (asignatura.Temas.Count > 0)
                 {
-                    tema.Subtemas.Add(new Subtema { Nombre = st.Nombre.Trim(), Orden = st.Orden });
+                    omitidas++;
+                    continue;
                 }
 
-                db.Temas.Add(tema);
-                temasNuevos++;
-                subtemasNuevos += tema.Subtemas.Count;
-            }
+                foreach (var t in semilla.Temas)
+                {
+                    var tema = new Tema { AsignaturaId = asignatura.Id, Nombre = t.Nombre.Trim(), Orden = t.Orden };
+                    foreach (var st in t.Subtemas)
+                    {
+                        tema.Subtemas.Add(new Subtema { Nombre = st.Nombre.Trim(), Orden = st.Orden });
+                    }
 
-            cargadas++;
+                    db.Temas.Add(tema);
+                    temasNuevos++;
+                    subtemasNuevos += tema.Subtemas.Count;
+                }
+
+                cargadas++;
+            }
         }
 
         await db.SaveChangesAsync(ct);

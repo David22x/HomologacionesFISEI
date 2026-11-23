@@ -15,6 +15,7 @@ import {
   type ParHomologacion,
   type PropuestaExpedienteIa,
   type ResultadoParExpediente,
+  type SeleccionPropuesta,
 } from '../expedientesService';
 import { studentsService, type AsignaturaCursada, type Estudiante } from '../studentsService';
 
@@ -23,6 +24,7 @@ interface ExpedientesPageProps {
 }
 
 export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
+  const [detailStudent, setDetailStudent] = useState<Estudiante | null>(null);
   const [students, setStudents] = useState<Estudiante[]>([]);
   const [careers, setCareers] = useState<Carrera[]>([]);
   const [mallas, setMallas] = useState<MallaCurricular[]>([]);
@@ -36,6 +38,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [iaAnalysis, setIaAnalysis] = useState<AnalisisExpedienteIa | null>(null);
   const [decisions, setDecisions] = useState<DecisionExpediente[]>([]);
   const [analyzingIa, setAnalyzingIa] = useState(false);
+  const [selection, setSelection] = useState<SeleccionPropuesta[]>([]);
+  const [selecting, setSelecting] = useState(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [iaError, setIaError] = useState('');
   const [reviewFormKey, setReviewFormKey] = useState<string | null>(null);
   const [reviewMode, setReviewMode] = useState<'accept' | 'custom' | null>(null);
@@ -60,6 +66,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const detailRequestId = useRef(0);
+  const detailPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (expandedKey) { detailPanelRef.current?.focus({ preventScroll: true }); detailPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); }
+  }, [expandedKey]);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +115,9 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   async function selectExpediente(expediente: Expediente) {
     const requestId = ++detailRequestId.current;
     setSelectedExpediente(expediente);
+    setDetailStudent(null);
+    setSelection([]); setExpandedKey(null); setSelecting(false);
+    setShowDiagnostics(false);
     setAnalyzingIa(false);
     setGrouping(false);
     setResolving(false);
@@ -129,24 +142,28 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setLoadingDetail(true);
     setError('');
     try {
-      const student = students.find(item => item.id === expediente.estudianteId);
-      const [rows, pairRows, analisisGuardado, decisionRows] = await Promise.all([
+      const student = students.find(item => item.id === expediente.estudianteId) ?? await studentsService.obtener(expediente.estudianteId);
+      const editable = canCreate && ![2, 3, 5, 'Finalizado', 'Anulado', 'Resuelto'].includes(expediente.estado);
+      const [rows, pairRows, analisisGuardado, decisionRows, summary] = await Promise.all([
         catalogService.obtenerMallas(expediente.carreraDestinoId),
-        expedientesService.listarPares(expediente.id),
+        editable && student.historial?.asignaturas?.length ? expedientesService.precargarPares(expediente.id) : expedientesService.listarPares(expediente.id),
         expedientesService.consultarAnalisis(expediente.id),
         expedientesService.listarDecisiones(expediente.id),
+        expedientesService.consultarSeleccion(expediente.id),
       ]);
       const levels = await catalogService.obtenerNiveles(expediente.mallaDestinoId);
       const assignmentGroups = await Promise.all(levels.map(level =>
         catalogService.obtenerAsignaturas(expediente.mallaDestinoId, level.id, ''),
       ));
       if (requestId === detailRequestId.current) {
+        setDetailStudent(student);
         setDetailMallas(rows);
         setOriginCourses(student?.historial?.asignaturas ?? []);
         setDestinationCourses(assignmentGroups.flat());
         setPairs(pairRows);
         setIaAnalysis(analisisGuardado);
         setDecisions(decisionRows);
+        setSelection(summary.seleccion); setResults(summary.resultados);
       }
     } catch (cause) {
       if (requestId === detailRequestId.current) {
@@ -171,34 +188,9 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
       asignaturaDestinoId: pairDestinationId,
       precargado: false,
     }]);
-    setResults([]);
     setPairOriginId('');
     setPairDestinationId('');
     setError('');
-  }
-
-  async function preloadPairs() {
-    if (!selectedExpediente) return;
-    setSaving(true);
-    setError('');
-    setNotice('');
-    try {
-      const rows = await expedientesService.precargarPares(selectedExpediente.id);
-      const keys = new Set(rows.map(pair => `${pair.asignaturaCursadaId}:${pair.asignaturaDestinoId}`));
-      const manualesPendientes = pairs.filter(pair => {
-        const key = `${pair.asignaturaCursadaId}:${pair.asignaturaDestinoId}`;
-        if (keys.has(key)) return false;
-        keys.add(key);
-        return true;
-      });
-      setPairs([...rows, ...manualesPendientes]);
-      setResults([]);
-      setNotice('Se precargaron los pares cuyos nombres coinciden exactamente.');
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudieron precargar los pares.');
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function evaluatePairs() {
@@ -234,7 +226,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     }
   }
 
-  async function analyzeWithIa() {
+  async function analyzeWithIa(recalcular = false) {
     if (!selectedExpediente) return;
     const expedienteId = selectedExpediente.id;
     const requestId = detailRequestId.current;
@@ -242,9 +234,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setIaError('');
     setNotice('');
     try {
-      const analysis = await expedientesService.analizarConIa(expedienteId);
+      const analysis = await expedientesService.analizarConIa(expedienteId, recalcular);
       if (requestId !== detailRequestId.current) return;
       setIaAnalysis(analysis);
+      if (recalcular) setSelection([]);
       setSelectedExpediente(current => current
         ? { ...current, estado: analysis.estado }
         : current);
@@ -273,7 +266,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   function acceptIaProposal(proposal: PropuestaExpedienteIa) {
     const calculated = Number(proposal.evaluacion.reglas.resultado);
-    if (calculated === 0) {
+    if ([0, 4].includes(calculated)) {
       setGroupFormKey(null);
       setReviewFormKey(null);
       setReviewMode(null);
@@ -351,7 +344,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     const expedienteId = selectedExpediente.id;
     const requestId = detailRequestId.current;
     const calculated = Number(proposal.evaluacion.reglas.resultado);
-    const needsJustification = !acceptIa || calculated !== 0;
+    const needsJustification = !acceptIa || ![0, 4].includes(calculated);
     if ((!acceptIa && !reviewOutcome) || (needsJustification && !comment.trim())) {
       setIaError(acceptIa
         ? 'Justifica por qué aceptas una propuesta que no fue homologable.'
@@ -392,6 +385,14 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         ? { ...item, estado: 'EnRevision' }
         : item));
       if (refreshedDecisions) setDecisions(refreshedDecisions);
+      const finalResult = acceptIa ? calculated : Number(reviewOutcome);
+      setSelection(current => [...current.filter(item => item.asignaturaDestinoId !== proposal.asignaturaDestinoId),
+        ...([0, 4].includes(finalResult) ? [{ asignaturaDestinoId: proposal.asignaturaDestinoId, origenIds: proposal.origenes.map(o => o.asignaturaCursadaId) }] : [])]);
+      try {
+        const [summary, analysis] = await Promise.all([expedientesService.consultarSeleccion(expedienteId), expedientesService.consultarAnalisis(expedienteId)]);
+        if (requestId !== detailRequestId.current) return;
+        setSelection(summary.seleccion); setIaAnalysis(analysis);
+      } catch { /* La decisión ya se guardó; se conserva el estado local y se puede reabrir el expediente. */ }
       setReviewFormKey(null);
       setReviewMode(null);
       setReviewOutcome('');
@@ -444,6 +445,8 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setError('');
     setNotice('');
     try {
+      if (students.find(student => student.id === studentId)?.historial?.carreraOrigenId === careerId)
+        throw new Error('La carrera de destino debe ser diferente a la carrera de origen.');
       const created = await expedientesService.crear({
         estudianteRefId: studentId,
         carreraDestinoRefId: careerId,
@@ -465,14 +468,51 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     [2, 3, 5, 'Finalizado', 'Anulado', 'Resuelto'].includes(selectedExpediente.estado);
   const puedeEditar = canCreate && !soloLectura;
 
-  const selectedStudent = students.find(student => student.id === selectedExpediente?.estudianteId);
+  const selectedStudent = detailStudent ?? students.find(student => student.id === selectedExpediente?.estudianteId);
   const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraDestinoId);
+  const originCareer = careers.find(career => career.id === selectedStudent?.historial?.carreraOrigenId);
+  const originLabel = originCareer?.codigo ?? selectedStudent?.historial?.carreraOrigenNombre ?? 'Origen sin registrar';
+  const destinationLabel = selectedCareer?.codigo ?? 'Destino sin registrar';
+  const createStudent = students.find(student => student.id === studentId);
+  const availableCareers = careers.filter(career => career.id !== createStudent?.historial?.carreraOrigenId);
   const selectedMalla = detailMallas.find(malla => malla.id === selectedExpediente?.mallaDestinoId);
-  const proposalsByDestination = iaAnalysis?.propuestas.reduce<Record<string, PropuestaExpedienteIa[]>>((groups, proposal) => {
-    (groups[proposal.asignaturaDestinoId] ??= []).push(proposal);
-    return groups;
-  }, {}) ?? {};
-  const analysisProposals = iaAnalysis?.propuestas ?? [];
+  const viableProposals = iaAnalysis?.propuestas.filter(proposal => esRecomendable(proposal)) ?? [];
+  const nearProposals = iaAnalysis?.propuestas.filter(esCercana) ?? [];
+  const visibleIa = (iaAnalysis?.propuestas ?? []).filter(p => showDiagnostics || esRecomendable(p) || esCercana(p));
+  const allReviewProposals = [...(iaAnalysis?.propuestas ?? [])];
+  for (const result of results) {
+    const proposal = propuestaDePar(result);
+    if (!allReviewProposals.some(p => proposalReviewKey(p) === proposalReviewKey(proposal))) allReviewProposals.push(proposal);
+  }
+  const analysisProposals = allReviewProposals;
+  const selectedKeys = new Set(selection.map(item => `${item.asignaturaDestinoId}:${[...item.origenIds].sort().join(',')}`));
+  const definitive = allReviewProposals.filter(p => selectedKeys.has(proposalReviewKey(p)));
+  const displayAnalysis = iaAnalysis ?? { id: '', estado: String(selectedExpediente?.estado ?? ''), ejecutadoEn: '', propuestas: [], advertencias: [] };
+  const proposalsByDestination = allReviewProposals.filter(p => proposalReviewKey(p) === expandedKey).reduce<Record<string, PropuestaExpedienteIa[]>>((groups, proposal) => {
+    (groups[proposal.asignaturaDestinoId] ??= []).push(proposal); return groups;
+  }, {});
+  async function toggleSelection(proposal: PropuestaExpedienteIa) {
+    if (!selectedExpediente || selecting) return;
+    const key = proposalReviewKey(proposal);
+    const next = selectedKeys.has(key)
+      ? selection.filter(item => `${item.asignaturaDestinoId}:${[...item.origenIds].sort().join(',')}` !== key)
+      : [...selection, { asignaturaDestinoId: proposal.asignaturaDestinoId, origenIds: proposal.origenes.map(o => o.asignaturaCursadaId) }];
+    if (!selectedKeys.has(key) && selection.some(item => item.asignaturaDestinoId === proposal.asignaturaDestinoId
+      || item.origenIds.some(id => proposal.origenes.some(o => o.asignaturaCursadaId === id)))) {
+      setIaError('Retira primero la selección incompatible: solo se permite una propuesta por destino y cada origen puede respaldar un destino.'); return;
+    }
+    const requestId = detailRequestId.current;
+    setSelecting(true); setIaError('');
+    try { const saved = await expedientesService.guardarSeleccion(selectedExpediente.id, next);
+      if (requestId === detailRequestId.current) setSelection(saved);
+    } catch (cause) { if (requestId === detailRequestId.current) setIaError(cause instanceof Error ? cause.message : 'No se pudo guardar la selección.'); }
+    finally { if (requestId === detailRequestId.current) setSelecting(false); }
+  }
+  function selectionCheckbox(proposal: PropuestaExpedienteIa, label: string) {
+    return <input type="checkbox" aria-label={label} checked={selectedKeys.has(proposalReviewKey(proposal))}
+      disabled={!puedeEditar || selecting || proposal.origenes.length === 0} onChange={() => { void toggleSelection(proposal); }} />;
+  }
+  function showDetail(proposal: PropuestaExpedienteIa) { setExpandedKey(proposalReviewKey(proposal)); setReviewFormKey(null); }
   const destinationIds = [...new Set(analysisProposals.map(proposal => proposal.asignaturaDestinoId))];
   const decisionsByDestination = new Map(decisions.map(decision => [decision.asignaturaDestinoId, decision]));
   const decidedDestinationCount = destinationIds.filter(id => {
@@ -520,14 +560,15 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             value: student.id,
             label: `${student.apellidos}, ${student.nombres} · ${student.cedula}`,
           }))}
-          onChange={setStudentId}
+          onChange={value => { setStudentId(value); changeCareer(''); }}
         />
         <SearchableSelect
           id="expediente-career"
+          key={`expediente-career-${studentId}`}
           label="Carrera de destino"
           value={careerId}
           placeholder="Busca una carrera"
-          options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))}
+          options={availableCareers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))}
           onChange={changeCareer}
         />
         <SearchableSelect
@@ -595,15 +636,18 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         <div><dt>Profesor responsable</dt><dd>{selectedExpediente.profesorNombre || selectedExpediente.profesorId}</dd></div>
         <div><dt>Fecha de creación</dt><dd>{new Date(selectedExpediente.creadoEn).toLocaleString()}</dd></div>
       </dl>
+      <div className="expediente-transfer" aria-label="Cambio de carrera">
+        <div><small>Carrera de origen</small><strong>{originLabel}</strong><span>{originCareer?.nombre ?? selectedStudent?.historial?.carreraOrigenNombre ?? 'Sin registrar'}</span></div>
+        <span className="transfer-arrow" aria-hidden="true">→</span>
+        <div><small>Carrera de destino</small><strong>{destinationLabel}</strong><span>{selectedCareer?.nombre}</span></div>
+      </div>
       <section className="eligibility-panel" aria-labelledby="eligibility-heading">
         <div className="students-panel-heading">
           <div>
             <h3 id="eligibility-heading">Elegibilidad por reglas</h3>
-            <p>Selecciona las asignaturas de origen y destino para comparar créditos, contenidos y carga horaria.</p>
+            <p>Las coincidencias se cargan al abrir el expediente. Evalúa los pares para activar su selección; la coincidencia de nombre por sí sola no confirma una homologación.</p>
           </div>
-          {puedeEditar && <button className="students-secondary" type="button" onClick={() => { void preloadPairs(); }} disabled={saving || loadingDetail || originCourses.length === 0 || destinationCourses.length === 0}>
-            {saving ? 'Precargando…' : 'Precargar coincidencias'}
-          </button>}
+
         </div>
         {loadingDetail ? <p className="catalog-message" role="status">Cargando historial, asignaturas y pares…</p> : <>
           {originCourses.length === 0 && <p className="catalog-message">El estudiante no tiene asignaturas cursadas disponibles en su historial.</p>}
@@ -613,7 +657,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
               <select value={pairOriginId} onChange={event => setPairOriginId(event.target.value)} disabled={originCourses.length === 0}>
                 <option value="">Selecciona del historial</option>
                 {originCourses.filter(course => course.id).map(course => <option key={course.id} value={course.id}>
-                  {course.codigo ? `${course.codigo} · ` : ''}{course.nombre} · {course.creditos ?? '—'} créditos
+                  {course.codigo ? `${course.codigo} · ` : ''}{course.nombre} - {originLabel} · {course.creditos ?? '—'} créditos
                 </option>)}
               </select>
             </label>
@@ -621,7 +665,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
               <select value={pairDestinationId} onChange={event => setPairDestinationId(event.target.value)} disabled={destinationCourses.length === 0}>
                 <option value="">Selecciona de la malla</option>
                 {destinationCourses.map(course => <option key={course.id} value={course.id}>
-                  {course.codigo} · {course.nombre} · {course.creditos} créditos
+                  {course.codigo} · {course.nombre} - {destinationLabel} · {course.creditos} créditos
                 </option>)}
               </select>
             </label>
@@ -629,29 +673,33 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
           </div>}
           <div className="student-table-wrap eligibility-results-wrap">
             <table className="student-table eligibility-results-table">
-              <thead><tr><th>Asignatura de origen</th><th>Asignatura de destino</th><th>Créditos</th><th>% contenidos</th><th>Umbral</th><th>Resultado</th><th>Carga horaria</th>{puedeEditar && <th>Acción</th>}</tr></thead>
+              <thead><tr><th>Elegir</th><th>Asignatura de origen</th><th>Asignatura de destino</th><th>Créditos</th><th>% contenidos</th><th>Resultado</th><th>Acción</th></tr></thead>
               <tbody>{pairs.map(pair => {
                 const origin = originCourses.find(course => course.id === pair.asignaturaCursadaId);
                 const destination = destinationCourses.find(course => course.id === pair.asignaturaDestinoId);
                 const result = results.find(item => item.parId === pair.id
                   || (item.asignaturaCursadaId === pair.asignaturaCursadaId && item.asignaturaDestinoId === pair.asignaturaDestinoId));
                 const rules = result?.evaluacion.reglas;
-                const hoursWarning = rules?.advertencias.find(item => /horas|carga horaria/i.test(item));
+                const proposal = result ? propuestaDePar(result) : null;
                 return <tr key={pair.id}>
-                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
-                  <td>{result?.nombreDestino ?? destination?.nombre ?? 'Asignatura no disponible'}{destination?.codigo ? <small>{destination.codigo}</small> : null}</td>
+                  <td>{proposal ? selectionCheckbox(proposal, `Seleccionar coincidencia ${proposal.nombreDestino}`) : <input type="checkbox" disabled aria-label="Evalúa el par antes de seleccionarlo" />}</td>
+                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'} - {originLabel}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
+                  <td>{result?.nombreDestino ?? destination?.nombre ?? 'Asignatura no disponible'} - {destinationLabel}{destination?.codigo ? <small>{destination.codigo}</small> : null}</td>
                   <td>{origin?.creditos ?? '—'} / {destination?.creditos ?? '—'}{rules?.razonCreditos != null && <small>{formatPercent(rules.razonCreditos)}</small>}</td>
                   <td>{rules?.coberturaContenidos == null ? '—' : formatPercent(rules.coberturaContenidos)}</td>
-                  <td>Créditos 80%<small>Contenidos 80%</small></td>
+
                   <td>{rules ? resultadoLabel(rules.resultado) : 'Pendiente'}</td>
-                  <td>{rules?.razonHoras == null ? '—' : formatPercent(rules.razonHoras)}{hoursWarning && <small className="eligibility-warning">{hoursWarning}</small>}</td>
-                  {puedeEditar && <td><button className="students-remove" type="button" onClick={() => {
+
+                  <td>{proposal && <button type="button" className="students-secondary" onClick={() => showDetail(proposal)}>Ver detalle</button>}{puedeEditar && <button className="students-remove" type="button" onClick={() => {
+                    if (selection.some(item => item.asignaturaDestinoId === pair.asignaturaDestinoId && item.origenIds.includes(pair.asignaturaCursadaId))) {
+                      setIaError('Retira primero este par de la tabla definitiva.'); return;
+                    }
                     setPairs(current => current.filter(item => item.id !== pair.id));
-                    setResults(current => current.filter(item => item.parId !== pair.id));
-                  }}>Quitar</button></td>}
+                    // La evaluación guardada conserva su evidencia hasta volver a evaluar.
+                  }}>Quitar</button>}</td>
                 </tr>;
               })}
-              {pairs.length === 0 && <tr><td colSpan={puedeEditar ? 8 : 7} className="eligibility-empty">Aún no hay pares. Selecciona asignaturas o precarga coincidencias por nombre.</td></tr>}</tbody>
+              {pairs.length === 0 && <tr><td colSpan={7} className="eligibility-empty">No hay coincidencias registradas. Puedes agregar un par de origen y destino para evaluarlo.</td></tr>}</tbody>
             </table>
           </div>
           {puedeEditar && <div className="eligibility-actions">
@@ -660,8 +708,22 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             </button>
             {results.length > 0 && <span>Evaluación guardada · {new Date().toLocaleString()}</span>}
           </div>}
-          {results.length > 0 && <p className="eligibility-threshold-note">Umbrales aplicados: mínimo 80% de créditos y 80% de contenidos. La carga horaria se muestra como advertencia cuando queda bajo el 80%.</p>}
+          {<p className="eligibility-threshold-note">Umbrales aplicados: mínimo 80% de créditos y 80% de contenidos. La carga horaria se muestra como advertencia cuando queda bajo el 80%.</p>}
         </>}
+      </section>
+      <section className="students-panel definitive-panel" aria-labelledby="definitive-heading">
+        <h3 id="definitive-heading">Tabla definitiva de homologación</h3>
+        <p>La selección se guarda automáticamente. Marcar una propuesta no equivale a aprobarla: registra la decisión docente desde su detalle.</p>
+        <div className="student-table-wrap"><table className="student-table compact-homologation-table">
+          <thead><tr><th>Elegir</th><th>Origen</th><th>Destino</th><th>Calculado</th><th>Decisión docente</th><th>Acción</th></tr></thead>
+          <tbody>{definitive.map(proposal => {
+            const decision = decisions.find(d => decisionKey(d) === proposalReviewKey(proposal));
+            return <tr key={proposalReviewKey(proposal)}><td>{selectionCheckbox(proposal, `Retirar selección ${proposal.nombreDestino}`)}</td>
+              <td>{proposal.origenes.map(o => `${o.nombre} - ${originLabel}`).join(' + ')}</td><td>{proposal.nombreDestino} - {destinationLabel}</td>
+              <td>{resultadoLabel(proposal.evaluacion.reglas.resultado)}</td><td>{decision ? resultadoLabel(decision.resultadoFinal) : 'Pendiente de confirmar'}</td>
+              <td><button type="button" className="students-secondary" onClick={() => showDetail(proposal)}>Ver detalle / decidir</button></td></tr>;
+          })}{definitive.length === 0 && <tr><td colSpan={6}>Marca propuestas evaluadas en cualquiera de las tablas para construir tu selección.</td></tr>}</tbody>
+        </table></div>
       </section>
       <section className="ia-analysis-panel" aria-labelledby="ia-analysis-heading">
         <div className="students-panel-heading ia-analysis-header">
@@ -673,10 +735,22 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>
+        {puedeEditar && iaAnalysis && decisions.length === 0 && <button type="button" className="students-secondary" disabled={analyzingIa} onClick={() => { void analyzeWithIa(true); }}>Recalcular con los datos actuales</button>}
         {iaError && <p className="ia-error" role="alert">{iaError}</p>}
         {analyzingIa && <p className="catalog-message" role="status">El agente está analizando los contenidos del expediente. Esto puede tardar unos minutos.</p>}
-        {iaAnalysis && <>
-          <p className="ia-analysis-meta" role="status">Análisis {iaAnalysis.estado.toLowerCase()} · {new Date(iaAnalysis.ejecutadoEn).toLocaleString()} · {iaAnalysis.propuestas.length} propuestas</p>
+        {iaAnalysis && <div className="student-table-wrap"><table className="student-table compact-homologation-table" aria-label="Propuestas de IA">
+          <thead><tr><th>Elegir</th><th>Origen</th><th>Destino</th><th>Créditos / contenidos</th><th>Recomendación</th><th>Acción</th></tr></thead>
+          <tbody>{visibleIa.map(proposal => <tr key={proposalReviewKey(proposal)}>
+            <td>{selectionCheckbox(proposal, `Seleccionar propuesta IA ${proposal.nombreDestino}`)}</td>
+            <td>{proposal.origenes.map(o => `${o.nombre} - ${originLabel}`).join(' + ') || 'Sin candidato'}</td><td>{proposal.nombreDestino} - {destinationLabel}</td>
+            <td>{proposal.evaluacion.reglas.razonCreditos == null ? '—' : formatPercent(proposal.evaluacion.reglas.razonCreditos)} / {proposal.evaluacion.reglas.coberturaContenidos == null ? '—' : formatPercent(proposal.evaluacion.reglas.coberturaContenidos)}</td>
+            <td>{esCercana(proposal) ? 'Cercana al umbral: revisión docente' : resultadoLabel(proposal.evaluacion.reglas.resultado)}</td>
+            <td><button type="button" className="students-secondary" onClick={() => showDetail(proposal)}>Ver detalle</button></td></tr>)}</tbody>
+        </table></div>}
+        {(iaAnalysis || results.length > 0) && <>
+          <div className="ia-summary" role="status"><strong>{viableProposals.length} homologables y {nearProposals.length} casos cercanos</strong><p>Los casos cercanos tienen al menos 75 % en créditos y contenidos, con horas disponibles. Los porcentajes expresan cumplimiento, no probabilidad de aprobación; la decisión final es del docente.</p></div>
+          {iaAnalysis && <label className="ia-diagnostics-toggle"><input type="checkbox" checked={showDiagnostics} onChange={event => setShowDiagnostics(event.target.checked)} />Mostrar destinos sin recomendación y diagnósticos para revisión ({displayAnalysis.propuestas.filter(proposal => !esRecomendable(proposal) && !esCercana(proposal)).length})</label>}
+          {iaAnalysis && <p className="ia-analysis-meta" role="status">Análisis {displayAnalysis.estado.toLowerCase()} · {new Date(displayAnalysis.ejecutadoEn).toLocaleString()} · {displayAnalysis.propuestas.length} propuestas</p>}
           <div className="ia-decision-progress" aria-live="polite">
             <div>
               <strong>Avance de decisiones</strong>
@@ -686,7 +760,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={decisionProgressPercent}>
               <span style={{ width: `${decisionProgressPercent}%` }} />
             </div>
-            <ul className="ia-progress-list">{destinationIds.map(id => {
+            <details><summary>Ver decisiones por destino</summary><ul className="ia-progress-list">{destinationIds.map(id => {
               const decision = decisionsByDestination.get(id);
               const proposal = analysisProposals.find(item => item.asignaturaDestinoId === id);
               const complete = decision != null && decision.resultadoFinal !== 3
@@ -697,23 +771,23 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   ? `${resultadoLabel(decision.resultadoCalculado)} → ${resultadoLabel(decision.resultadoFinal)}`
                   : 'Pendiente'}</strong>
               </li>;
-            })}</ul>
+            })}</ul></details>
             {puedeEditar && <button className="students-primary" type="button" onClick={() => { void resolveExpediente(); }} disabled={!canResolve || resolving}>
               {resolving ? 'Resolviendo…' : 'Resolver expediente'}
             </button>}
             {!canResolve && puedeEditar && <small>Registra una decisión concluyente para cada asignatura de destino antes de resolver.</small>}
             {soloLectura && <small>Expediente resuelto: consulta disponible en solo lectura.</small>}
           </div>
-          {iaAnalysis.advertencias.length > 0 && <div className="ia-warnings" role="note">
-            <strong>Advertencias del análisis</strong>
-            <ul>{iaAnalysis.advertencias.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>
-          </div>}
-          {Object.keys(proposalsByDestination).length === 0
-            ? <p className="catalog-message">El análisis terminó sin propuestas para las asignaturas de destino.</p>
-            : <div className="ia-destinations">{Object.entries(proposalsByDestination).map(([destinationId, proposals]) => {
+          {displayAnalysis.advertencias.length > 0 && <details className="ia-warnings">
+            <summary>Advertencias del análisis</summary>
+            <ul>{displayAnalysis.advertencias.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul>
+          </details>}
+          {expandedKey == null ? null : Object.keys(proposalsByDestination).length === 0
+            ? <p className="catalog-message">No hay recomendaciones viables en esta vista. Revisa los diagnósticos o agrega una agrupación con evidencia académica.</p>
+            : <div className="ia-destinations" role="region" aria-label="Detalle de propuesta" tabIndex={-1} ref={detailPanelRef}><button type="button" className="students-secondary" onClick={() => setExpandedKey(null)}>Cerrar detalle</button>{Object.entries(proposalsByDestination).map(([destinationId, proposals]) => {
               const destination = destinationCourses.find(course => course.id === destinationId);
               return <section className="ia-destination" key={destinationId} aria-label={`Propuestas para ${proposals[0].nombreDestino}`}>
-                <h4>{destination?.codigo ? `${destination.codigo} · ` : ''}{proposals[0].nombreDestino}</h4>
+                <h4>{destination?.codigo ? `${destination.codigo} · ` : ''}{proposals[0].nombreDestino} - {destinationLabel}</h4>
                 <div className="ia-proposals">{proposals.map((proposal, index) => {
                   const rules = proposal.evaluacion.reglas;
                   const coverage = proposal.evaluacion.cobertura;
@@ -733,7 +807,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                   return <article className="ia-proposal-card" key={`${destinationId}-${index}`}>
                     <div className="ia-proposal-title">
                       <div><h5>{originNames.length > 1 ? 'Propuesta combinada' : 'Asignatura de origen'}</h5>
-                        <p>{originNames.length ? originNames.join(' + ') : 'Origen no disponible'}</p></div>
+                        <p>{originNames.length ? originNames.map(name => `${name} - ${originLabel}`).join(' + ') : 'Origen no disponible'}</p></div>
                       <div className="ia-result-stack">
                         <span className={`ia-result ${resultadoClass(rules.resultado)}`}>IA: {resultadoLabel(rules.resultado)}</span>
                         {currentDecision && hasCurrentDecision && <span className={`ia-result ia-result-teacher ${resultadoClass(currentDecision.resultadoFinal)}`}>
@@ -792,8 +866,8 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                     </details> : null}
                     {puedeEditar && <div className="ia-review-controls">
                       <div className="ia-review-actions">
-                        <button className="students-primary" type="button" onClick={() => acceptIaProposal(proposal)} disabled={savingReviewKey !== null || grouping}>
-                          {savingReviewKey === reviewKey ? 'Guardando…' : 'Aceptar resultado de IA'}
+                        <button className="students-primary" type="button" onClick={() => acceptIaProposal(proposal)} disabled={savingReviewKey !== null || grouping || proposal.origenes.length === 0}>
+                          {savingReviewKey === reviewKey ? 'Guardando…' : 'Confirmar resultado calculado'}
                         </button>
                         <button className="students-secondary" type="button" onClick={() => openOwnConclusion(proposal)} disabled={savingReviewKey !== null}>
                           Modificar o rechazar
@@ -807,7 +881,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                             setGroupOriginIds(proposal.origenes.map(origin => origin.asignaturaCursadaId));
                             setGroupFormKey(reviewKey);
                           }
-                        }} disabled={savingReviewKey !== null || grouping}>
+                        }} disabled={savingReviewKey !== null || grouping || proposal.origenes.length === 0}>
                           Modificar / agrupar origen
                         </button>
                       </div>
@@ -842,7 +916,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         </label>}
                         <label>Justificación de la decisión
                           <textarea value={reviewComment} onChange={event => setReviewComment(event.target.value)} maxLength={2000} rows={3}
-                            required={reviewMode === 'custom' || Number(rules.resultado) !== 0}
+                            required={reviewMode === 'custom' || ![0, 4].includes(Number(rules.resultado))}
                             placeholder={reviewMode === 'accept' ? 'Justifica por qué aceptas esta propuesta no homologable.' : 'Explica brevemente por qué cambias o rechazas el resultado.'} />
                         </label>
                         {Number(rules.resultado) === 1 && <label className="ia-annotation-option">
@@ -850,7 +924,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                           <span>Es recomendable homologar (anotación; no cambia el resultado calculado)</span>
                         </label>}
                         <div className="ia-review-actions">
-                          <button className="students-primary" type="submit" disabled={savingReviewKey !== null || (reviewMode === 'custom' && !reviewOutcome) || ((reviewMode === 'custom' || Number(rules.resultado) !== 0) && !reviewComment.trim())}>
+                          <button className="students-primary" type="submit" disabled={savingReviewKey !== null || (reviewMode === 'custom' && !reviewOutcome) || ((reviewMode === 'custom' || ![0, 4].includes(Number(rules.resultado))) && !reviewComment.trim())}>
                             {savingReviewKey === reviewKey ? 'Guardando…' : reviewMode === 'accept' ? 'Aceptar propuesta con justificación' : 'Guardar mi decisión'}
                           </button>
                           <button className="students-secondary" type="button" onClick={() => { setReviewFormKey(null); setReviewMode(null); }} disabled={savingReviewKey !== null}>Cancelar</button>
@@ -980,4 +1054,20 @@ const estadosNumericos: Record<number, (typeof estadosExpediente)[number]> = {
 
 function estadoClass(estado: number | string): string {
   return estadoLabel(estado).toLocaleLowerCase().replaceAll(' ', '-').replaceAll('ó', 'o');
+}
+
+function esRecomendable(proposal: PropuestaExpedienteIa): boolean {
+  return [0, 4, 'Homologable', 'TransversalDirecta'].includes(proposal.evaluacion.reglas.resultado);
+}
+
+function esCercana(proposal: PropuestaExpedienteIa): boolean {
+  const r = proposal.evaluacion.reglas;
+  return [1, 2, 'RechazoPorCreditos', 'RechazoPorContenidos'].includes(r.resultado)
+    && r.razonCreditos != null && r.razonCreditos >= .75 && r.coberturaContenidos != null && r.coberturaContenidos >= .75 && r.razonHoras != null;
+}
+function propuestaDePar(result: ResultadoParExpediente): PropuestaExpedienteIa {
+  return { asignaturaDestinoId: result.asignaturaDestinoId, nombreDestino: result.nombreDestino,
+    origenes: [{ asignaturaCursadaId: result.asignaturaCursadaId, nombre: result.nombreOrigen }],
+    evaluacion: { ...result.evaluacion, cobertura: (result.evaluacion as PropuestaExpedienteIa['evaluacion']).cobertura
+      ?? { porcentaje: result.evaluacion.reglas.coberturaContenidos, temasCoincidentes: [], temasAusentes: [] } } };
 }

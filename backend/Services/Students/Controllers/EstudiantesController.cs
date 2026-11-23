@@ -23,7 +23,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         [FromQuery] string? filtro, CancellationToken ct)
     {
         var query = context.Estudiantes.AsNoTracking().Include(e => e.Historial)
-            .ThenInclude(h => h!.Asignaturas).AsQueryable();
+            .ThenInclude(h => h!.Asignaturas).Where(e => !e.Eliminado).AsQueryable();
         if (!string.IsNullOrWhiteSpace(filtro))
         {
             var term = filtro.Trim().ToUpperInvariant();
@@ -49,7 +49,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         var normalizedCedula = NormalizarId(cedula);
         var entity = await context.Estudiantes.AsNoTracking().Include(e => e.Historial)
             .ThenInclude(h => h!.Asignaturas)
-            .FirstOrDefaultAsync(e => e.Cedula == normalizedCedula, ct);
+            .FirstOrDefaultAsync(e => !e.Eliminado && e.Cedula == normalizedCedula, ct);
         return entity is null ? NotFound() : Ok(ToResponse(entity));
     }
 
@@ -91,6 +91,20 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         return CreatedAtAction(nameof(GetEstudiante), new { estudianteId = entity.Id }, ToResponse(entity));
     }
 
+    /// <summary>Retira del registro activo conservando las referencias de expedientes.</summary>
+    [HttpDelete("{estudianteId:guid}")]
+    public async Task<IActionResult> Eliminar(Guid estudianteId, CancellationToken ct)
+    {
+        var entity = await context.Estudiantes.FindAsync([estudianteId], ct);
+        if (entity is null) return NotFound();
+        if (entity.Eliminado) return NoContent();
+        entity.Eliminado = true;
+        entity.ModificadoPor = ActorActual();
+        entity.ModificadoEn = DateTime.UtcNow;
+        await context.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     /// <summary>Actualiza la información del estudiante y opcionalmente su historial.</summary>
     [HttpPut("{estudianteId:guid}")]
     [ProducesResponseType(typeof(EstudianteResponse), StatusCodes.Status200OK)]
@@ -102,7 +116,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
     {
         var entity = await context.Estudiantes.Include(e => e.Historial)
             .ThenInclude(h => h!.Asignaturas).FirstOrDefaultAsync(e => e.Id == estudianteId, ct);
-        if (entity is null) return NotFound();
+        if (entity is null || entity.Eliminado) return NotFound();
         var error = ValidarEstudiante(request, requireHistory: false);
         if (error is not null) return BadRequest(Problem(400, error));
         if (request.Tipo == TipoEstudiante.Interno && request.Historial is null && entity.Historial is null)
@@ -152,7 +166,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
     {
         var student = await context.Estudiantes.Include(e => e.Historial)
             .ThenInclude(h => h!.Asignaturas).FirstOrDefaultAsync(e => e.Id == estudianteId, ct);
-        if (student is null) return NotFound();
+        if (student is null || student.Eliminado) return NotFound();
         var error = ValidarHistorial(request, student.Tipo);
         if (error is not null) return BadRequest(Problem(400, error));
         if (student.Historial is null) student.Historial = CrearHistorial(student, request);
@@ -194,6 +208,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         var student = await context.Estudiantes.Include(e => e.Historial)
             .ThenInclude(h => h!.Asignaturas)
             .FirstOrDefaultAsync(e => e.Cedula == cedula, ct);
+        if (student?.Eliminado == true) return Conflict(Problem(409, "La identificación pertenece a un estudiante eliminado."));
         var created = student is null;
         if (student is not null && student.Tipo != TipoEstudiante.Externo)
             return Conflict(Problem(409, "La identificación ya pertenece a un estudiante interno."));
@@ -268,6 +283,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         historial.CarreraOrigenNombre = request.CarreraOrigenNombre;
         historial.InstitucionOrigen = request.InstitucionOrigen;
         historial.NivelActual = request.NivelActual;
+        historial.MallaOrigenId = request.MallaOrigenId;
         historial.ActualizadoEn = DateTime.UtcNow;
 
         var unassigned = historial.Asignaturas.ToList();
@@ -280,6 +296,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             {
                 course = new AsignaturaCursada { Historial = historial };
                 historial.Asignaturas.Add(course);
+                context.AsignaturasCursadas.Add(course);
             }
             else
             {
@@ -368,30 +385,37 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         return ids.Count == ids.Distinct().Count() ? null : "Una asignatura del catálogo no puede repetirse en el historial.";
     }
 
-    private static HistorialAcademico CrearHistorial(Estudiante student, HistorialWriteRequest request)
+    private HistorialAcademico CrearHistorial(Estudiante student, HistorialWriteRequest request)
     {
         var historial = new HistorialAcademico { Estudiante = student };
         ActualizarHistorial(historial, request);
         return historial;
     }
 
-    private static void ActualizarHistorial(HistorialAcademico historial, HistorialWriteRequest request)
+    private void ActualizarHistorial(HistorialAcademico historial, HistorialWriteRequest request)
     {
         historial.CarreraOrigenId = request.CarreraOrigenId;
         historial.CarreraOrigenNombre = Normalizar(request.CarreraOrigenNombre);
         historial.InstitucionOrigen = Normalizar(request.InstitucionOrigen);
         historial.NivelActual = request.NivelActual;
+        historial.MallaOrigenId = request.MallaOrigenId;
         historial.ActualizadoEn = DateTime.UtcNow;
         var requestedIds = request.Asignaturas!.Where(a => a.AsignaturaId.HasValue)
             .Select(a => a.AsignaturaId!.Value).ToHashSet();
         foreach (var old in historial.Asignaturas.Where(a => a.AsignaturaId.HasValue
                      && !requestedIds.Contains(a.AsignaturaId.Value)).ToList())
-            historial.Asignaturas.Remove(old);
+            { historial.Asignaturas.Remove(old); context.AsignaturasCursadas.Remove(old); }
         foreach (var item in request.Asignaturas!)
         {
             var course = item.AsignaturaId.HasValue
                 ? historial.Asignaturas.FirstOrDefault(a => a.AsignaturaId == item.AsignaturaId) : null;
-            if (course is null) { course = new AsignaturaCursada(); historial.Asignaturas.Add(course); }
+            if (course is null)
+            {
+                course = new AsignaturaCursada { Historial = historial };
+                historial.Asignaturas.Add(course);
+                if (context.Entry(historial).State != EntityState.Detached)
+                    context.AsignaturasCursadas.Add(course);
+            }
             course.AsignaturaId = item.AsignaturaId;
             course.Codigo = Normalizar(item.Codigo);
             course.Nombre = item.Nombre.Trim();
@@ -419,12 +443,12 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
     private static string? Normalizar(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static EstudianteResponse ToResponse(Estudiante e) => new(e.Id, e.Cedula, e.TipoIdentificacion,
         e.Nombres, e.Apellidos, e.Tipo, e.CreadoPor, e.CreadoEn, e.ModificadoPor, e.ModificadoEn,
-        e.Historial is null ? null : ToResponse(e.Historial));
+        e.Historial is null ? null : ToResponse(e.Historial), e.Eliminado);
     private static HistorialResponse ToResponse(HistorialAcademico h) => new(h.Id, h.EstudianteId,
         h.CarreraOrigenId, h.CarreraOrigenNombre, h.InstitucionOrigen, h.NivelActual, h.ActualizadoEn,
         h.Asignaturas.OrderBy(a => a.Periodo).ThenBy(a => a.Nombre)
             .Select(a => new AsignaturaCursadaResponse(a.Id, a.AsignaturaId, a.Codigo, a.Nombre,
-                a.Creditos, a.Horas, a.Nota, a.Periodo)).ToList());
+                a.Creditos, a.Horas, a.Nota, a.Periodo)).ToList(), h.MallaOrigenId);
     private static ProblemDetails Problem(int status, string detail) => new()
     { Status = status, Title = status == 400 ? "Solicitud inválida" : "Conflicto", Detail = detail };
 }

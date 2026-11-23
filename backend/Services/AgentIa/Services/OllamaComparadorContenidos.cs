@@ -54,11 +54,10 @@ public sealed class OllamaComparadorContenidos(
         var modelo = configuration["Ollama:EmbeddingModel"]
             ?? ModeloPredeterminado;
 
-        // Incluir codigo y nombre permite que el indice distinga contenidos
-        // homonimos de asignaturas diferentes. La normalizacion estabiliza la clave.
+        // Los códigos enlazan las evidencias, pero no forman parte del contenido académico.
         var textos = origen
-            .Select(x => NormalizarTexto($"{x.Codigo} {x.Descripcion}"))
-            .Concat(destino.Select(x => NormalizarTexto($"{x.Codigo} {x.Descripcion}")))
+            .Select(x => NormalizarTexto(x.Descripcion))
+            .Concat(destino.Select(x => NormalizarTexto(x.Descripcion)))
             .ToArray();
         var embeddings = await ObtenerEmbeddingsAsync(modelo, textos, cancellationToken);
 
@@ -130,6 +129,10 @@ public sealed class OllamaComparadorContenidos(
         string[] textos,
         CancellationToken cancellationToken)
     {
+        using var presupuesto = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        presupuesto.CancelAfter(TimeSpan.FromSeconds(
+            configuration.GetValue("Ollama:OperationTimeoutSeconds", 60)));
+        var token = presupuesto.Token;
         for (var intento = 1; ; intento++)
         {
             try
@@ -137,11 +140,11 @@ public sealed class OllamaComparadorContenidos(
                 using var respuesta = await httpClient.PostAsJsonAsync(
                     "api/embed",
                     new { model = modelo, input = textos },
-                    cancellationToken);
+                    token);
 
                 if (EsReintentable(respuesta.StatusCode) && intento < IntentosMaximos)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), token);
                     continue;
                 }
 
@@ -152,24 +155,28 @@ public sealed class OllamaComparadorContenidos(
                         statusCode: respuesta.StatusCode);
 
                 var documento = await respuesta.Content.ReadFromJsonAsync<RespuestaEmbeddings>(
-                    cancellationToken: cancellationToken);
+                    cancellationToken: token);
                 var embeddings = documento?.Embeddings;
                 if (embeddings is null || embeddings.Length != textos.Length
-                    || embeddings.Any(x => x is null || x.Length == 0))
+                    || embeddings.Any(x => x is null || x.Length == 0
+                        || x.Length != embeddings[0].Length
+                        || x.Any(v => !float.IsFinite(v))
+                        || !x.Any(v => v != 0)))
                     throw new InvalidOperationException(
                         "Ollama no devolvio todos los embeddings esperados. Verifica que el modelo bge-m3 este descargado.");
 
                 return embeddings;
             }
             catch (HttpRequestException ex) when (
-                intento < IntentosMaximos && (ex.StatusCode is null || EsReintentable(ex.StatusCode.Value)))
+                !token.IsCancellationRequested && intento < IntentosMaximos
+                && (ex.StatusCode is null || EsReintentable(ex.StatusCode.Value)))
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), token);
             }
             catch (TaskCanceledException) when (
-                !cancellationToken.IsCancellationRequested && intento < IntentosMaximos)
+                !token.IsCancellationRequested && intento < IntentosMaximos)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * Math.Pow(2, intento - 1)), token);
             }
         }
     }
@@ -208,9 +215,9 @@ public sealed class OllamaComparadorContenidos(
         double producto = 0, normaA = 0, normaB = 0;
         for (var i = 0; i < a.Length; i++)
         {
-            producto += a[i] * b[i];
-            normaA += a[i] * a[i];
-            normaB += b[i] * b[i];
+            producto += (double)a[i] * b[i];
+            normaA += (double)a[i] * a[i];
+            normaB += (double)b[i] * b[i];
         }
 
         if (normaA == 0 || normaB == 0)

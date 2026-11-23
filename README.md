@@ -11,6 +11,8 @@
 
 ## Requisitos locales
 
+Reports Service genera informes PDF versionados y los conserva en ReportsDB. Consulta [configuración y endpoints de Reports](docs/api/reports-service.md). Su Swagger local está en `http://localhost:5198/swagger`.
+
 - Docker Desktop con el motor iniciado.
 - .NET SDK 8.
 - Node.js 22 o superior y npm.

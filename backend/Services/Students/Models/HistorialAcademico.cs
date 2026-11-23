@@ -7,6 +7,7 @@ public class HistorialAcademico
 
     // Internos: identificador de la carrera en AcademicDB (referencia sin clave foranea entre bases).
     public Guid? CarreraOrigenId { get; set; }
+    public Guid? MallaOrigenId { get; set; }
     // Externos: carrera e institucion de origen tal como vienen en la plantilla XLSX.
     public string? CarreraOrigenNombre { get; set; }
     public string? InstitucionOrigen { get; set; }

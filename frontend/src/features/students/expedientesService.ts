@@ -67,11 +67,19 @@ export interface TemaPropuestaIa {
   evidencia: string | null;
 }
 
+export interface PrecedenteHistorico {
+  fecha: string;
+  resultadoFinal: number;
+  resultadoCalculado: number;
+  justificacion: string | null;
+}
+
 export interface PropuestaExpedienteIa {
   asignaturaDestinoId: string;
   nombreDestino: string;
-  origenes: Array<{ asignaturaCursadaId: string; nombre: string }>;
+  origenes: Array<{ asignaturaCursadaId: string; nombre: string; asignaturaId?: string | null }>;
   revisionesDocente?: RevisionDocentePropuesta[] | null;
+  precedentes?: PrecedenteHistorico[] | null;
   evaluacion: {
     explicacion?: string;
     fuenteExplicacion?: string;

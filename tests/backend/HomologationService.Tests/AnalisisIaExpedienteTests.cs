@@ -67,6 +67,8 @@ public sealed class AnalisisIaExpedienteTests
                 .Any(y => y.GetProperty("nombre").GetString() == "Historia"));
             var viable = Assert.Single(propuestas, x => Resultado(x) == ResultadoHomologacion.Homologable);
             Assert.Equal(2, viable.GetProperty("origenes").GetArrayLength());
+            Assert.All(viable.GetProperty("origenes").EnumerateArray(), origen =>
+                Assert.NotEqual(Guid.Empty, origen.GetProperty("asignaturaId").GetGuid()));
             Assert.Equal(1m, viable.GetProperty("evaluacion").GetProperty("reglas")
                 .GetProperty("coberturaContenidos").GetDecimal());
         }

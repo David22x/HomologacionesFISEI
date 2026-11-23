@@ -88,6 +88,54 @@ public sealed class DecisionesTests
         Assert.IsType<NotFoundResult>(await controller.DatosInforme(expediente.Id, default));
     }
 
+    [Fact]
+    public async Task ConsultarAnalisis_incluyePrecedentesDeExpedientesResueltos()
+    {
+        await using var conexion = new SqliteConnection("Data Source=:memory:");
+        await conexion.OpenAsync();
+        await using var db = new HomologationDbContext(new DbContextOptionsBuilder<HomologationDbContext>()
+            .UseSqlite(conexion).Options);
+        await db.Database.EnsureCreatedAsync();
+        var profesor = Guid.NewGuid();
+        var anterior = new Expediente { ProfesorId = profesor, Estado = EstadoExpediente.Resuelto };
+        var actual = new Expediente { ProfesorId = profesor };
+        db.Expedientes.AddRange(anterior, actual);
+        await db.SaveChangesAsync();
+        var destino = Guid.NewGuid();
+        var catalogo = Guid.NewGuid();
+        db.Decisiones.Add(new Decision
+        {
+            ExpedienteId = anterior.Id,
+            AsignaturaDestinoId = destino,
+            OrigenIdsJson = JsonSerializer.Serialize(new[] { Guid.NewGuid() }),
+            OrigenCatalogoIdsJson = JsonSerializer.Serialize(new[] { catalogo }),
+            ResultadoCalculado = 0,
+            ResultadoFinal = 3,
+            Justificacion = "Faltan contenidos de programacion.",
+            ProfesorId = profesor
+        });
+        var analisis = new
+        {
+            propuestas = new[] { new { asignaturaDestinoId = destino, nombreDestino = "Materia",
+                origenes = new[] { new { asignaturaCursadaId = Guid.NewGuid(), nombre = "Origen", asignaturaId = catalogo } },
+                evaluacion = new { reglas = new { resultado = 0 } } } },
+            advertencias = Array.Empty<string>()
+        };
+        db.EjecucionesReglas.Add(new EjecucionReglas { ExpedienteId = actual.Id, EsAnalisisIa = true,
+            ProfesorId = profesor, ResultadosJson = JsonSerializer.Serialize(analisis) });
+        await db.SaveChangesAsync();
+        var controller = new ParesExpedienteController(db, new DatosEvaluacionClient(new SinRed()))
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+        controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity([
+            new(ClaimTypes.NameIdentifier, profesor.ToString()), new(ClaimTypes.Role, AppRoles.Profesor)], "test"));
+
+        var respuesta = Assert.IsType<OkObjectResult>(await controller.ConsultarAnalisis(actual.Id, default));
+        var json = JsonSerializer.Serialize(respuesta.Value);
+        Assert.Contains("Faltan contenidos de programacion.", json);
+    }
+
     private sealed class SinRed : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => throw new InvalidOperationException("No se esperaba una consulta de red.");

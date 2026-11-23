@@ -781,6 +781,15 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         <small>{review.profesorNombre || 'Profesor'} · {new Date(review.revisadoEn).toLocaleString()}</small>
                       </li>)}</ol>
                     </details> : null}
+                    {proposal.precedentes?.length ? <details className="ia-review-history">
+                      <summary>{proposal.precedentes.length} precedente(s) del histórico para este origen y destino</summary>
+                      <ol>{proposal.precedentes.map((precedente, precedenteIndex) => <li key={`${precedente.fecha}-${precedenteIndex}`}>
+                        <strong>Decisión anterior: {resultadoLabel(precedente.resultadoFinal)}</strong>
+                        <span>Resultado calculado entonces: {resultadoLabel(precedente.resultadoCalculado)}</span>
+                        {precedente.justificacion && <span>Justificación: {precedente.justificacion}</span>}
+                        <small>{new Date(precedente.fecha).toLocaleString()}</small>
+                      </li>)}</ol>
+                    </details> : null}
                     {puedeEditar && <div className="ia-review-controls">
                       <div className="ia-review-actions">
                         <button className="students-primary" type="button" onClick={() => acceptIaProposal(proposal)} disabled={savingReviewKey !== null || grouping}>

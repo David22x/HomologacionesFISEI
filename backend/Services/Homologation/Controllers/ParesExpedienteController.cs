@@ -195,7 +195,7 @@ public sealed class ParesExpedienteController(
                 ejecucion.Id,
                 ejecutadoEn = DateTime.SpecifyKind(ejecucion.EjecutadoEn, DateTimeKind.Utc),
                 estado = expediente.Estado.ToString(),
-                resultado.Propuestas,
+                Propuestas = await ConPrecedentesAsync(expedienteId, resultado.Propuestas, ct),
                 resultado.Advertencias
             });
         }, ct);
@@ -225,7 +225,7 @@ public sealed class ParesExpedienteController(
                 propuesta.AsignaturaDestinoId == request.AsignaturaDestinoId
                 && propuesta.Origenes.Select(origen => origen.AsignaturaCursadaId).Order().SequenceEqual(origenes));
             if (existente is not null)
-                return Ok(existente);
+                return Ok((await ConPrecedentesAsync(expedienteId, [existente], ct))[0]);
 
             var propuesta = await new GeneradorPropuestas(datos).GenerarGrupoAsync(
                 expediente, request.AsignaturaDestinoId, origenes, bearer, ct);
@@ -236,7 +236,7 @@ public sealed class ParesExpedienteController(
                 analisis with { Propuestas = analisis.Propuestas.Append(propuesta).ToArray() }, JsonWeb);
             expediente.Estado = EstadoExpediente.AnalizadoConIa;
             await GuardarAsync(expediente, ct);
-            return Ok(propuesta);
+            return Ok((await ConPrecedentesAsync(expedienteId, [propuesta], ct))[0]);
         }, ct);
 
     [HttpPut("analisis-ia/propuestas/revision")]
@@ -314,6 +314,7 @@ public sealed class ParesExpedienteController(
                 ExpedienteId = expedienteId,
                 AsignaturaDestinoId = request.AsignaturaDestinoId,
                 OrigenIdsJson = JsonSerializer.Serialize(origenesSolicitados),
+                OrigenCatalogoIdsJson = ClaveCatalogo(propuestas[indice].Origenes),
                 ResultadoCalculado = resultadoCalculado,
                 ResultadoFinal = resultadoFinal,
                 Justificacion = string.IsNullOrWhiteSpace(observacion) ? null : observacion,
@@ -353,7 +354,9 @@ public sealed class ParesExpedienteController(
         var resultado = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb)!;
         return Ok(new { ejecucion.Id,
             ejecutadoEn = DateTime.SpecifyKind(ejecucion.EjecutadoEn, DateTimeKind.Utc),
-            estado = expediente.Estado.ToString(), resultado.Propuestas, resultado.Advertencias });
+            estado = expediente.Estado.ToString(),
+            Propuestas = await ConPrecedentesAsync(expedienteId, resultado.Propuestas, ct),
+            resultado.Advertencias });
     }
 
     [HttpGet("decisiones")]
@@ -409,6 +412,58 @@ public sealed class ParesExpedienteController(
             await GuardarAsync(expediente, ct);
             return Ok(new { estado = "Resuelto", soloLectura = true });
         }, ct);
+
+    private static string? ClaveCatalogo(IEnumerable<GeneradorPropuestas.OrigenPropuesta> origenes)
+    {
+        var ids = origenes.Select(x => x.AsignaturaId).ToArray();
+        if (ids.Length == 0 || ids.Any(x => x is null))
+            return null;
+
+        return JsonSerializer.Serialize(ids.Select(x => x!.Value).Order().ToArray());
+    }
+
+    private async Task<object[]> ConPrecedentesAsync(
+        Guid expedienteId, IReadOnlyList<GeneradorPropuestas.Propuesta> propuestas, CancellationToken ct)
+    {
+        var destinos = propuestas.Select(x => x.AsignaturaDestinoId).Distinct().ToArray();
+        var previas = (await db.Decisiones.AsNoTracking()
+                .Where(d => d.ExpedienteId != expedienteId
+                    && destinos.Contains(d.AsignaturaDestinoId)
+                    && db.Expedientes.Any(e => e.Id == d.ExpedienteId && e.Estado == EstadoExpediente.Resuelto))
+                .OrderByDescending(d => d.RegistradoEn).ThenByDescending(d => d.Id)
+                .ToListAsync(ct))
+            .DistinctBy(d => (d.ExpedienteId, d.AsignaturaDestinoId))
+            .ToList();
+
+        return propuestas.Select(propuesta =>
+        {
+            var clave = ClaveCatalogo(propuesta.Origenes);
+            var precedentes = clave is null
+                ? Array.Empty<object>()
+                : previas
+                    .Where(d => d.AsignaturaDestinoId == propuesta.AsignaturaDestinoId
+                        && d.OrigenCatalogoIdsJson == clave)
+                    .Take(3)
+                    .Select(d => (object)new
+                    {
+                        fecha = DateTime.SpecifyKind(d.RegistradoEn, DateTimeKind.Utc),
+                        resultadoFinal = d.ResultadoFinal,
+                        resultadoCalculado = d.ResultadoCalculado,
+                        justificacion = d.Justificacion
+                    })
+                    .ToArray();
+
+            return (object)new
+            {
+                propuesta.AsignaturaDestinoId,
+                propuesta.NombreDestino,
+                propuesta.Origenes,
+                propuesta.Evaluacion,
+                propuesta.RevisionesDocente,
+                precedentes
+            };
+        }).ToArray();
+    }
 
     private async Task<List<Decision>> DecisionesVigentesAsync(Guid expedienteId, CancellationToken ct)
     {

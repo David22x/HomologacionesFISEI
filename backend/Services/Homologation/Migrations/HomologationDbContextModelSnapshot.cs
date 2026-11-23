@@ -38,6 +38,9 @@ namespace HomologationService.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("OrigenCatalogoIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("OrigenIdsJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

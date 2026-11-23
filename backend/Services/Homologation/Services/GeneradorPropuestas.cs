@@ -57,7 +57,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
             contenidosOrigen, contenidosDestino);
         var evaluacion = await datos.EvaluarAsync(solicitud, bearer, ct);
         return new Propuesta(destino.Id, destino.Nombre,
-            grupos.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre)).ToArray(), evaluacion);
+            grupos.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre, x.Origen.AsignaturaId)).ToArray(), evaluacion);
     }
 
     internal async Task<Analisis> GenerarAsync(Expediente expediente, AuthenticationHeaderValue bearer, CancellationToken ct)
@@ -139,7 +139,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
                     temasOrigen, destinoContenidos);
                 var evaluacion = await datos.EvaluarAsync(solicitud, bearer, ct);
                 propuestas.Add(new Propuesta(destino.Id, destino.Nombre,
-                    grupo.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre)).ToArray(), evaluacion));
+                    grupo.Select(x => new OrigenPropuesta(x.Origen.Id, x.Origen.Nombre, x.Origen.AsignaturaId)).ToArray(), evaluacion));
             }
         }
 
@@ -162,7 +162,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private sealed record Candidato(Origen Origen, decimal? Creditos, int? Horas, bool Transversal, Contenido[] Contenidos);
-    internal sealed record OrigenPropuesta(Guid AsignaturaCursadaId, string Nombre);
+    internal sealed record OrigenPropuesta(Guid AsignaturaCursadaId, string Nombre, Guid? AsignaturaId = null);
     internal sealed record Propuesta(Guid AsignaturaDestinoId, string NombreDestino, OrigenPropuesta[] Origenes,
         JsonElement Evaluacion, IReadOnlyList<RevisionDocentePropuesta>? RevisionesDocente = null);
     internal sealed record RevisionDocentePropuesta(string Tipo, int ResultadoFinal,

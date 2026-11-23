@@ -6,6 +6,7 @@ public sealed class Decision
     public Guid ExpedienteId { get; set; }
     public Guid AsignaturaDestinoId { get; set; }
     public string OrigenIdsJson { get; set; } = "[]";
+    public string? OrigenCatalogoIdsJson { get; set; }
     public int ResultadoCalculado { get; set; }
     public int ResultadoFinal { get; set; }
     public string? Justificacion { get; set; }

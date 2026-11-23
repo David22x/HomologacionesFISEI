@@ -22,6 +22,62 @@ public sealed class ParesExpedienteController(
 {
     private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
 
+    [HttpGet("seleccion")]
+    public async Task<IActionResult> ConsultarSeleccion(Guid expedienteId, CancellationToken ct)
+    {
+        var expediente = await BuscarAsync(expedienteId, ct);
+        if (expediente is null) return NotFound();
+        var ultima = await db.EjecucionesReglas.AsNoTracking().Where(x => x.ExpedienteId == expedienteId && !x.EsAnalisisIa)
+            .OrderByDescending(x => x.EjecutadoEn).ThenByDescending(x => x.Id).FirstOrDefaultAsync(ct);
+        var seleccion = JsonSerializer.Deserialize<List<SeleccionDto>>(expediente.SeleccionJson, JsonWeb)!;
+        foreach (var decision in (await DecisionesVigentesAsync(expedienteId, ct)).Where(x => x.ResultadoFinal is 0 or 4))
+            if (!seleccion.Any(x => x.AsignaturaDestinoId == decision.AsignaturaDestinoId))
+                seleccion.Add(new(decision.AsignaturaDestinoId, JsonSerializer.Deserialize<Guid[]>(decision.OrigenIdsJson)!));
+        return Ok(new { seleccion,
+            resultados = ultima is null ? Array.Empty<ResultadoPar>() : JsonSerializer.Deserialize<ResultadoPar[]>(ultima.ResultadosJson, JsonWeb) });
+    }
+
+    [HttpPut("seleccion")]
+    [Authorize(Roles = AppRoles.Profesor)]
+    public Task<IActionResult> GuardarSeleccion(Guid expedienteId, [FromBody] SeleccionDto[] seleccion, CancellationToken ct) =>
+        EditarAsync(expedienteId, async (expediente, _) =>
+        {
+            if (seleccion.Any(x => x.OrigenIds is null || x.OrigenIds.Length == 0 || x.OrigenIds.Distinct().Count() != x.OrigenIds.Length)
+                || seleccion.Select(x => x.AsignaturaDestinoId).Distinct().Count() != seleccion.Length)
+                return BadRequest(new { mensaje = "Selecciona una sola propuesta por destino, con orígenes distintos." });
+            var origenes = seleccion.SelectMany(x => x.OrigenIds).ToArray();
+            if (origenes.Distinct().Count() != origenes.Length)
+                return Conflict(new { mensaje = "Una asignatura de origen no puede seleccionarse para dos destinos." });
+            var disponibles = await PropuestasDisponiblesAsync(expedienteId, ct);
+            if (seleccion.Any(x => !disponibles.Any(p => p.AsignaturaDestinoId == x.AsignaturaDestinoId
+                && p.Origenes.Select(o => o.AsignaturaCursadaId).Order().SequenceEqual(x.OrigenIds.Order()))))
+                return Conflict(new { mensaje = "La selección debe pertenecer a una evaluación guardada. Evalúa los pares o actualiza el análisis." });
+            var decisiones = await DecisionesVigentesAsync(expedienteId, ct);
+            if (decisiones.Where(x => x.ResultadoFinal is 0 or 4).Any(d => !seleccion.Any(x => x.AsignaturaDestinoId == d.AsignaturaDestinoId
+                && x.OrigenIds.Order().SequenceEqual(JsonSerializer.Deserialize<Guid[]>(d.OrigenIdsJson)!.Order()))))
+                return Conflict(new { mensaje = "Modifica primero la decisión docente antes de retirar una homologación confirmada." });
+            expediente.SeleccionJson = JsonSerializer.Serialize(seleccion, JsonWeb);
+            await GuardarAsync(expediente, ct);
+            return Ok(seleccion);
+        }, ct);
+
+    private async Task<List<GeneradorPropuestas.Propuesta>> PropuestasDisponiblesAsync(Guid id, CancellationToken ct)
+    {
+        var ejecuciones = await db.EjecucionesReglas.AsNoTracking().Where(x => x.ExpedienteId == id)
+            .OrderByDescending(x => x.EjecutadoEn).ThenByDescending(x => x.Id).ToListAsync(ct);
+        var ia = ejecuciones.FirstOrDefault(x => x.EsAnalisisIa);
+        var propuestas = ia is null ? [] : JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ia.ResultadosJson, JsonWeb)!.Propuestas.ToList();
+        var manual = ejecuciones.FirstOrDefault(x => !x.EsAnalisisIa);
+        if (manual is not null)
+            foreach (var par in JsonSerializer.Deserialize<ResultadoPar[]>(manual.ResultadosJson, JsonWeb)!)
+                if (!propuestas.Any(x => x.AsignaturaDestinoId == par.AsignaturaDestinoId && x.Origenes.Length == 1
+                    && x.Origenes[0].AsignaturaCursadaId == par.AsignaturaCursadaId))
+                    propuestas.Add(new(par.AsignaturaDestinoId, par.NombreDestino, [new(par.AsignaturaCursadaId, par.NombreOrigen)], par.Evaluacion));
+        return propuestas;
+    }
+
+    public sealed record SeleccionDto(Guid AsignaturaDestinoId, Guid[] OrigenIds);
+
     [HttpGet("pares")]
     public async Task<IActionResult> Listar(Guid expedienteId, CancellationToken ct)
     {
@@ -89,6 +145,10 @@ public sealed class ParesExpedienteController(
             var solicitados = pares.ToHashSet();
             var eliminados = actuales.Where(p => !solicitados.Contains(p.Key)).Select(p => p.Value).ToArray();
             var nuevos = pares.Where(p => !actuales.ContainsKey(p)).Select(p => CrearPar(expedienteId, p, false)).ToArray();
+            var seleccionActual = JsonSerializer.Deserialize<SeleccionDto[]>(expediente.SeleccionJson, JsonWeb)!;
+            if (eliminados.Any(p => seleccionActual.Any(x => x.AsignaturaDestinoId == p.AsignaturaDestinoId && x.OrigenIds.Contains(p.AsignaturaCursadaId))))
+                return Conflict(new { mensaje = "Retira primero los pares seleccionados de la tabla definitiva." });
+
 
             if (eliminados.Length > 0 || nuevos.Length > 0)
             {
@@ -169,24 +229,26 @@ public sealed class ParesExpedienteController(
 
     [HttpPost("analizar-ia")]
     [Authorize(Roles = AppRoles.Profesor)]
-    public Task<IActionResult> AnalizarIa(Guid expedienteId, CancellationToken ct) =>
+    public Task<IActionResult> AnalizarIa(Guid expedienteId, CancellationToken ct, [FromQuery] bool recalcular = false) =>
         EditarAsync(expedienteId, async (expediente, bearer) =>
         {
-            var ejecucion = await db.EjecucionesReglas.AsNoTracking()
+            var ejecucion = await db.EjecucionesReglas
                 .SingleOrDefaultAsync(x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
-            if (ejecucion is null)
+            if (recalcular && await db.Decisiones.AnyAsync(x => x.ExpedienteId == expedienteId, ct))
+                return Conflict(new { mensaje = "El análisis ya tiene decisiones docentes. No se puede recalcular y perder su trazabilidad." });
+            if (ejecucion is null || recalcular)
             {
                 using var presupuesto = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 presupuesto.CancelAfter(TimeSpan.FromSeconds(240));
                 var analisis = await new GeneradorPropuestas(datos).GenerarAsync(expediente, bearer, presupuesto.Token);
-                ejecucion = new EjecucionReglas
+                if (ejecucion is null)
                 {
-                    ExpedienteId = expedienteId,
-                    ProfesorId = expediente.ProfesorId,
-                    EsAnalisisIa = true,
-                    ResultadosJson = JsonSerializer.Serialize(analisis, JsonWeb)
-                };
-                db.EjecucionesReglas.Add(ejecucion);
+                    ejecucion = new EjecucionReglas { ExpedienteId = expedienteId, ProfesorId = expediente.ProfesorId, EsAnalisisIa = true };
+                    db.EjecucionesReglas.Add(ejecucion);
+                }
+                if (recalcular) expediente.SeleccionJson = "[]";
+                ejecucion.ResultadosJson = JsonSerializer.Serialize(analisis, JsonWeb);
+                ejecucion.EjecutadoEn = DateTime.UtcNow;
                 expediente.Estado = EstadoExpediente.AnalizadoConIa;
                 await GuardarAsync(expediente, ct);
             }
@@ -249,7 +311,6 @@ public sealed class ParesExpedienteController(
         {
             if (request.AsignaturaDestinoId == Guid.Empty
                 || request.OrigenIds is null
-                || request.OrigenIds.Count == 0
                 || request.OrigenIds.Any(id => id == Guid.Empty)
                 || request.OrigenIds.Distinct().Count() != request.OrigenIds.Count)
                 return BadRequest(new { mensaje = "Selecciona una propuesta válida para revisar." });
@@ -267,14 +328,16 @@ public sealed class ParesExpedienteController(
                 && resultadoPropio is < 0 or > 5)
                 return BadRequest(new { mensaje = "La conclusión seleccionada no es válida." });
 
-            var ejecucion = await db.EjecucionesReglas.SingleOrDefaultAsync(
-                x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            var disponibles = await PropuestasDisponiblesAsync(expedienteId, ct);
+            var ejecucion = await db.EjecucionesReglas.SingleOrDefaultAsync(x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+            var analisis = new GeneradorPropuestas.Analisis(disponibles, []);
             if (ejecucion is null)
-                return NotFound(new { mensaje = "Primero genera el análisis con IA." });
-
-            var analisis = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb);
-            if (analisis is null)
-                return Problem(statusCode: 500, detail: "No se pudo leer el análisis guardado.");
+            {
+                ejecucion = new EjecucionReglas { ExpedienteId = expedienteId, ProfesorId = expediente.ProfesorId, EsAnalisisIa = true };
+                db.EjecucionesReglas.Add(ejecucion);
+            }
+            else
+                analisis = analisis with { Advertencias = JsonSerializer.Deserialize<GeneradorPropuestas.Analisis>(ejecucion.ResultadosJson, JsonWeb)!.Advertencias };
 
             var origenesSolicitados = request.OrigenIds.Order().ToArray();
             var propuestas = analisis.Propuestas.ToArray();
@@ -300,6 +363,9 @@ public sealed class ParesExpedienteController(
                 resultadoFinal = request.ResultadoPropio!.Value;
             }
 
+            if (origenesSolicitados.Length == 0 && resultadoFinal is 0 or 4)
+                return BadRequest(new { mensaje = "No puedes aceptar una homologación sin asignaturas de origen. Agrupa materias para evaluar una propuesta." });
+
             var resultadoCalculado = propuestas[indice].Evaluacion.GetProperty("reglas").GetProperty("resultado").GetInt32();
             if ((resultadoFinal != resultadoCalculado || resultadoFinal is not (0 or 4))
                 && string.IsNullOrWhiteSpace(observacion))
@@ -310,6 +376,16 @@ public sealed class ParesExpedienteController(
                 d.AsignaturaDestinoId != request.AsignaturaDestinoId && d.ResultadoFinal is 0 or 4
                 && JsonSerializer.Deserialize<Guid[]>(d.OrigenIdsJson)!.Intersect(origenesSolicitados).Any()))
                 return Conflict(new { mensaje = "Una asignatura de origen ya respalda otro destino aceptado." });
+
+            var seleccion = JsonSerializer.Deserialize<List<SeleccionDto>>(expediente.SeleccionJson, JsonWeb)!;
+            seleccion.RemoveAll(x => x.AsignaturaDestinoId == request.AsignaturaDestinoId);
+            if (resultadoFinal is 0 or 4)
+            {
+                if (seleccion.Any(x => x.OrigenIds.Intersect(origenesSolicitados).Any()))
+                    return Conflict(new { mensaje = "Retira la selección que utiliza estos orígenes antes de confirmar otra homologación." });
+                seleccion.Add(new(request.AsignaturaDestinoId, origenesSolicitados));
+            }
+            expediente.SeleccionJson = JsonSerializer.Serialize(seleccion, JsonWeb);
 
             db.Decisiones.Add(new Decision
             {
@@ -358,6 +434,22 @@ public sealed class ParesExpedienteController(
             estado = expediente.Estado.ToString(), resultado.Propuestas, resultado.Advertencias });
     }
 
+    [HttpGet("informe")]
+    public async Task<IActionResult> DatosInforme(Guid expedienteId, CancellationToken ct)
+    {
+        var expediente = await BuscarAsync(expedienteId, ct);
+        if (expediente is null) return NotFound();
+        if (expediente.Estado != EstadoExpediente.Resuelto)
+            return Conflict(new { mensaje = "Resuelve el expediente antes de emitir el informe." });
+        var ejecucion = await db.EjecucionesReglas.AsNoTracking().SingleOrDefaultAsync(
+            x => x.ExpedienteId == expedienteId && x.EsAnalisisIa, ct);
+        if (ejecucion is null)
+            return Conflict(new { mensaje = "El expediente no tiene un análisis guardado." });
+        var decisiones = await DecisionesVigentesAsync(expedienteId, ct);
+        using var json = JsonDocument.Parse(ejecucion.ResultadosJson);
+        return Ok(new { expediente, decisiones, analisis = json.RootElement.Clone() });
+    }
+
     [HttpGet("decisiones")]
     public async Task<IActionResult> ConsultarDecisiones(Guid expedienteId, CancellationToken ct)
     {
@@ -403,6 +495,10 @@ public sealed class ParesExpedienteController(
             if (destinos.Count == 0 || !destinos.SetEquals(decisiones.Select(x => x.AsignaturaDestinoId))
                 || decisiones.Any(x => x.ResultadoFinal == 3))
                 return Conflict(new { mensaje = "Registra una decisión concluyente por cada destino antes de resolver." });
+            var seleccion = JsonSerializer.Deserialize<SeleccionDto[]>(expediente.SeleccionJson, JsonWeb)!;
+            if (seleccion.Any(x => !decisiones.Any(d => d.AsignaturaDestinoId == x.AsignaturaDestinoId && d.ResultadoFinal is 0 or 4
+                && JsonSerializer.Deserialize<Guid[]>(d.OrigenIdsJson)!.Order().SequenceEqual(x.OrigenIds.Order()))))
+                return Conflict(new { mensaje = "Confirma o retira las propuestas pendientes de la tabla definitiva antes de resolver." });
             var origenes = decisiones.Where(x => x.ResultadoFinal is 0 or 4)
                 .SelectMany(x => JsonSerializer.Deserialize<Guid[]>(x.OrigenIdsJson)!).ToArray();
             if (origenes.Distinct().Count() != origenes.Length)

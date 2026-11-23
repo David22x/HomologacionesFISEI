@@ -15,6 +15,8 @@ public class Expediente
     public Guid ProfesorId { get; set; }
     public string ProfesorNombre { get; set; } = string.Empty;
 
+    public string SeleccionJson { get; set; } = "[]";
+
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
     public DateTime? ActualizadoEn { get; set; }
 

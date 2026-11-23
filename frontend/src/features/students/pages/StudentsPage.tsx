@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import SearchableSelect from '../../../components/SearchableSelect';
 import {
@@ -17,6 +17,7 @@ import {
 
 interface CourseDraft extends AsignaturaCursada {
   clientKey: string;
+  nivelCarga?: number;
 }
 
 function validarCedula(cedula: string): boolean {
@@ -60,6 +61,10 @@ export default function StudentsPage() {
   const [grade, setGrade] = useState('');
   const [period, setPeriod] = useState('');
   const [courses, setCourses] = useState<CourseDraft[]>([]);
+  const draftContext = useRef('');
+  draftContext.current = `${editingId}:${mallaId}:${showForm}`;
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [deletingId, setDeletingId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +88,7 @@ export default function StudentsPage() {
   }, []);
 
   useEffect(() => {
-    setMallas([]); setMallaId(''); setNiveles([]); setNivelId(''); setSubjects([]); setSelectedSubjectId('');
+    setMallas([]);
     if (!careerId) return;
     let active = true;
     catalogService.obtenerMallas(careerId).then(rows => { if (active) setMallas(rows); })
@@ -109,6 +114,51 @@ export default function StudentsPage() {
     return () => { active = false; };
   }, [mallaId, nivelId]);
 
+  useEffect(() => {
+    if (!showForm || editingId || !mallaId || !Number.isInteger(Number(nivelActual)) || Number(nivelActual) < 1) { setLoadingCourses(false); return; }
+    let active = true;
+    setLoadingCourses(true);
+    catalogService.obtenerAsignaturas(mallaId, '', '').then(rows => {
+      if (!active) return;
+      const eligible = rows.filter(subject => subject.nivelNumero >= 1 && subject.nivelNumero <= Number(nivelActual));
+      setCourses(current => [...current.filter(course => course.nivelCarga == null || course.nivelCarga <= Number(nivelActual)), ...eligible.filter(subject => !current.some(course => course.asignaturaId === subject.id))
+        .sort((a, b) => a.nivelNumero - b.nivelNumero || a.codigo.localeCompare(b.codigo))
+        .map(subject => ({ clientKey: subject.id, nivelCarga: subject.nivelNumero, asignaturaId: subject.id, codigo: subject.codigo, nombre: subject.nombre,
+          creditos: subject.creditos, horas: subject.horas, nota: Number.NaN, periodo: '' }))]);
+    }).catch(err => { if (active) setError(err instanceof Error ? err.message : 'No se pudieron cargar las materias.'); })
+      .finally(() => { if (active) setLoadingCourses(false); });
+    return () => { active = false; };
+  }, [mallaId, nivelActual, showForm, editingId]);
+
+  async function loadMissingCourses() {
+    if (!mallaId || !nivelActual) return;
+    const originalContext = draftContext.current;
+    setLoadingCourses(true);
+    try {
+      const rows = await catalogService.obtenerAsignaturas(mallaId, '', '');
+      if (originalContext !== draftContext.current) return;
+      setCourses(current => [...current, ...rows.filter(subject => subject.nivelNumero >= 1 && subject.nivelNumero <= Number(nivelActual)
+        && !current.some(course => course.asignaturaId === subject.id)).map(subject => ({
+          clientKey: subject.id, asignaturaId: subject.id, codigo: subject.codigo, nombre: subject.nombre,
+          creditos: subject.creditos, horas: subject.horas, nota: Number.NaN, periodo: '',
+        }))]);
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudieron cargar las materias.'); }
+    finally { if (originalContext === draftContext.current) setLoadingCourses(false); }
+  }
+
+  async function deleteStudent(student: Estudiante) {
+    if (!window.confirm(`¿Eliminar a ${student.apellidos}, ${student.nombres} del registro activo? Se conservará la información de sus expedientes.`)) return;
+    setDeletingId(student.id); setError('');
+    try {
+      await studentsService.eliminar(student.id);
+      if (editingId === student.id) resetForm();
+      if (searchResult?.id === student.id) setSearchResult(null);
+      await loadStudents();
+      setNotice('Estudiante eliminado del registro activo.');
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo eliminar el estudiante.'); }
+    finally { setDeletingId(''); }
+  }
+
   function resetForm() {
     setShowForm(false); setEditingId(''); setCedula(''); setNombres(''); setApellidos('');
     setCareerId(''); setNivelActual(''); setMallaId(''); setNivelId(''); setSelectedSubjectId('');
@@ -128,6 +178,7 @@ export default function StudentsPage() {
     setShowForm(true); setEditingId(student.id); setCedula(student.cedula);
     setNombres(student.nombres); setApellidos(student.apellidos);
     setCareerId(student.historial.carreraOrigenId ?? '');
+    setMallaId(student.historial.mallaOrigenId ?? '');
     setNivelActual(student.historial.nivelActual == null ? '' : String(student.historial.nivelActual));
     setCourses(student.historial.asignaturas.map((course, index) => ({ ...course, clientKey: course.id ?? `${course.asignaturaId}-${index}` })));
     setError(''); setNotice('');
@@ -153,9 +204,9 @@ export default function StudentsPage() {
     setSelectedSubjectId(''); setGrade(''); setPeriod(''); setError('');
   }
 
-  function updateCourse(clientKey: string, field: 'nota' | 'periodo', value: string) {
+  function updateCourse(clientKey: string, field: 'codigo' | 'nombre' | 'creditos' | 'horas' | 'nota' | 'periodo', value: string) {
     setCourses(current => current.map(course => course.clientKey === clientKey
-      ? { ...course, [field]: field === 'nota' ? Number(value) : value }
+      ? { ...course, [field]: ['nota', 'creditos', 'horas'].includes(field) ? (value === '' ? Number.NaN : Number(value)) : value }
       : course));
   }
 
@@ -165,13 +216,13 @@ export default function StudentsPage() {
     if (!validarCedula(normalizedCedula)) {
       setError('Ingresa una cédula ecuatoriana válida de 10 dígitos.'); setSaving(false); return;
     }
-    if (!careerId || !nivelActual || Number(nivelActual) <= 0) {
-      setError('Selecciona la carrera de origen y el nivel actual.'); setSaving(false); return;
+    if (!careerId || !mallaId || !Number.isInteger(Number(nivelActual)) || Number(nivelActual) <= 0) {
+      setError('Selecciona la carrera, la malla y un nivel actual entero positivo.'); setSaving(false); return;
     }
     if (courses.length === 0) {
       setError('Agrega al menos una asignatura aprobada al historial.'); setSaving(false); return;
     }
-    if (courses.some(course => !course.periodo.trim() || !Number.isFinite(course.nota) || course.nota < 0 || course.nota > 10)) {
+    if (courses.some(course => !course.nombre.trim() || !Number.isFinite(course.creditos) || (course.creditos ?? 0) <= 0 || !Number.isInteger(course.horas) || (course.horas ?? 0) <= 0 || !course.periodo.trim() || !Number.isFinite(course.nota) || course.nota < 0 || course.nota > 10)) {
       setError('Revisa las notas y períodos de las asignaturas del historial.'); setSaving(false); return;
     }
 
@@ -183,10 +234,11 @@ export default function StudentsPage() {
       tipo: 0,
       historial: {
         carreraOrigenId: careerId,
+        mallaOrigenId: mallaId,
         carreraOrigenNombre: null,
         institucionOrigen: null,
         nivelActual: Number(nivelActual),
-        asignaturas: courses.map(({ clientKey: _clientKey, id: _id, ...course }) => course),
+        asignaturas: courses.map(({ clientKey: _clientKey, nivelCarga: _nivelCarga, id: _id, ...course }) => course),
       },
     };
 
@@ -327,14 +379,18 @@ export default function StudentsPage() {
           <label>Cédula<input inputMode="numeric" value={cedula} onChange={event => setCedula(event.target.value.replace(/\D/g, '').slice(0, 10))} required minLength={10} maxLength={10} placeholder="10 dígitos" /></label>
           <label>Nombres<input value={nombres} onChange={event => setNombres(event.target.value)} required maxLength={150} /></label>
           <label>Apellidos<input value={apellidos} onChange={event => setApellidos(event.target.value)} required maxLength={150} /></label>
-          <SearchableSelect id="student-career" label="Carrera de origen" value={careerId} placeholder="Escribe para buscar la carrera" options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))} onChange={setCareerId} />
+          <SearchableSelect id="student-career" label="Carrera de origen" value={careerId} placeholder="Escribe para buscar la carrera" options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))} onChange={value => { setCareerId(value); setMallaId(''); setCourses([]); }} />
+            <SearchableSelect key={`student-malla-${careerId}`} id="student-malla" label="Malla" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!careerId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' · vigente' : ''}` }))} onChange={value => { setMallaId(value); if (!editingId) setCourses([]); }} />
           <label>Nivel actual<input type="number" min={1} step={1} value={nivelActual} onChange={event => setNivelActual(event.target.value)} required /></label>
         </div>
 
         <fieldset className="student-course-picker" disabled={!careerId}>
-          <legend>Asignaturas cursadas aprobadas</legend>
+          <legend>Asignaturas cursadas</legend>
+          <p>Al registrar, se cargan las materias desde nivel 1 hasta el actual. Completa nota y período; puedes editar todos los datos o quitar materias.</p>
+          {loadingCourses && <p role="status">Cargando materias de la malla…</p>}
+          {editingId && <button type="button" className="students-secondary" onClick={() => { void loadMissingCourses(); }} disabled={!mallaId || !nivelActual || loadingCourses}>Agregar materias de la malla hasta el nivel actual</button>}
           <div className="student-course-picker-grid">
-            <SearchableSelect key={`student-malla-${careerId}`} id="student-malla" label="Malla" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!careerId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' · vigente' : ''}` }))} onChange={setMallaId} />
+
             <SearchableSelect key={`student-level-${mallaId}`} id="student-level" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(level => ({ value: level.id, label: `Nivel ${level.numero}` }))} onChange={setNivelId} />
             <SearchableSelect key={`student-subject-${nivelId}`} id="student-subject" label="Asignatura" value={selectedSubjectId} placeholder="Escribe para buscar una asignatura" disabled={!nivelId} options={subjects.map(subject => ({ value: subject.id, label: `${subject.codigo} · ${subject.nombre}` }))} onChange={setSelectedSubjectId} />
             <label>Nota<input type="number" min="0" max="10" step="0.01" value={grade} onChange={event => setGrade(event.target.value)} placeholder="0–10" /></label>
@@ -345,10 +401,17 @@ export default function StudentsPage() {
         </fieldset>
 
         {courses.length > 0 && <div className="student-course-list"><h4>Historial agregado ({courses.length})</h4><div className="student-course-table-wrap"><table className="student-course-table"><thead><tr><th>Asignatura</th><th>Créditos</th><th>Horas</th><th>Nota</th><th>Período</th><th></th></tr></thead><tbody>
-          {courses.map(course => <tr key={course.clientKey}><td><strong>{course.codigo}</strong><br />{course.nombre}</td><td>{course.creditos ?? '—'}</td><td>{course.horas ?? '—'}</td><td><input aria-label={`Nota de ${course.nombre}`} type="number" min="0" max="10" step="0.01" value={course.nota} onChange={event => updateCourse(course.clientKey, 'nota', event.target.value)} /></td><td><input aria-label={`Período de ${course.nombre}`} value={course.periodo} maxLength={30} onChange={event => updateCourse(course.clientKey, 'periodo', event.target.value)} /></td><td><button type="button" className="students-remove" onClick={() => setCourses(current => current.filter(item => item.clientKey !== course.clientKey))}>Quitar</button></td></tr>)}
+          {courses.map(course => <tr key={course.clientKey}>
+            <td><input aria-label={`Código de ${course.nombre}`} value={course.codigo ?? ''} maxLength={30} onChange={event => updateCourse(course.clientKey, 'codigo', event.target.value)} />
+              <input aria-label={`Nombre de ${course.codigo}`} value={course.nombre} maxLength={200} required onChange={event => updateCourse(course.clientKey, 'nombre', event.target.value)} /></td>
+            <td><input aria-label={`Créditos de ${course.nombre}`} type="number" min="0.01" max="999.99" step="0.01" required value={Number.isFinite(course.creditos) ? course.creditos! : ''} onChange={event => updateCourse(course.clientKey, 'creditos', event.target.value)} /></td>
+            <td><input aria-label={`Horas de ${course.nombre}`} type="number" min="1" step="1" required value={Number.isFinite(course.horas) ? course.horas! : ''} onChange={event => updateCourse(course.clientKey, 'horas', event.target.value)} /></td>
+            <td><input aria-label={`Nota de ${course.nombre}`} type="number" min="0" max="10" step="0.01" required value={Number.isFinite(course.nota) ? course.nota : ''} onChange={event => updateCourse(course.clientKey, 'nota', event.target.value)} /></td>
+            <td><input aria-label={`Período de ${course.nombre}`} required value={course.periodo} maxLength={30} onChange={event => updateCourse(course.clientKey, 'periodo', event.target.value)} /></td>
+            <td><button type="button" className="students-remove" onClick={() => setCourses(current => current.filter(item => item.clientKey !== course.clientKey))}>Quitar</button></td></tr>)}
         </tbody></table></div></div>}
 
-        <div className="student-form-actions"><button className="students-primary" disabled={saving}>{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Registrar estudiante'}</button><button type="button" className="students-secondary" onClick={resetForm} disabled={saving}>Cancelar</button></div>
+        <div className="student-form-actions"><button className="students-primary" disabled={saving || loadingCourses}>{saving ? 'Guardando…' : editingId ? 'Guardar cambios' : 'Registrar estudiante'}</button><button type="button" className="students-secondary" onClick={resetForm} disabled={saving}>Cancelar</button></div>
       </form>}
 
       <div className="students-list-toolbar"><label>Buscar por cédula o nombre<input type="search" value={filter} onChange={event => setFilter(event.target.value)} placeholder="Escribe un nombre o cédula" /></label><span>{filteredStudents.length} resultados</span></div>
@@ -357,7 +420,7 @@ export default function StudentsPage() {
           {filteredStudents.map(student => {
             const history = student.historial;
             const careerName = careers.find(career => career.id === history?.carreraOrigenId)?.nombre ?? history?.carreraOrigenNombre ?? '—';
-            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <span className="student-readonly-note">Se gestiona en importaciones</span>}</td></tr>;
+            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <span className="student-readonly-note">Se gestiona en importaciones</span>}<button type="button" className="students-remove" disabled={Boolean(deletingId)} onClick={() => { void deleteStudent(student); }}>{deletingId === student.id ? 'Eliminando…' : 'Eliminar'}</button></td></tr>;
           })}
         </tbody></table></div>
       )}

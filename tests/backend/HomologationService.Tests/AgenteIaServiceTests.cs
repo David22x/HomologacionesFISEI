@@ -6,6 +6,18 @@ namespace HomologationService.Tests;
 public sealed class AgenteIaServiceTests
 {
     [Fact]
+    public async Task Creditos_cercanos_conservan_rechazo_y_miden_contenido_para_revision_docente()
+    {
+        var agente = CrearAgente(new ComparadorFalso(Enumerable.Range(1, 4)
+            .Select(i => new CoincidenciaIa($"DES-{i}", .9m, "Evidencia académica" )).ToArray()));
+        var result = await agente.EvaluarAsync(CrearSolicitud() with { CreditosOrigen = 3.8m });
+        Assert.Equal(ResultadoHomologacion.RechazoPorCreditos, result.Reglas.Resultado);
+        Assert.Equal(.76m, result.Reglas.RazonCreditos);
+        Assert.Equal(.8m, result.Reglas.CoberturaContenidos);
+        Assert.Equal(.8m, result.Cobertura.Porcentaje);
+    }
+
+    [Fact]
     public async Task EvaluarAsync_usaCoincidenciasValidas_y_aplicaLasReglas()
     {
         var comparador = new ComparadorFalso(new[]

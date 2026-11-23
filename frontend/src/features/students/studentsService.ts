@@ -31,6 +31,7 @@ export interface HistorialAcademico {
   id: string;
   estudianteId: string;
   carreraOrigenId: string | null;
+  mallaOrigenId?: string | null;
   carreraOrigenNombre: string | null;
   institucionOrigen: string | null;
   nivelActual: number | null;
@@ -60,6 +61,7 @@ export interface EstudianteWriteRequest {
   tipo: 0;
   historial: {
     carreraOrigenId: string;
+    mallaOrigenId?: string;
     carreraOrigenNombre: null;
     institucionOrigen: null;
     nivelActual: number;
@@ -69,7 +71,7 @@ export interface EstudianteWriteRequest {
 
 async function request<T>(
   path: string,
-  method: 'GET' | 'POST' | 'PUT' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   body?: unknown,
   notFound?: { value: T },
 ): Promise<T> {
@@ -101,10 +103,15 @@ async function request<T>(
     }
     throw new Error(detail || `No se pudo completar la operación (HTTP ${response.status}).`);
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 export const studentsService = {
+  obtener(id: string): Promise<Estudiante> { return request<Estudiante>(`/api/v1/estudiantes/${id}`); },
+  eliminar(id: string): Promise<void> {
+    return request<void>(`/api/v1/estudiantes/${id}`, 'DELETE');
+  },
   listar(): Promise<Estudiante[]> {
     return request<Estudiante[]>('/api/v1/estudiantes');
   },

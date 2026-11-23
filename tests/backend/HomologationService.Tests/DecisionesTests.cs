@@ -47,11 +47,13 @@ public sealed class DecisionesTests
         controller.Request.Headers.Authorization = "Bearer prueba";
 
         Assert.IsType<ConflictObjectResult>(await controller.Resolver(expediente.Id, default));
+        Assert.IsType<ConflictObjectResult>(await controller.DatosInforme(expediente.Id, default));
         var solicitud = new ParesExpedienteController.RevisionPropuestaIaDto(destino, [origen], true, null, null);
         Assert.IsType<BadRequestObjectResult>(await controller.RevisarPropuestaIa(expediente.Id, solicitud, default));
         Assert.Empty(await db.Decisiones.ToListAsync());
         Assert.IsType<OkObjectResult>(await controller.RevisarPropuestaIa(expediente.Id,
             solicitud with { Observacion = "Los créditos son insuficientes." }, default));
+        Assert.IsType<ConflictObjectResult>(await controller.AnalizarIa(expediente.Id, default, recalcular: true));
         var decision = Assert.Single(await db.Decisiones.ToListAsync());
         Assert.Equal(1, decision.ResultadoCalculado);
         Assert.Equal(1, decision.ResultadoFinal);
@@ -66,6 +68,7 @@ public sealed class DecisionesTests
             solicitud with { Observacion = "Se confirma el rechazo por créditos." }, default));
         Assert.IsType<OkObjectResult>(await controller.Resolver(expediente.Id, default));
         Assert.Equal(EstadoExpediente.Resuelto, expediente.Estado);
+        Assert.IsType<OkObjectResult>(await controller.DatosInforme(expediente.Id, default));
         var auditoria = await db.EventosAuditoria.ToListAsync();
         Assert.Contains(auditoria, x => x.CambiosJson.Contains("Decision"));
         Assert.Contains(auditoria, x => x.CambiosJson.Contains("Estado"));
@@ -82,6 +85,7 @@ public sealed class DecisionesTests
         controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity([
             new(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()), new(ClaimTypes.Role, AppRoles.Profesor)], "test"));
         Assert.IsType<NotFoundResult>(await controller.ConsultarAuditoria(expediente.Id, default));
+        Assert.IsType<NotFoundResult>(await controller.DatosInforme(expediente.Id, default));
     }
 
     private sealed class SinRed : IHttpClientFactory

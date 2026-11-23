@@ -161,9 +161,8 @@ export const catalogService = {
     nivelId: string,
     busqueda: string,
   ): Promise<Asignatura[]> {
-    const parametros = new URLSearchParams({
-      nivelId,
-    });
+    const parametros = new URLSearchParams();
+    if (nivelId) parametros.set('nivelId', nivelId);
 
     if (busqueda.trim()) {
       parametros.set('search', busqueda.trim());

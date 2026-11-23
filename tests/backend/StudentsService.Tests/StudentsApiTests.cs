@@ -24,6 +24,43 @@ public sealed class StudentsApiTests : IClassFixture<StudentsApiFactory>
     public StudentsApiTests(StudentsApiFactory factory) => _client = factory.CreateClient();
 
     [Fact]
+    public async Task Editar_agrega_elimina_y_conserva_ids_de_materias_y_permite_baja_logica()
+    {
+        var cedula = NuevaCedula(); var carrera = Guid.NewGuid(); var malla = Guid.NewGuid();
+        var a = Guid.NewGuid(); var b = Guid.NewGuid();
+        object Course(Guid id, string nombre) => new { asignaturaId = id, codigo = nombre, nombre, creditos = 3m, horas = 48, nota = 8m, periodo = "2026-A" };
+        object Payload(params object[] courses) => new { cedula, tipoIdentificacion = 0, nombres = "Regresion", apellidos = "Historial", tipo = 0,
+            historial = new { carreraOrigenId = carrera, mallaOrigenId = malla, nivelActual = 3, asignaturas = courses } };
+        using var created = await Send(HttpMethod.Post, "/api/v1/estudiantes", Payload(Course(a, "Matematica")));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = JsonDocument.Parse(await created.Content.ReadAsStringAsync()).RootElement;
+        var id = original.GetProperty("id").GetGuid();
+        var courseId = original.GetProperty("historial").GetProperty("asignaturas")[0].GetProperty("id").GetGuid();
+        using var updated = await Send(HttpMethod.Put, $"/api/v1/estudiantes/{id}", Payload(Course(a, "Matematica"), Course(b, "Fisica")));
+        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+        var history = JsonDocument.Parse(await updated.Content.ReadAsStringAsync()).RootElement.GetProperty("historial");
+        Assert.Equal(2, history.GetProperty("asignaturas").GetArrayLength());
+        Assert.Equal(malla, history.GetProperty("mallaOrigenId").GetGuid());
+        Assert.Contains(history.GetProperty("asignaturas").EnumerateArray(), x => x.GetProperty("id").GetGuid() == courseId);
+        using var removed = await Send(HttpMethod.Put, $"/api/v1/estudiantes/{id}", Payload(Course(b, "Fisica")));
+        Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+        Assert.Single(JsonDocument.Parse(await removed.Content.ReadAsStringAsync()).RootElement.GetProperty("historial").GetProperty("asignaturas").EnumerateArray());
+        using var denied = await _client.DeleteAsync($"/api/v1/estudiantes/{id}");
+        Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
+        using var deleted = await Send(HttpMethod.Delete, $"/api/v1/estudiantes/{id}", new { });
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        using var search = await Get($"/api/v1/estudiantes/cedula/{cedula}", "Profesor");
+        Assert.Equal(HttpStatusCode.NotFound, search.StatusCode);
+        using var list = await Get("/api/v1/estudiantes", "Profesor");
+        Assert.DoesNotContain(JsonDocument.Parse(await list.Content.ReadAsStringAsync()).RootElement.EnumerateArray(), x => x.GetProperty("id").GetGuid() == id);
+        // Una referencia de un expediente existente conserva su historial.
+        using var archived = await Get($"/api/v1/estudiantes/{id}", "Profesor");
+        Assert.True(JsonDocument.Parse(await archived.Content.ReadAsStringAsync()).RootElement.GetProperty("eliminado").GetBoolean());
+        using var mutation = await Send(HttpMethod.Put, $"/api/v1/estudiantes/{id}", Payload(Course(a, "Matematica")));
+        Assert.Equal(HttpStatusCode.NotFound, mutation.StatusCode);
+    }
+
+    [Fact]
     public async Task Registra_historial_valido_lista_filtra_y_actualiza()
     {
                 var cedula = NuevaCedula();

@@ -13,13 +13,13 @@ public sealed record EstudianteWriteRequest(
 
 public sealed record EstudianteResponse(Guid Id, string Cedula, TipoIdentificacion TipoIdentificacion,
     string Nombres, string Apellidos, TipoEstudiante Tipo, string? CreadoPor, DateTime CreadoEn,
-    string? ModificadoPor, DateTime ModificadoEn, HistorialResponse? Historial);
+    string? ModificadoPor, DateTime ModificadoEn, HistorialResponse? Historial, bool Eliminado = false);
 
 public sealed record HistorialWriteRequest(Guid? CarreraOrigenId,
     [StringLength(200)] string? CarreraOrigenNombre,
     [StringLength(200)] string? InstitucionOrigen,
     int? NivelActual,
-    IReadOnlyList<AsignaturaCursadaWriteRequest>? Asignaturas);
+    IReadOnlyList<AsignaturaCursadaWriteRequest>? Asignaturas, Guid? MallaOrigenId = null);
 
 public sealed record AsignaturaCursadaWriteRequest(Guid? AsignaturaId,
     [StringLength(30)] string? Codigo,
@@ -31,7 +31,7 @@ public sealed record AsignaturaCursadaWriteRequest(Guid? AsignaturaId,
 
 public sealed record HistorialResponse(Guid Id, Guid EstudianteId, Guid? CarreraOrigenId,
     string? CarreraOrigenNombre, string? InstitucionOrigen, int? NivelActual, DateTime ActualizadoEn,
-    IReadOnlyList<AsignaturaCursadaResponse> Asignaturas);
+    IReadOnlyList<AsignaturaCursadaResponse> Asignaturas, Guid? MallaOrigenId = null);
 
 public sealed record AsignaturaCursadaResponse(Guid Id, Guid? AsignaturaId, string? Codigo,
     string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo);

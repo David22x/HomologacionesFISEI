@@ -55,6 +55,16 @@ public class ExpedientesController : ControllerBase
                 return StatusCode(StatusCodes.Status503ServiceUnavailable,
                     new { mensaje = "No se pudo validar el estudiante. Intenta nuevamente." });
 
+            using var studentDocument = await JsonDocument.ParseAsync(
+                await studentResponse.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            var student = studentDocument.RootElement;
+            if (student.TryGetProperty("eliminado", out var eliminado) && eliminado.ValueKind == JsonValueKind.True)
+                return BadRequest(new { mensaje = "El estudiante fue eliminado del registro activo." });
+            if (student.TryGetProperty("historial", out var history) && history.ValueKind == JsonValueKind.Object
+                && history.TryGetProperty("carreraOrigenId", out var origen) && origen.TryGetGuid(out var origenId)
+                && origenId == request.CarreraDestinoRefId)
+                return BadRequest(new { mensaje = "La carrera de destino debe ser diferente a la carrera de origen." });
+
             using var careerRequest = new HttpRequestMessage(HttpMethod.Get,
                 $"/api/v1/catalogo/carreras/{request.CarreraDestinoRefId}/mallas");
             careerRequest.Headers.Authorization = bearer;

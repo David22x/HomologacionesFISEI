@@ -50,6 +50,11 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' })).toBeChecked());
   expect(screen.getByRole('checkbox', { name: 'Retirar selección Física' })).toBeChecked();
+  expect(document.querySelector('.selection-dock')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Contraer selección' }));
+  expect(document.getElementById('definitive-table')).not.toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Ampliar selección' }));
+  expect(screen.getByRole('checkbox', { name: 'Retirar selección Física' })).toBeChecked();
 
   expect(screen.queryByRole('heading', { level: 4, name: 'Física - TI' })).not.toBeInTheDocument();
   await user.click(within(table).getAllByRole('button', { name: 'Ver detalle' })[0]);
@@ -62,5 +67,8 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' })).not.toBeChecked());
   expect(screen.queryByRole('checkbox', { name: 'Retirar selección Física' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Cerrar expediente' }));
+  expect(document.querySelector('.selection-dock')).not.toBeInTheDocument();
+  expect(document.querySelector('.has-selection-dock')).not.toBeInTheDocument();
 
 });

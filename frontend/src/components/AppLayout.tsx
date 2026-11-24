@@ -140,7 +140,7 @@ export default function AppLayout({ user, onLogout }: AppLayoutProps) {
       >
         <div className="sidebar-brand">
           <span className="brand-mark">H</span>
-          <span>Homologaciones FISEI</span>
+          <span className="sidebar-brand-label">Homologaciones FISEI</span>
         </div>
 
         <nav className="sidebar-nav" aria-label="Menú principal">
@@ -154,6 +154,8 @@ export default function AppLayout({ user, onLogout }: AppLayoutProps) {
                   key={item.to}
                   to={item.to}
                   end={item.end}
+                  aria-label={item.label}
+                  title={item.label}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
                     `sidebar-link${isActive ? ' is-active' : ''}`
@@ -177,8 +179,8 @@ export default function AppLayout({ user, onLogout }: AppLayoutProps) {
               <small>{user.roles.join(', ')}</small>
             </div>
           </div>
-          <button type="button" className="sidebar-logout" onClick={onLogout}>
-            Cerrar sesión
+          <button type="button" className="sidebar-logout" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={onLogout}>
+            <Icon><path d="M9 4H4v16h5M14 8l4 4-4 4M8 12h10" /></Icon><span>Cerrar sesión</span>
           </button>
         </div>
       </aside>

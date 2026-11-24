@@ -297,3 +297,23 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
+/* Compact desktop navigation. Expansion overlays the page so tables do not jump. */
+@media (min-width: 901px) {
+  .app-shell { --sidebar-width: 80px; }
+  .app-sidebar { width: var(--sidebar-width); overflow-x: hidden; transition: width .18s ease, box-shadow .18s ease; }
+  .app-sidebar:hover, .app-sidebar:focus-within { width: 270px; box-shadow: 12px 0 30px #0b1a3326; }
+  .sidebar-brand-label, .sidebar-link > span, .sidebar-user-info > div, .sidebar-logout > span { opacity: 0; max-width: 0; overflow: hidden; white-space: nowrap; transition: opacity .15s ease; }
+  .sidebar-brand { gap: 0; }
+  .sidebar-link { gap: 0; min-height: 22px; }
+  .sidebar-section-title { opacity: 0; white-space: nowrap; }
+  .app-sidebar:hover .sidebar-brand, .app-sidebar:focus-within .sidebar-brand { gap: 12px; }
+  .app-sidebar:hover .sidebar-link, .app-sidebar:focus-within .sidebar-link { gap: 12px; }
+  .app-sidebar:hover .sidebar-brand-label, .app-sidebar:focus-within .sidebar-brand-label,
+  .app-sidebar:hover .sidebar-link > span, .app-sidebar:focus-within .sidebar-link > span,
+  .app-sidebar:hover .sidebar-user-info > div, .app-sidebar:focus-within .sidebar-user-info > div,
+  .app-sidebar:hover .sidebar-logout > span, .app-sidebar:focus-within .sidebar-logout > span { opacity: 1; max-width: 220px; }
+  .app-sidebar:hover .sidebar-section-title, .app-sidebar:focus-within .sidebar-section-title { opacity: 1; }
+}
+.sidebar-logout { display: flex; justify-content: center; align-items: center; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .app-sidebar, .sidebar-link > span, .sidebar-brand-label { transition: none; } }

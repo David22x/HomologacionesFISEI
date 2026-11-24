@@ -6,6 +6,9 @@
     <UserSecretsId>HomologacionesFISEI-Local</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Assets\logo-uta.png" LogicalName="logo-uta.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\BuildingBlocks.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">

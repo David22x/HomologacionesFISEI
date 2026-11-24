@@ -18,8 +18,26 @@ public sealed class FuenteInformeClient(IHttpClientFactory clients)
             $"/api/v1/catalogo/carreras/{fuente.Expediente.CarreraDestinoId}/mallas", bearer, ct);
         var malla = mallas.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == fuente.Expediente.MallaDestinoId);
         return new(fuente, $"{Texto(estudiante, "apellidos")}, {Texto(estudiante, "nombres")}",
-            Texto(estudiante, "cedula"), Texto(carrera, "nombre"), Texto(malla, "version"));
+            Texto(estudiante, "cedula"), Texto(carrera, "nombre"), Texto(malla, "version"),
+            CarreraOrigen(estudiante, carreras));
     }
+
+    private static string CarreraOrigen(JsonElement estudiante, JsonElement carreras)
+    {
+        if (!estudiante.TryGetProperty("historial", out var historial) || historial.ValueKind != JsonValueKind.Object)
+            return "No registrada";
+        var institucion = Opcional(historial, "institucionOrigen");
+        var nombre = Opcional(historial, "carreraOrigenNombre");
+        if (nombre is null && historial.TryGetProperty("carreraOrigenId", out var id) && id.TryGetGuid(out var carreraId))
+            nombre = carreras.EnumerateArray().Where(x => x.GetProperty("id").GetGuid() == carreraId)
+                .Select(x => Texto(x, "nombre")).FirstOrDefault();
+        if (nombre is null) return "No registrada";
+        return institucion is null ? nombre : $"{nombre} ({institucion})";
+    }
+
+    private static string? Opcional(JsonElement element, string key) =>
+        element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(value.GetString()) ? value.GetString() : null;
 
     private async Task<T> LeerAsync<T>(string client, string path, AuthenticationHeaderValue bearer, CancellationToken ct)
     {
@@ -41,4 +59,4 @@ public sealed record DecisionDatos(Guid Id, Guid AsignaturaDestinoId, string Ori
     int ResultadoCalculado, int ResultadoFinal, string? Justificacion, Guid ProfesorId, DateTime RegistradoEn);
 public sealed record FuenteHomologacion(ExpedienteDatos Expediente, DecisionDatos[] Decisiones, JsonElement Analisis);
 public sealed record DatosInforme(FuenteHomologacion Fuente, string Estudiante, string Identificacion,
-    string Carrera, string Malla);
+    string Carrera, string Malla, string CarreraOrigen = "No registrada");

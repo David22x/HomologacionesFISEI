@@ -16,6 +16,7 @@ builder.Services.AddHttpClient<IComparadorContenidosIa, OllamaComparadorContenid
     client.Timeout = TimeSpan.FromSeconds(
         builder.Configuration.GetValue("Ollama:TimeoutSeconds", 120));
 });
+builder.Services.AddHttpClient<ExtractorRecordIa>(client => { client.BaseAddress = new Uri(ollamaBaseUrl); client.Timeout = TimeSpan.FromSeconds(180); });
 builder.Services.AddSingleton(new ParametrosReglas());
 builder.Services.AddScoped<IMotorReglasHomologacion, MotorReglasHomologacion>();
 builder.Services.AddScoped<IAgenteIaService, AgenteIaService>();

@@ -31,6 +31,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [mallas, setMallas] = useState<MallaCurricular[]>([]);
   const [detailMallas, setDetailMallas] = useState<MallaCurricular[]>([]);
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [selectionCollapsed, setSelectionCollapsed] = useState(false);
   const [selectedExpediente, setSelectedExpediente] = useState<Expediente | null>(null);
   const [originCourses, setOriginCourses] = useState<AsignaturaCursada[]>([]);
   const [destinationCourses, setDestinationCourses] = useState<Asignatura[]>([]);
@@ -115,6 +116,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   async function selectExpediente(expediente: Expediente) {
     const requestId = ++detailRequestId.current;
+    setSelectionCollapsed(false);
     setSelectedExpediente(expediente);
     setDetailStudent(null);
     setSelection([]); setExpandedKey(null); setSelecting(false);
@@ -532,7 +534,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     ? Math.round((decidedDestinationCount / destinationIds.length) * 100)
     : 0;
 
-  return <main className="catalog-page expediente-page">
+  return <main className={`catalog-page expediente-page${selectedExpediente ? " has-selection-dock" : ""}${selectionCollapsed ? " selection-dock-collapsed" : ""}`}>
     <header className="catalog-header">
       <div>
         <p className="catalog-eyebrow">HOMOLOGACIONES FISEI · EXPEDIENTES ACADÉMICOS</p>
@@ -642,6 +644,15 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         <span className="transfer-arrow" aria-hidden="true">→</span>
         <div><small>Carrera de destino</small><strong>{destinationLabel}</strong><span>{selectedCareer?.nombre}</span></div>
       </div>
+      {selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0 && <section className="catalog-error" role="alert">
+        <h3>Falta información para homologar al estudiante externo</h3><ul>{selectedStudent.informacionFaltante!.map((f, i) => <li key={i}>{f.asignatura}: {f.campos.join(', ')}.</li>)}</ul>
+        <a href={`/estudiantes/importar?estudiante=${selectedStudent.id}`}>Completar temas, subtemas y datos del historial</a>
+      </section>}
+      <nav className="expediente-workspace-nav" aria-label="Navegación del expediente">
+        <a href="#eligibility-heading">Coincidencias por reglas</a><a href="#ia-analysis-heading">Propuestas de IA</a>
+        <span>{definitive.length} seleccionadas</span>
+        <button type="button" className="students-secondary" onClick={() => setSelectedExpediente(null)}>Cerrar expediente</button>
+      </nav>
       <section className="eligibility-panel" aria-labelledby="eligibility-heading">
         <div className="students-panel-heading">
           <div>
@@ -684,7 +695,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                 const proposal = result ? propuestaDePar(result) : null;
                 return <tr key={pair.id}>
                   <td>{proposal ? selectionCheckbox(proposal, `Seleccionar coincidencia ${proposal.nombreDestino}`) : <input type="checkbox" disabled aria-label="Evalúa el par antes de seleccionarlo" />}</td>
-                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'} - {originLabel}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
+                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'} - {origin?.carreraOrigenNombre ?? originLabel}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
                   <td>{result?.nombreDestino ?? destination?.nombre ?? 'Asignatura no disponible'} - {destinationLabel}{destination?.codigo ? <small>{destination.codigo}</small> : null}</td>
                   <td>{origin?.creditos ?? '—'} / {destination?.creditos ?? '—'}{rules?.razonCreditos != null && <small>{formatPercent(rules.razonCreditos)}</small>}</td>
                   <td>{rules?.coberturaContenidos == null ? '—' : formatPercent(rules.coberturaContenidos)}</td>
@@ -704,7 +715,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             </table>
           </div>
           {puedeEditar && <div className="eligibility-actions">
-            <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0}>
+            <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0 || (selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0)}>
               {evaluating ? 'Evaluando…' : 'Evaluar por reglas'}
             </button>
             {results.length > 0 && <span>Evaluación guardada · {new Date().toLocaleString()}</span>}
@@ -712,10 +723,12 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
           {<p className="eligibility-threshold-note">Umbrales aplicados: mínimo 80% de créditos y 80% de contenidos. La carga horaria se muestra como advertencia cuando queda bajo el 80%.</p>}
         </>}
       </section>
-      <section className="students-panel definitive-panel" aria-labelledby="definitive-heading">
-        <h3 id="definitive-heading">Tabla definitiva de homologación</h3>
-        <p>La selección se guarda automáticamente. Marcar una propuesta no equivale a aprobarla: registra la decisión docente desde su detalle.</p>
-        <div className="student-table-wrap"><table className="student-table compact-homologation-table">
+      <section className={`students-panel definitive-panel selection-dock${selectionCollapsed ? ' is-collapsed' : ''}`} aria-labelledby="definitive-heading">
+        <div className="selection-dock-header"><div><h3 id="definitive-heading">Tabla definitiva de homologación <span className="selection-count">{definitive.length}</span></h3>
+          <p>Selección guardada automáticamente · La aprobación requiere una decisión docente.</p></div>
+          <button type="button" className="students-secondary" aria-expanded={!selectionCollapsed} aria-controls="definitive-table" onClick={() => setSelectionCollapsed(value => !value)}>{selectionCollapsed ? 'Ampliar selección' : 'Contraer selección'}</button>
+        </div>
+        <div className="student-table-wrap" id="definitive-table" hidden={selectionCollapsed} tabIndex={0} role="region" aria-label="Asignaturas seleccionadas para homologación"><table className="student-table compact-homologation-table">
           <thead><tr><th>Elegir</th><th>Origen</th><th>Destino</th><th>Calculado</th><th>Decisión docente</th><th>Acción</th></tr></thead>
           <tbody>{definitive.map(proposal => {
             const decision = decisions.find(d => decisionKey(d) === proposalReviewKey(proposal));
@@ -732,7 +745,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             <h3 id="ia-analysis-heading">Análisis con IA</h3>
             <p>Genera propuestas de equivalencia agrupadas por asignatura de destino. La decisión final corresponde al profesor.</p>
           </div>
-          {puedeEditar && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail}>
+          {puedeEditar && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail || (selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0)}>
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>

@@ -28,6 +28,7 @@ export interface ImportPreview {
     institucionOrigen: string | null;
     nivelActual: number | null;
     asignaturas: Array<{
+      temas?: { nombre: string; subtemas: string[]; horas?: number | null }[];
       codigo: string | null;
       nombre: string;
       creditos: number | null;

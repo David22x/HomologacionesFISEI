@@ -31,6 +31,9 @@ namespace StudentsService.Migrations
                     b.Property<Guid?>("AsignaturaId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CarreraOrigenNombre")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Codigo")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -58,6 +61,10 @@ namespace StudentsService.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TemasJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

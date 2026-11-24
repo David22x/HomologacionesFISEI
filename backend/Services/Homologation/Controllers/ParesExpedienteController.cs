@@ -170,6 +170,7 @@ public sealed class ParesExpedienteController(
                 return BadRequest(new { mensaje = "Agrega al menos un par antes de evaluar." });
 
             var historial = await datos.HistorialAsync(expediente.EstudianteId, bearer, ct);
+            ValidarPreparacion(historial);
             var origenes = historial?.Asignaturas.ToDictionary(x => x.Id) ?? [];
             var destinos = (await datos.DestinosAsync(expediente.MallaDestinoId, bearer, ct)).ToDictionary(x => x.Id);
             if (pares.Any(p => !origenes.ContainsKey(p.AsignaturaCursadaId) || !destinos.ContainsKey(p.AsignaturaDestinoId)))
@@ -183,7 +184,7 @@ public sealed class ParesExpedienteController(
                 var origen = origenes[par.AsignaturaCursadaId];
                 var destino = destinos[par.AsignaturaDestinoId];
                 Asignatura? fichaOrigen = null;
-                Contenido[] contenidosOrigen = [];
+                Contenido[] contenidosOrigen = ContenidosExternos(origen);
                 if (origen.AsignaturaId is Guid origenId)
                 {
                     if (!catalogoOrigen.TryGetValue(origenId, out fichaOrigen))
@@ -588,6 +589,7 @@ public sealed class ParesExpedienteController(
         {
             return await operacion(expediente, bearer);
         }
+        catch (InformacionIncompletaException ex) { return StatusCode(422, new { mensaje = ex.Message, faltantes = ex.Faltantes }); }
         catch (DbUpdateConcurrencyException)
         {
             return Conflict(new { mensaje = "El expediente cambió durante la operación. Vuelve a consultarlo." });

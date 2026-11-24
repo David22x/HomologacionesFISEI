@@ -290,7 +290,7 @@ export default function StudentsPage() {
   return <main className="catalog-page students-page">
     <header className="catalog-header">
       <div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · EXPEDIENTES ACADÉMICOS</p><h1>Estudiantes</h1><p>Registra estudiantes internos y administra sus asignaturas aprobadas.</p></div>
-      <div className="students-header-links"><Link to="/estudiantes/importar" className="students-primary">Carga de historiales</Link></div>
+      <div className="students-header-links"><Link to="/estudiantes/record-pdf" className="students-primary student-import-action"><span className="action-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H5v18h14V8zM14 3v5h5M12 17v-6m-3 3 3-3 3 3" /></svg></span><span>Registrar desde PDF<small>Récord UTA u otra universidad</small></span></Link><Link to="/estudiantes/importar" className="students-secondary student-import-action"><span className="action-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="17" rx="2" /><path d="M9 4V2h6v2M8 10h8M8 14h8M8 18h5" /></svg></span><span>Carga de historiales<small>Plantilla de asignaturas y contenidos</small></span></Link></div>
     </header>
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}
@@ -420,7 +420,7 @@ export default function StudentsPage() {
           {filteredStudents.map(student => {
             const history = student.historial;
             const careerName = careers.find(career => career.id === history?.carreraOrigenId)?.nombre ?? history?.carreraOrigenNombre ?? '—';
-            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <span className="student-readonly-note">Se gestiona en importaciones</span>}<button type="button" className="students-remove" disabled={Boolean(deletingId)} onClick={() => { void deleteStudent(student); }}>{deletingId === student.id ? 'Eliminando…' : 'Eliminar'}</button></td></tr>;
+            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}{student.tipo === 1 && <small>{student.listoParaHomologar ? 'Listo para homologar' : 'Falta información para homologar'}</small>}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <Link className="students-edit" to={`/estudiantes/importar?estudiante=${student.id}`}>Completar historial externo</Link>}<button type="button" className="students-remove" disabled={Boolean(deletingId)} onClick={() => { void deleteStudent(student); }}>{deletingId === student.id ? 'Eliminando…' : 'Eliminar'}</button></td></tr>;
           })}
         </tbody></table></div>
       )}

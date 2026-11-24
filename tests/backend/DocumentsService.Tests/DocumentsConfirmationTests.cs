@@ -49,6 +49,7 @@ public sealed class DocumentsConfirmationTests : IClassFixture<DocumentsApiFacto
         Assert.Equal("MAT1", subject.GetProperty("codigo").GetString());
         Assert.Equal(3.5m, subject.GetProperty("creditos").GetDecimal());
         Assert.Equal(9.5m, subject.GetProperty("nota").GetDecimal());
+        Assert.NotEmpty(subject.GetProperty("temas").EnumerateArray());
     }
 
     [Fact]
@@ -139,6 +140,9 @@ public sealed class DocumentsConfirmationTests : IClassFixture<DocumentsApiFacto
         contents.Cell(1, 1).Value = "CodigoAsignatura";
         contents.Cell(1, 2).Value = "Tema";
         contents.Cell(1, 3).Value = "Subtema";
+        contents.Cell(2, 1).Value = "MAT1";
+        contents.Cell(2, 2).Value = "Ecuaciones";
+        contents.Cell(2, 3).Value = "Ecuaciones lineales";
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();

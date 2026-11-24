@@ -1,9 +1,13 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { studentsService } from '../studentsService';
 import { importService, type ImportPreview, type ImportResult } from '../services/importService';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export default function ImportHistoryPage() {
+  const [params] = useSearchParams();
+  const editingId = params.get('estudiante');
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -13,6 +17,18 @@ export default function ImportHistoryPage() {
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const preview = editedPreview ?? (result?.errores.length === 0 ? result.vistaPrevia : null);
+
+  useEffect(() => {
+    if (!editingId) return;
+    let active = true;
+    studentsService.obtener(editingId).then(student => {
+      if (!active) return;
+      if (student.tipo !== 1 || !student.historial) throw new Error('Selecciona un estudiante externo con historial.');
+      const data = { ...student, historial: { ...student.historial } } as ImportPreview;
+      setEditedPreview(data); setResult({ mensaje: 'Completa los datos pendientes del historial externo.', errores: [], vistaPrevia: data });
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el historial.'); });
+    return () => { active = false; };
+  }, [editingId]);
 
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null;
@@ -58,12 +74,17 @@ export default function ImportHistoryPage() {
   }
 
   async function confirmImport() {
-    if (!file || !preview || busy || confirmationMessage) return;
+    if ((!file && !editingId) || !preview || busy || confirmationMessage) return;
     setBusy(true);
     setError('');
     try {
       if (!preview) return;
-      const response = await importService.confirmarArchivo(file, preview);
+      if (editingId) {
+        await studentsService.actualizarExterno(editingId, { ...preview, historial: { ...preview.historial, carreraOrigenId: null,
+          asignaturas: preview.historial.asignaturas.map(a => ({ ...a, asignaturaId: null, temas: (a.temas ?? []).map(t => ({ ...t, subtemas: t.subtemas.map(x => x.trim()).filter(Boolean) })) })) } });
+        setConfirmationMessage('Historial guardado. Si quedan datos pendientes, complétalos antes de homologar.'); return;
+      }
+      const response = await importService.confirmarArchivo(file!, { ...preview, historial: { ...preview.historial, asignaturas: preview.historial.asignaturas.map(a => ({ ...a, temas: (a.temas ?? []).map(t => ({ ...t, subtemas: t.subtemas.map(x => x.trim()).filter(Boolean) })) })) } });
       setConfirmationMessage(response.creado
         ? 'Importación confirmada. El estudiante y su historial quedaron guardados.'
         : 'Importación confirmada. El estudiante ya existía y no se creó un registro duplicado.');
@@ -92,20 +113,20 @@ export default function ImportHistoryPage() {
       </div>
     </header>
 
-    <section className="students-panel import-panel" aria-labelledby="template-heading">
+    {!editingId && <section className="students-panel import-panel" aria-labelledby="template-heading">
       <div className="students-panel-heading">
         <div><h2 id="template-heading">1. Descarga la plantilla</h2><p>Completa las hojas Estudiante, Asignaturas y Contenidos. El archivo debe ser .xlsx y no superar 5 MB.</p></div>
         <button type="button" className="students-primary" onClick={downloadTemplate} disabled={downloading || busy}>
           {downloading ? 'Descargando…' : 'Descargar plantilla'}
         </button>
       </div>
-    </section>
+    </section>}
 
     <section className="students-panel import-panel" aria-labelledby="upload-heading">
       <div className="students-panel-heading">
         <div><h2 id="upload-heading">2. Carga y valida el archivo</h2><p>Si hay errores, corrige el Excel y vuelve a cargarlo. Un archivo válido mostrará una vista previa antes de guardarlo.</p></div>
       </div>
-      <form className="import-form" onSubmit={upload}>
+      {!editingId && <form className="import-form" onSubmit={upload}>
         <label htmlFor="history-file">Archivo de historial (.xlsx)</label>
         <div className="import-controls">
           <input ref={fileInput} id="history-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} disabled={busy || Boolean(confirmationMessage)} />
@@ -116,7 +137,7 @@ export default function ImportHistoryPage() {
         </div>
         {file && <span className="import-help">Archivo seleccionado: {file.name}</span>}
         <span className="import-help">Se aceptan archivos .xlsx de hasta 5 MB. La carga inicial solo valida y prepara la vista previa.</span>
-      </form>
+      </form>}
 
       {error && <p className="catalog-error" role="alert">{error}</p>}
       {result && <>
@@ -136,7 +157,7 @@ export default function ImportHistoryPage() {
 
       {preview && !confirmationMessage && <div className="import-actions">
         <button type="button" className="students-primary" onClick={confirmImport} disabled={busy}>
-          {busy ? 'Confirmando…' : 'Confirmar importación'}
+          {busy ? 'Confirmando…' : editingId ? 'Guardar historial externo' : 'Confirmar importación'}
         </button>
         <button type="button" className="students-secondary" onClick={cancelImport} disabled={busy}>Cancelar</button>
       </div>}
@@ -177,13 +198,41 @@ function PreviewPanel({ preview, onChange }: { preview: ImportPreview; onChange:
       <div><dt>Carrera de origen</dt><dd><input aria-label="Carrera de origen" value={preview.historial.carreraOrigenNombre || ''} onChange={event => updateHistory('carreraOrigenNombre', event.target.value)} /></dd></div>
       <div><dt>Nivel actual</dt><dd><input aria-label="Nivel actual" type="number" min="1" value={preview.historial.nivelActual ?? ''} onChange={event => updateHistory('nivelActual', event.target.value)} /></dd></div>
     </dl>
+    <div role="status" className="import-help"><strong>Información necesaria para homologar</strong>
+      {preview.historial.asignaturas.every(a => (a.temas?.length ?? 0) > 0 && a.temas!.every(t => t.nombre.trim() && t.subtemas.some(s => s.trim())))
+        ? <p>Los contenidos están completos. Revisa también notas, créditos, horas y períodos.</p>
+        : <><p>Puedes guardar el registro pendiente, pero no podrás analizar la homologación hasta completar:</p><ul>{preview.historial.asignaturas.map((a, i) => {
+          const campos = !(a.temas?.length) ? 'temas y subtemas' : a.temas.some(t => !t.nombre.trim() || !t.subtemas.some(s => s.trim())) ? 'nombres de temas o subtemas' : '';
+          return campos && <li key={i}>{a.nombre}: faltan {campos}. Abre “Temas y subtemas” para completarlos.</li>;
+        })}</ul></>}
+    </div>
     <h3>Asignaturas aprobadas</h3>
     <div className="student-table-wrap">
       <table className="student-table">
         <thead><tr><th>Código</th><th>Asignatura</th><th>Créditos</th><th>Horas</th><th>Nota</th><th>Período</th></tr></thead>
         <tbody>{preview.historial.asignaturas.map((subject, index) => <tr key={`${subject.codigo}-${index}`}>
           <td><input aria-label={`Código de asignatura ${index + 1}`} value={subject.codigo || ''} onChange={event => updateSubject(index, 'codigo', event.target.value)} /></td>
-          <td><input aria-label={`Nombre de asignatura ${index + 1}`} value={subject.nombre} onChange={event => updateSubject(index, 'nombre', event.target.value)} /></td>
+          <td><input aria-label={`Nombre de asignatura ${index + 1}`} value={subject.nombre} onChange={event => updateSubject(index, 'nombre', event.target.value)} />
+            <details><summary>Temas y subtemas ({subject.temas?.length ?? 0})</summary>
+              {(subject.temas ?? []).map((tema, topicIndex) => <div key={topicIndex}>
+                <input aria-label={`Tema ${topicIndex + 1} de ${subject.nombre}`} value={tema.nombre} maxLength={300} onChange={event => {
+                  const asignaturas = structuredClone(preview.historial.asignaturas); asignaturas[index].temas![topicIndex].nombre = event.target.value;
+                  onChange({ ...preview, historial: { ...preview.historial, asignaturas } });
+                }} />
+                <textarea aria-label={`Subtemas de ${tema.nombre}`} placeholder="Un subtema por línea" value={tema.subtemas.join('\n')} onChange={event => {
+                  const asignaturas = structuredClone(preview.historial.asignaturas); asignaturas[index].temas![topicIndex].subtemas = event.target.value.split('\n');
+                  onChange({ ...preview, historial: { ...preview.historial, asignaturas } });
+                }} />
+                <button type="button" onClick={() => {
+                  const asignaturas = structuredClone(preview.historial.asignaturas); asignaturas[index].temas!.splice(topicIndex, 1);
+                  onChange({ ...preview, historial: { ...preview.historial, asignaturas } });
+                }}>Quitar tema</button>
+              </div>)}
+              <button type="button" onClick={() => {
+                const asignaturas = structuredClone(preview.historial.asignaturas); (asignaturas[index].temas ??= []).push({ nombre: '', subtemas: [] });
+                onChange({ ...preview, historial: { ...preview.historial, asignaturas } });
+              }}>Agregar tema</button>
+            </details></td>
           <td><input aria-label={`Créditos de asignatura ${index + 1}`} type="number" min="0.01" step="0.01" value={subject.creditos ?? ''} onChange={event => updateSubject(index, 'creditos', event.target.value)} /></td>
           <td><input aria-label={`Horas de asignatura ${index + 1}`} type="number" min="1" value={subject.horas ?? ''} onChange={event => updateSubject(index, 'horas', event.target.value)} /></td>
           <td><input aria-label={`Nota de asignatura ${index + 1}`} type="number" min="0" max="10" step="0.01" value={subject.nota} onChange={event => updateSubject(index, 'nota', event.target.value)} /></td>

@@ -85,7 +85,7 @@ public sealed class PlanesAnaliticosController(AcademicDbContext db) : Controlle
     private static async Task<byte[]> ReadBytes(IFormFile file, CancellationToken ct)
     { await using var stream = new MemoryStream(); await file.CopyToAsync(stream, ct); return stream.ToArray(); }
 
-    private static async Task<PlanAnaliticoPreview> LeerPdf(IFormFile file, CancellationToken ct)
+    internal static async Task<PlanAnaliticoPreview> LeerPdf(IFormFile file, CancellationToken ct)
     {
         if (!ValidarArchivo(file, out var error)) throw new InvalidDataException(error);
         var bytes = await ReadBytes(file, ct);
@@ -98,19 +98,42 @@ public sealed class PlanesAnaliticosController(AcademicDbContext db) : Controlle
             if (string.IsNullOrWhiteSpace(text)) throw new InvalidDataException("No se detectó texto seleccionable; el PDF parece escaneado. Se requiere OCR antes de cargarlo.");
             string Match(string pattern) => Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.Singleline).Groups[1].Value.Trim();
             var nombre = Match(@"Nombre\s+de\s+la\s+asignatura\s*([\s\S]*?)\s+Carrera");
-            var codigo = Match(@"Código\s+(UTA-FISEI-[A-Z0-9-]+)");
-            var creditosText = Match(@"Créditos\s*/\s*Horas\s+(\d+(?:[.,]\d+)?)");
-            var unidad = Match(@"Unidad\s+organizacional\s+curricular\s*([\s\S]*?)\s+Créditos\s*/\s*Horas");
+            var codigo = Match(@"C[oó]digo\s+(UTA-FISEI-[A-Z0-9-]+)");
+            var creditosText = Match(@"Cr[eé]ditos\s*/\s*Horas\s+(\d+(?:[.,]\d+)?)");
+            var unidad = Match(@"Unidad\s+organizacional\s+curricular\s*([\s\S]*?)\s+Cr[eé]ditos\s*/\s*Horas");
             var hoursMatches = Regex.Matches(text, @"Total\s+de\s+horas\s+(\d{2,4})", RegexOptions.IgnoreCase);
             var hoursValue = Regex.Match(text, @"TOTAL\s+DE\s+HORAS\s+AL\s+SEMESTRE[\s\S]{0,500}?(\d{2,4})", RegexOptions.IgnoreCase).Groups[1].Value;
             if (string.IsNullOrWhiteSpace(hoursValue) && hoursMatches.Count > 0) hoursValue = hoursMatches[^1].Groups[1].Value;
             var horas = int.TryParse(hoursValue, out var h) ? h : 0;
             if (string.IsNullOrWhiteSpace(nombre) || string.IsNullOrWhiteSpace(codigo)) throw new InvalidDataException("El formato del plan no coincide con los planes analíticos FISEI reconocidos.");
-            var contentPage = Enumerable.Range(1, doc.NumberOfPages).Select(doc.GetPage)
-                .FirstOrDefault(p => Regex.IsMatch(UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor.ContentOrderTextExtractor.GetText(p), @"III\s+CONTENIDO", RegexOptions.IgnoreCase));
-            var temas = contentPage is null ? new List<PlanAnaliticoTema>() : ExtraerTemas(contentPage);
+            var paginas = Enumerable.Range(1, doc.NumberOfPages).Select(doc.GetPage).ToArray();
+            var inicio = Array.FindIndex(paginas, p => Regex.IsMatch(UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor.ContentOrderTextExtractor.GetText(p), @"III\s+CONTENIDO", RegexOptions.IgnoreCase));
+            var temas = new List<PlanAnaliticoTema>();
+            string? ultimaUnidad = null;
+            if (inicio >= 0)
+                foreach (var pagina in paginas.Skip(inicio))
+                {
+                    var contenido = UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor.ContentOrderTextExtractor.GetText(pagina);
+                    if (Regex.IsMatch(contenido, @"(?:^|\n)\s*IV[.\s]+", RegexOptions.IgnoreCase)) break;
+                    var nuevos = ExtraerTemas(pagina, ref ultimaUnidad);
+                    // Una fila puede continuar al comienzo de la página siguiente.
+                    if (temas.Count > 0 && nuevos.Count > 0) {
+                        var textoInicial = nuevos[0].Nombre.Split(" - ", 2).Last();
+                        if (textoInicial.Length > 0 && char.IsLower(textoInicial[0])) {
+                            var anterior = temas[^1];
+                            temas[^1] = anterior with { Nombre = anterior.Nombre + " " + textoInicial,
+                                Subtemas = anterior.Subtemas.Take(Math.Max(0, anterior.Subtemas.Count - 1))
+                                    .Append(anterior.Subtemas.LastOrDefault() + " " + nuevos[0].Subtemas.FirstOrDefault()).Concat(nuevos[0].Subtemas.Skip(1)).ToArray() };
+                            nuevos.RemoveAt(0);
+                        }
+                    }
+                    temas.AddRange(nuevos);
+                }
+            temas = temas.GroupBy(t => t.Nombre, StringComparer.OrdinalIgnoreCase).Select(g => new PlanAnaliticoTema(g.Key, g.SelectMany(t => t.Subtemas).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())).ToList();
             if (temas.Count == 0) throw new InvalidDataException("Se obtuvo la información general, pero no se pudo interpretar la tabla de contenidos. Revisa que el PDF use el formato de plan analítico FISEI.");
-            return new PlanAnaliticoPreview(Normalizar(nombre), codigo, decimal.TryParse(creditosText?.Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var c) ? c : 0, horas, Normalizar(unidad), temas, new[] { "Revisa los campos extraídos y corrige cualquier error antes de confirmar." });
+            return new PlanAnaliticoPreview(Normalizar(nombre), codigo, decimal.TryParse(creditosText?.Replace(',', '.'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var c) ? c : 0, horas, Normalizar(unidad), temas, new[] { "Revisa los campos extraídos y corrige cualquier error antes de confirmar." },
+                Regex.Match(UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor.ContentOrderTextExtractor.GetText(doc.GetPage(Math.Min(2, doc.NumberOfPages))), @"(?:^|\n)\s*Carrera\s*\n([^\n]+)", RegexOptions.IgnoreCase).Groups[1].Value.Trim(),
+                int.TryParse(codigo.Split('-').Reverse().Skip(1).FirstOrDefault(), out var nivel) ? nivel : null);
         }
         catch (InvalidDataException) { throw; }
         catch (Exception ex) { throw new InvalidDataException("No se pudo leer el PDF. Verifica que no esté dañado y que contenga texto seleccionable.", ex); }
@@ -118,19 +141,23 @@ public sealed class PlanesAnaliticosController(AcademicDbContext db) : Controlle
 
     private static string Normalizar(string value) => Regex.Replace(value.Replace('\n', ' ').Replace('\r', ' '), @"\s+", " ").Trim();
 
-    private static List<PlanAnaliticoTema> ExtraerTemas(Page page)
+    private static List<PlanAnaliticoTema> ExtraerTemas(Page page, ref string? ultimaUnidad)
     {
         var lines = new List<(double Y, List<Word> Words)>();
-        foreach (var word in page.GetWords().Where(w => w.BoundingBox.Bottom > 120).OrderByDescending(w => w.BoundingBox.Bottom).ThenBy(w => w.BoundingBox.Left))
+        foreach (var word in page.GetWords().Where(w => w.BoundingBox.Bottom > 45).OrderByDescending(w => w.BoundingBox.Bottom).ThenBy(w => w.BoundingBox.Left))
         {
             var line = lines.FirstOrDefault(l => Math.Abs(l.Y - word.BoundingBox.Bottom) < 1.5);
             if (line.Words is null) { line = (word.BoundingBox.Bottom, new List<Word>()); lines.Add(line); }
             line.Words.Add(word);
         }
         var orderedLines = lines.OrderByDescending(l => l.Y).ToArray();
+        var encabezado = orderedLines.FirstOrDefault(l => string.Join(" ", l.Words.Select(w => w.Text)).Contains("Unidades curriculares", StringComparison.OrdinalIgnoreCase));
+        var resumen = orderedLines.Where(l => encabezado.Words is null || l.Y < encabezado.Y).FirstOrDefault(l => Regex.IsMatch(string.Join(" ", l.Words.Select(w => w.Text)), @"Resultados del aprendizaje|Total de horas", RegexOptions.IgnoreCase));
+        orderedLines = orderedLines.Where(l => (encabezado.Words is null || l.Y < encabezado.Y - 13)
+            && (resumen.Words is null || l.Y > resumen.Y + 2)).ToArray();
         var unitMarkers = orderedLines.SelectMany(l => l.Words.Where(w => w.BoundingBox.Left < 130 && Regex.IsMatch(w.Text, @"^U\.\d+$"))
             .Select(w => (l.Y, Unit: w.Text))).OrderByDescending(x => x.Y).ToArray();
-        List<(double Y, string Text)> Cells(double left, double right) => orderedLines.Where(l => l.Y < 740)
+        List<(double Y, string Text)> Cells(double left, double right) => orderedLines
             .Select(l => (l.Y, Text: string.Join(" ", l.Words.Where(w => w.BoundingBox.Left >= left && w.BoundingBox.Left < right).OrderBy(w => w.BoundingBox.Left).Select(w => w.Text))))
             .Where(x => !string.IsNullOrWhiteSpace(x.Text)).ToList();
         List<List<(double Y, string Text)>> Group(List<(double Y, string Text)> cells)
@@ -152,10 +179,10 @@ public sealed class PlanesAnaliticosController(AcademicDbContext db) : Controlle
             var contentText = Normalizar(string.Join(" ", contents[i].Select(x => x.Text)));
             if (string.IsNullOrWhiteSpace(themeText) || string.IsNullOrWhiteSpace(contentText)) continue;
             var y = themes[i][0].Y;
-            var unit = unitMarkers.FirstOrDefault(u => u.Y >= y).Unit;
-            if (string.IsNullOrEmpty(unit)) unit = unitMarkers.LastOrDefault().Unit;
+            var unit = unitMarkers.LastOrDefault(u => u.Y >= y - 2).Unit ?? ultimaUnidad;
             result.Add(new PlanAnaliticoTema($"{unit} — {themeText}", Regex.Split(contentText, @"(?<=[.;])\s+(?=[A-ZÁÉÍÓÚ0-9])").Where(s => !string.IsNullOrWhiteSpace(s)).ToArray()));
         }
+        ultimaUnidad = unitMarkers.LastOrDefault().Unit ?? ultimaUnidad;
         return result;
     }
 }

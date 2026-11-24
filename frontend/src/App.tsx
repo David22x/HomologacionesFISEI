@@ -1,3 +1,4 @@
+import RecordImportPage from './features/students/pages/RecordImportPage';
 
 import { useEffect, useState } from 'react';
 import {
@@ -155,6 +156,7 @@ function App() {
             }
           />
 
+          <Route path="/estudiantes/record-pdf" element={<ProtectedRoute user={user} allowedRoles={['Administrador', 'Profesor']}><RecordImportPage /></ProtectedRoute>} />
           <Route
             path="/estudiantes/importar"
             element={

@@ -3,15 +3,13 @@
 ## Estructura del repositorio
 
 - `frontend/`: aplicación React, TypeScript y Vite.
-- `backend/Services/`: Auth Service, Academic Service, Homologation Service, Students Service, Documents Service, API Gateway y plantilla de microservicio.
+- `backend/Services/`: Auth Service, Academic Service, Homologation Service, Students Service, Documents Service, Reports Service, API Gateway y plantilla de microservicio.
 - `backend/BuildingBlocks/`: autenticación JWT, roles, Swagger y manejo común de errores.
 - `database/init/`: scripts iniciales de SQL Server.
 - `infrastructure/`: configuración de Docker Compose.
 - `tests/backend/`: pruebas automatizadas de los servicios y componentes compartidos.
 
 ## Requisitos locales
-
-Reports Service genera informes PDF versionados y los conserva en ReportsDB. Consulta [configuración y endpoints de Reports](docs/api/reports-service.md). Su Swagger local está en `http://localhost:5198/swagger`.
 
 - Docker Desktop con el motor iniciado.
 - .NET SDK 8.
@@ -65,9 +63,23 @@ Direcciones locales:
 - Swagger de Students: `http://localhost:5194/swagger`
 - Swagger de Homologation: `http://localhost:5196/swagger`
 - Swagger de Documents: `http://localhost:5104/swagger`
+- Swagger de Reports: `http://localhost:5198/swagger`
 - Template Service: `http://localhost:5158/swagger`
 
 Para apagar los servicios sin perder datos, ejecuta `docker compose down` desde `infrastructure/`. Para reiniciar también las bases de datos, usa `docker compose down -v`; esto elimina permanentemente los datos del volumen local.
+
+## Informe PDF de homologación
+
+Reports Service genera el informe PDF de un expediente resuelto y conserva cada versión en `ReportsDB`. El flujo completo, con el entorno de Docker iniciado:
+
+1. El profesor responsable inicia sesión, abre el expediente y revisa el análisis de IA.
+2. Registra una decisión para cada asignatura de destino. Cuando todos los destinos tienen decisión, pulsa **Resolver** y el expediente pasa a **Resuelto**.
+3. En un expediente Resuelto aparece la sección **Informe PDF**. El profesor responsable pulsa **Generar informe** y se crea una versión. Si los datos no cambiaron desde la última versión, se muestra la versión existente en lugar de crear otra.
+4. Cada versión se descarga con **Descargar versión N**. El administrador puede consultar y descargar las versiones, pero no generarlas.
+
+El informe incluye los datos del estudiante y el tipo de homologación, un resumen con totales, la tabla de asignaturas homologadas, las asignaturas que el sistema recomendaba homologar y el profesor no homologó (con su motivo y justificación), las observaciones del profesor, el total de asignaturas homologadas y el espacio para las firmas. Los créditos y los contenidos se comparan con el mínimo de 80 %. Las horas se muestran solo como referencia hasta que el docente valide la regla R3 del [catálogo de reglas](docs/homologacion/catalogo_reglas_homologacion_v1.md).
+
+Un expediente que no está Resuelto, o que no tiene decisiones guardadas, no genera informe (error 409). Los endpoints, los errores y las huellas de integridad están en [configuración y endpoints de Reports](docs/api/reports-service.md).
 
 ## Ejecución manual sin Docker (alternativa)
 

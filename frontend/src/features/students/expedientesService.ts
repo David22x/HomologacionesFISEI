@@ -25,6 +25,13 @@ export interface ExpedienteCreateRequest {
   mallaAplicableRefId: string;
 }
 
+export interface VersionInforme {
+  id: string;
+  version: number;
+  generadoEn: string;
+  huellaSha256: string;
+}
+
 export interface SeleccionPropuesta { asignaturaDestinoId: string; origenIds: string[]; }
 export interface ResumenSeleccion { seleccion: SeleccionPropuesta[]; resultados: ResultadoParExpediente[]; }
 
@@ -145,11 +152,11 @@ export interface AgruparOrigenesRequest {
   origenIds: string[];
 }
 
-async function request<T>(
+async function send(
   path: string,
   method: 'GET' | 'POST' | 'PUT' = 'GET',
   body?: unknown,
-): Promise<T> {
+): Promise<Response> {
   const token = sessionStorage.getItem('accessToken');
   if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
 
@@ -177,6 +184,15 @@ async function request<T>(
     }
     throw new Error(detail || `No se pudo completar la operación (HTTP ${response.status}).`);
   }
+  return response;
+}
+
+async function request<T>(
+  path: string,
+  method: 'GET' | 'POST' | 'PUT' = 'GET',
+  body?: unknown,
+): Promise<T> {
+  const response = await send(path, method, body);
   if (response.status === 204) return null as T;
   return response.json() as Promise<T>;
 }
@@ -230,5 +246,15 @@ export const expedientesService = {
   },
   resolver(expedienteId: string): Promise<{ estado: string; soloLectura: boolean }> {
     return request<{ estado: string; soloLectura: boolean }>(`/api/v1/homologacion/expedientes/${expedienteId}/resolver`, 'POST');
+  },
+  listarInformes(expedienteId: string): Promise<VersionInforme[]> {
+    return request<VersionInforme[]>(`/api/v1/informes/expedientes/${expedienteId}`);
+  },
+  generarInforme(expedienteId: string): Promise<VersionInforme> {
+    return request<VersionInforme>(`/api/v1/informes/expedientes/${expedienteId}/generar`, 'POST');
+  },
+  async descargarInforme(expedienteId: string, version: number): Promise<Blob> {
+    const response = await send(`/api/v1/informes/expedientes/${expedienteId}/${version}/pdf`);
+    return response.blob();
   },
 };

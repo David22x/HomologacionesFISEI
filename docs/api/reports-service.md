@@ -45,11 +45,11 @@ Homologation publica `GET /api/v1/homologacion/expedientes/{id}/informe`: devuel
 
 ## Contenido y versiones
 
-El PDF incluye estudiante, identificación, carrera y malla de destino, profesor responsable, fecha UTC, decisiones por asignatura, materias de origen (también compuestas), resultado calculado, decisión docente, justificación, porcentajes disponibles, versión de reglas, explicación, advertencias y temas coincidentes/ausentes con evidencias. Los porcentajes desconocidos aparecen como «Sin datos». Incluye cabecera y numeración en todas las páginas.
+El PDF incluye estudiante, identificación, tipo de homologación (interna o externa), carrera de origen, carrera y malla de destino, profesor responsable y fecha de emisión en hora de Ecuador. Presenta un resumen con totales, la tabla de asignaturas homologadas (créditos, contenidos y si decidió el sistema o el profesor) y las asignaturas que el sistema recomendaba homologar y el profesor no homologó, con sus porcentajes, temas ausentes y justificación. Cuando el profesor cambió el resultado calculado o dejó una nota, se agrega una sección de observaciones con el resultado calculado, la decisión docente y la versión de reglas. Las demás asignaturas rechazadas se cuentan en una línea. Termina con el total de asignaturas homologadas, el campo de observaciones y las firmas del profesor responsable y del estudiante. Los porcentajes desconocidos aparecen como «Sin datos» y los contenidos de una transversal directa como «No aplica». Incluye cabecera y numeración en todas las páginas.
 
 Cada registro conserva el PDF original, una instantánea JSON de sus datos, autor, fecha UTC, versión y dos huellas SHA-256:
 
-- `HuellaFuente`: identifica los datos de entrada. Repetir la solicitud con los mismos datos recupera su versión existente. Un cambio de datos crea una versión nueva sin modificar las anteriores.
+- `HuellaFuente`: identifica los datos de entrada y la versión de la plantilla del informe. Repetir la solicitud con los mismos datos recupera su versión existente. Un cambio de datos, o de la plantilla, crea una versión nueva sin modificar las anteriores.
 - `HuellaSha256`: identifica los bytes del PDF. La descarga comprueba esta huella y devuelve `X-Content-SHA256` y `ETag`; una discrepancia devuelve 500.
 
 Las versiones son correlativas por expediente. La generación se guarda en una transacción serializable y hay índices únicos por expediente/versión y expediente/huella de origen. Ante una colisión concurrente se devuelve 409: el cliente puede repetir la generación para recuperar el informe ya creado. Las huellas verifican integridad; no constituyen una firma digital.

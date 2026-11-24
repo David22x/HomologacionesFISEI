@@ -76,8 +76,35 @@ public sealed class DatosEvaluacionClient(IHttpClientFactory clients)
         }
     }
 
-    internal sealed record Historial(Origen[] Asignaturas);
-    internal sealed record Origen(Guid Id, Guid? AsignaturaId, string Nombre, decimal? Creditos, int? Horas, decimal Nota);
+    internal static void ValidarPreparacion(Historial? historial)
+    {
+        if (historial?.EsExterno != true) return;
+        var faltantes = new List<string>();
+        if (string.IsNullOrWhiteSpace(historial.InstitucionOrigen)) faltantes.Add("Institución de origen");
+        if (string.IsNullOrWhiteSpace(historial.CarreraOrigenNombre)) faltantes.Add("Carrera de origen");
+        if (historial.Asignaturas.Length == 0) faltantes.Add("Asignaturas cursadas");
+        foreach (var a in historial.Asignaturas)
+        {
+            var campos = new List<string>();
+            if (a.Creditos is null or <= 0) campos.Add("créditos");
+            if (a.Horas is null or <= 0) campos.Add("horas");
+            if (a.Temas is null || a.Temas.Length == 0) campos.Add("temas y subtemas");
+            foreach (var tema in a.Temas ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(tema.Nombre)) campos.Add("nombre de tema");
+                if (tema.Subtemas is null || !tema.Subtemas.Any(x => !string.IsNullOrWhiteSpace(x))) campos.Add($"subtemas de {tema.Nombre}");
+            }
+            if (campos.Count > 0) faltantes.Add($"{a.Nombre}: {string.Join(", ", campos)}");
+        }
+        if (faltantes.Count > 0) throw new InformacionIncompletaException(faltantes);
+    }
+
+    internal static Contenido[] ContenidosExternos(Origen origen) => (origen.Temas ?? []).Select((t, i) =>
+        new Contenido($"externo:{origen.Id}:{i}", string.Join(" | ", (t.Subtemas ?? []).Prepend(t.Nombre)), t.Horas)).ToArray();
+
+    internal sealed record Historial(Origen[] Asignaturas, bool EsExterno = false, string? InstitucionOrigen = null, string? CarreraOrigenNombre = null);
+    internal sealed record Origen(Guid Id, Guid? AsignaturaId, string Nombre, decimal? Creditos, int? Horas, decimal Nota, TemaExterno[]? Temas = null);
+    internal sealed record TemaExterno(string Nombre, string[] Subtemas, int? Horas = null);
     internal sealed record Asignatura(Guid Id, string Nombre, decimal Creditos, int Horas, bool EsTransversal);
     internal sealed record Tema(Guid Id, string Nombre, int? HorasEstimadas);
     internal sealed record Subtema(string Nombre);
@@ -87,3 +114,6 @@ public sealed class DatosEvaluacionClient(IHttpClientFactory clients)
         bool OrigenTransversal, bool DestinoTransversal,
         IReadOnlyList<Contenido> ContenidosOrigen, IReadOnlyList<Contenido> ContenidosDestino);
 }
+
+public sealed class InformacionIncompletaException(IReadOnlyList<string> faltantes) : Exception("Falta información para homologar. Completa los datos del estudiante externo.")
+{ public IReadOnlyList<string> Faltantes { get; } = faltantes; }

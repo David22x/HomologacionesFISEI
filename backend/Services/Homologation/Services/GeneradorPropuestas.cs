@@ -15,6 +15,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
             return null;
 
         var historial = await datos.HistorialAsync(expediente.EstudianteId, bearer, ct);
+        ValidarPreparacion(historial);
         var origenesPorId = historial?.Asignaturas.ToDictionary(x => x.Id) ?? [];
         if (origenIds.Any(id => !origenesPorId.ContainsKey(id)))
             return null;
@@ -33,7 +34,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
         foreach (var origen in origenes)
         {
             Asignatura? ficha = null;
-            Contenido[] temas = [];
+            Contenido[] temas = ContenidosExternos(origen);
             if (origen.AsignaturaId is Guid asignaturaId)
             {
                 ficha = await datos.AsignaturaAsync(asignaturaId, bearer, ct);
@@ -63,6 +64,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
     internal async Task<Analisis> GenerarAsync(Expediente expediente, AuthenticationHeaderValue bearer, CancellationToken ct)
     {
         var historial = await datos.HistorialAsync(expediente.EstudianteId, bearer, ct);
+        ValidarPreparacion(historial);
         var destinos = await datos.DestinosAsync(expediente.MallaDestinoId, bearer, ct);
         var origenes = historial?.Asignaturas ?? [];
         var propuestas = new List<Propuesta>();
@@ -82,7 +84,7 @@ internal sealed class GeneradorPropuestas(DatosEvaluacionClient datos)
             {
                 ficha = await datos.AsignaturaAsync(id, bearer, ct);
             }
-            var temas = ficha is not null ? await CargarContenidosAsync(ficha.Id) : [];
+            var temas = ficha is not null ? await CargarContenidosAsync(ficha.Id) : ContenidosExternos(origen);
             preparados.Add(new Candidato(origen, origen.Creditos ?? ficha?.Creditos,
                 origen.Horas ?? ficha?.Horas, ficha?.EsTransversal ?? false, temas));
         }

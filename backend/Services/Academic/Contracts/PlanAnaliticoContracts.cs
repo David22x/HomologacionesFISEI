@@ -7,7 +7,7 @@ public sealed record PlanAnaliticoPreview(
     int Horas,
     string UnidadOrganizacional,
     IReadOnlyList<PlanAnaliticoTema> Temas,
-    IReadOnlyList<string> Advertencias);
+    IReadOnlyList<string> Advertencias, string? Carrera = null, int? Nivel = null);
 
 public sealed record PlanAnaliticoTema(
     string Nombre,

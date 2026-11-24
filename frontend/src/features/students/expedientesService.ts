@@ -171,7 +171,7 @@ async function request<T>(
     let detail = '';
     try {
       const problem = await response.json();
-      detail = problem.detail || problem.title || problem.mensaje || problem.Mensaje || '';
+      detail = [problem.detail || problem.title || problem.mensaje || problem.Mensaje || '', ...(problem.faltantes ?? [])].join('\n');
     } catch {
       // Keep an HTTP status message for non-JSON error responses.
     }

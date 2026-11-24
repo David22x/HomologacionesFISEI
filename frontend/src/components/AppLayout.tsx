@@ -71,6 +71,7 @@ function buildSections(user: AuthUser): NavSection[] {
         { to: '/estudiantes', label: 'Estudiantes', icon: icons.students, end: true },
         { to: '/expedientes', label: 'Expedientes', icon: icons.folder },
         { to: '/estudiantes/importar', label: 'Carga de historiales', icon: icons.upload },
+          { to: '/estudiantes/record-pdf', label: 'Récord académico PDF', icon: icons.upload },
       ],
     });
   }

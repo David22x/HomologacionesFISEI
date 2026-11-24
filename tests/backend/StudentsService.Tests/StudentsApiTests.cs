@@ -24,6 +24,31 @@ public sealed class StudentsApiTests : IClassFixture<StudentsApiFactory>
     public StudentsApiTests(StudentsApiFactory factory) => _client = factory.CreateClient();
 
     [Fact]
+    public async Task Contenidos_externos_se_persisten_y_se_solicitan_los_faltantes()
+    {
+        var cedula = "EX" + Guid.NewGuid().ToString("N")[..12];
+        object Payload(bool completo) => new { cedula, tipoIdentificacion = 1, nombres = "Ana", apellidos = "Externa", tipo = 1,
+            historial = new { carreraOrigenNombre = "Informatica", institucionOrigen = "Universidad externa", nivelActual = 3,
+                asignaturas = new[] { new { codigo = "EXT1", nombre = "Programacion", creditos = 4, horas = 64, nota = 9m, periodo = "2026-A",
+                    temas = completo ? new object[] { new { nombre = "Variables", subtemas = new[] { "Declaracion" } } } : Array.Empty<object>() } } } };
+        using var first = await Send(HttpMethod.Put, "/internal/estudiantes/importaciones", Payload(false));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var initial = JsonSerializer.Deserialize<JsonElement>(await first.Content.ReadAsStringAsync());
+        Assert.False(initial.GetProperty("listoParaHomologar").GetBoolean());
+        Assert.NotEmpty(initial.GetProperty("informacionFaltante").EnumerateArray());
+        var studentId = initial.GetProperty("id").GetGuid();
+        using var complete = await Send(HttpMethod.Put, "/internal/estudiantes/importaciones", Payload(true));
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        var updated = JsonSerializer.Deserialize<JsonElement>(await complete.Content.ReadAsStringAsync());
+        Assert.True(updated.GetProperty("listoParaHomologar").GetBoolean());
+        Assert.Empty(updated.GetProperty("informacionFaltante").EnumerateArray());
+        using var history = await Get($"/api/v1/estudiantes/{studentId}/historial", "Profesor");
+        var stored = JsonSerializer.Deserialize<JsonElement>(await history.Content.ReadAsStringAsync());
+        Assert.True(stored.GetProperty("esExterno").GetBoolean());
+        Assert.Equal("Declaracion", stored.GetProperty("asignaturas")[0].GetProperty("temas")[0].GetProperty("subtemas")[0].GetString());
+    }
+
+    [Fact]
     public async Task Editar_agrega_elimina_y_conserva_ids_de_materias_y_permite_baja_logica()
     {
         var cedula = NuevaCedula(); var carrera = Guid.NewGuid(); var malla = Guid.NewGuid();

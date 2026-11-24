@@ -290,7 +290,7 @@ export default function StudentsPage() {
   return <main className="catalog-page students-page">
     <header className="catalog-header">
       <div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · EXPEDIENTES ACADÉMICOS</p><h1>Estudiantes</h1><p>Registra estudiantes internos y administra sus asignaturas aprobadas.</p></div>
-      <div className="students-header-links"><Link to="/estudiantes/importar" className="students-primary">Carga de historiales</Link></div>
+      <div className="students-header-links"><Link to="/estudiantes/record-pdf" className="students-primary">Registrar desde PDF / calificaciones externas</Link><Link to="/estudiantes/importar" className="students-primary">Carga de historiales</Link></div>
     </header>
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}
@@ -420,7 +420,7 @@ export default function StudentsPage() {
           {filteredStudents.map(student => {
             const history = student.historial;
             const careerName = careers.find(career => career.id === history?.carreraOrigenId)?.nombre ?? history?.carreraOrigenNombre ?? '—';
-            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <span className="student-readonly-note">Se gestiona en importaciones</span>}<button type="button" className="students-remove" disabled={Boolean(deletingId)} onClick={() => { void deleteStudent(student); }}>{deletingId === student.id ? 'Eliminando…' : 'Eliminar'}</button></td></tr>;
+            return <tr key={student.id}><td><strong>{student.apellidos}, {student.nombres}</strong></td><td>{ocultarCedula(student.cedula)}</td><td>{student.tipo === 0 ? 'Interno' : 'Externo'}</td><td>{careerName}</td><td>{history?.nivelActual ?? '—'}</td><td>{history?.asignaturas.length ?? 0}{student.tipo === 1 && <small>{student.listoParaHomologar ? 'Listo para homologar' : 'Falta información para homologar'}</small>}</td><td>{student.tipo === 0 ? <button type="button" className="students-edit" onClick={() => beginEdit(student)}>Editar</button> : <Link className="students-edit" to={`/estudiantes/importar?estudiante=${student.id}`}>Completar historial externo</Link>}<button type="button" className="students-remove" disabled={Boolean(deletingId)} onClick={() => { void deleteStudent(student); }}>{deletingId === student.id ? 'Eliminando…' : 'Eliminar'}</button></td></tr>;
           })}
         </tbody></table></div>
       )}

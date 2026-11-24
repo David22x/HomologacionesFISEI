@@ -641,6 +641,10 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
         <span className="transfer-arrow" aria-hidden="true">→</span>
         <div><small>Carrera de destino</small><strong>{destinationLabel}</strong><span>{selectedCareer?.nombre}</span></div>
       </div>
+      {selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0 && <section className="catalog-error" role="alert">
+        <h3>Falta información para homologar al estudiante externo</h3><ul>{selectedStudent.informacionFaltante!.map((f, i) => <li key={i}>{f.asignatura}: {f.campos.join(', ')}.</li>)}</ul>
+        <a href={`/estudiantes/importar?estudiante=${selectedStudent.id}`}>Completar temas, subtemas y datos del historial</a>
+      </section>}
       <section className="eligibility-panel" aria-labelledby="eligibility-heading">
         <div className="students-panel-heading">
           <div>
@@ -683,7 +687,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                 const proposal = result ? propuestaDePar(result) : null;
                 return <tr key={pair.id}>
                   <td>{proposal ? selectionCheckbox(proposal, `Seleccionar coincidencia ${proposal.nombreDestino}`) : <input type="checkbox" disabled aria-label="Evalúa el par antes de seleccionarlo" />}</td>
-                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'} - {originLabel}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
+                  <td>{result?.nombreOrigen ?? origin?.nombre ?? 'Asignatura no disponible'} - {origin?.carreraOrigenNombre ?? originLabel}{origin?.codigo ? <small>{origin.codigo}</small> : null}</td>
                   <td>{result?.nombreDestino ?? destination?.nombre ?? 'Asignatura no disponible'} - {destinationLabel}{destination?.codigo ? <small>{destination.codigo}</small> : null}</td>
                   <td>{origin?.creditos ?? '—'} / {destination?.creditos ?? '—'}{rules?.razonCreditos != null && <small>{formatPercent(rules.razonCreditos)}</small>}</td>
                   <td>{rules?.coberturaContenidos == null ? '—' : formatPercent(rules.coberturaContenidos)}</td>
@@ -703,7 +707,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             </table>
           </div>
           {puedeEditar && <div className="eligibility-actions">
-            <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0}>
+            <button className="students-primary" type="button" onClick={() => { void evaluatePairs(); }} disabled={evaluating || loadingDetail || pairs.length === 0 || (selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0)}>
               {evaluating ? 'Evaluando…' : 'Evaluar por reglas'}
             </button>
             {results.length > 0 && <span>Evaluación guardada · {new Date().toLocaleString()}</span>}
@@ -731,7 +735,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             <h3 id="ia-analysis-heading">Análisis con IA</h3>
             <p>Genera propuestas de equivalencia agrupadas por asignatura de destino. La decisión final corresponde al profesor.</p>
           </div>
-          {puedeEditar && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail}>
+          {puedeEditar && <button className="students-primary" type="button" onClick={() => { void analyzeWithIa(); }} disabled={analyzingIa || loadingDetail || (selectedStudent?.tipo === 1 && (selectedStudent.informacionFaltante?.length ?? 0) > 0)}>
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>

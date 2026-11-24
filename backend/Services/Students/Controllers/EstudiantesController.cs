@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using BuildingBlocks.Roles;
 using Microsoft.AspNetCore.Authorization;
@@ -138,6 +139,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             error = ValidarHistorial(request.Historial, request.Tipo);
             if (error is not null) return BadRequest(Problem(400, error));
             if (entity.Historial is null) entity.Historial = CrearHistorial(entity, request.Historial);
+            else if (entity.Tipo == TipoEstudiante.Externo) ActualizarHistorialExterno(entity.Historial, request.Historial);
             else ActualizarHistorial(entity.Historial, request.Historial);
         }
         if (!await SaveAsync(ct)) return Conflict(Problem(409, "Ya existe un estudiante con esa identificación."));
@@ -151,7 +153,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
     public async Task<ActionResult<HistorialResponse>> GetHistorial(Guid estudianteId, CancellationToken ct)
     {
         if (!await context.Estudiantes.AnyAsync(e => e.Id == estudianteId, ct)) return NotFound();
-        var historial = await context.Historiales.AsNoTracking().Include(h => h.Asignaturas)
+        var historial = await context.Historiales.AsNoTracking().Include(h => h.Estudiante).Include(h => h.Asignaturas)
             .FirstOrDefaultAsync(h => h.EstudianteId == estudianteId, ct);
         return historial is null ? NotFound() : Ok(ToResponse(historial));
     }
@@ -170,6 +172,7 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         var error = ValidarHistorial(request, student.Tipo);
         if (error is not null) return BadRequest(Problem(400, error));
         if (student.Historial is null) student.Historial = CrearHistorial(student, request);
+        else if (student.Tipo == TipoEstudiante.Externo) ActualizarHistorialExterno(student.Historial, request);
         else ActualizarHistorial(student.Historial, request);
         student.ModificadoPor = ActorActual();
         student.ModificadoEn = DateTime.UtcNow;
@@ -289,9 +292,9 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
         var unassigned = historial.Asignaturas.ToList();
         foreach (var item in request.Asignaturas!)
         {
-            var course = unassigned.FirstOrDefault(existing =>
-                string.Equals(existing.Codigo, item.Codigo, StringComparison.OrdinalIgnoreCase))
-                ?? unassigned.FirstOrDefault();
+            var course = unassigned.FirstOrDefault(existing => !string.IsNullOrWhiteSpace(item.Codigo)
+                && string.Equals(existing.Codigo, item.Codigo, StringComparison.OrdinalIgnoreCase))
+                ?? unassigned.FirstOrDefault(existing => string.Equals(existing.Nombre, item.Nombre, StringComparison.OrdinalIgnoreCase));
             if (course is null)
             {
                 course = new AsignaturaCursada { Historial = historial };
@@ -308,6 +311,8 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             course.Nombre = item.Nombre;
             course.Creditos = item.Creditos;
             course.Horas = item.Horas;
+            course.CarreraOrigenNombre = item.CarreraOrigenNombre?.Trim();
+            course.TemasJson = JsonSerializer.Serialize(item.Temas ?? []);
             course.Nota = item.Nota;
             course.Periodo = item.Periodo;
         }
@@ -336,7 +341,8 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             && existing.Creditos == item.Creditos
             && existing.Horas == item.Horas
             && existing.Nota == item.Nota
-            && existing.Periodo == item.Periodo));
+            && existing.Periodo == item.Periodo
+            && existing.TemasJson == JsonSerializer.Serialize(item.Temas ?? [])));
     }
 
     private static string? ValidarEstudiante(EstudianteWriteRequest request, bool requireHistory = true)
@@ -381,6 +387,10 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             || a.Nota is < 0 or > 10 || a.Creditos is <= 0 or > 999.99m || a.Horas is <= 0
             || (tipo == TipoEstudiante.Interno && a.AsignaturaId is null)))
             return "Cada asignatura interna requiere ID de catálogo, nombre, período, nota entre 0 y 10, créditos de 0.01 a 999.99 y horas positivas si se informan.";
+        if (request.Asignaturas.Any(a => a.Temas is { Count: > 200 } || (a.Temas ?? []).Any(t =>
+            string.IsNullOrWhiteSpace(t.Nombre) || t.Nombre.Length > 300 || t.Horas is <= 0
+            || t.Subtemas is null || t.Subtemas.Count > 300 || t.Subtemas.Any(x => string.IsNullOrWhiteSpace(x) || x.Length > 1000))))
+            return "Revisa los temas y subtemas: nombres obligatorios, longitudes válidas y horas positivas si se informan.";
         var ids = request.Asignaturas.Where(a => a.AsignaturaId.HasValue).Select(a => a.AsignaturaId!.Value).ToList();
         return ids.Count == ids.Distinct().Count() ? null : "Una asignatura del catálogo no puede repetirse en el historial.";
     }
@@ -421,6 +431,8 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
             course.Nombre = item.Nombre.Trim();
             course.Creditos = item.Creditos;
             course.Horas = item.Horas;
+            course.CarreraOrigenNombre = item.CarreraOrigenNombre?.Trim();
+            course.TemasJson = JsonSerializer.Serialize(item.Temas ?? []);
             course.Nota = item.Nota;
             course.Periodo = item.Periodo.Trim();
         }
@@ -443,12 +455,35 @@ public sealed class EstudiantesController(StudentsDbContext context, ILogger<Est
     private static string? Normalizar(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static EstudianteResponse ToResponse(Estudiante e) => new(e.Id, e.Cedula, e.TipoIdentificacion,
         e.Nombres, e.Apellidos, e.Tipo, e.CreadoPor, e.CreadoEn, e.ModificadoPor, e.ModificadoEn,
-        e.Historial is null ? null : ToResponse(e.Historial), e.Eliminado);
-    private static HistorialResponse ToResponse(HistorialAcademico h) => new(h.Id, h.EstudianteId,
+        e.Historial is null ? null : ToResponse(e.Historial, e.Tipo == TipoEstudiante.Externo), e.Eliminado, Revisar(e), Revisar(e).Count == 0);
+    private static HistorialResponse ToResponse(HistorialAcademico h, bool? externo = null) => new(h.Id, h.EstudianteId,
         h.CarreraOrigenId, h.CarreraOrigenNombre, h.InstitucionOrigen, h.NivelActual, h.ActualizadoEn,
         h.Asignaturas.OrderBy(a => a.Periodo).ThenBy(a => a.Nombre)
             .Select(a => new AsignaturaCursadaResponse(a.Id, a.AsignaturaId, a.Codigo, a.Nombre,
-                a.Creditos, a.Horas, a.Nota, a.Periodo)).ToList(), h.MallaOrigenId);
+                a.Creditos, a.Horas, a.Nota, a.Periodo, JsonSerializer.Deserialize<TemaCursado[]>(a.TemasJson), a.CarreraOrigenNombre)).ToList(), h.MallaOrigenId, externo ?? h.Estudiante?.Tipo == TipoEstudiante.Externo);
+    private static List<FaltanteHomologacion> Revisar(Estudiante student)
+    {
+        var faltantes = new List<FaltanteHomologacion>();
+        if (student.Historial is null || student.Historial.Asignaturas.Count == 0)
+            faltantes.Add(new("", "Historial", ["asignaturas cursadas"]));
+        if (student.Tipo != TipoEstudiante.Externo) return faltantes;
+        if (string.IsNullOrWhiteSpace(student.Historial?.InstitucionOrigen)) faltantes.Add(new("", "Origen", ["institución de origen"]));
+        if (string.IsNullOrWhiteSpace(student.Historial?.CarreraOrigenNombre)) faltantes.Add(new("", "Origen", ["carrera de origen"]));
+        foreach (var materia in student.Historial?.Asignaturas ?? [])
+        {
+            var campos = new List<string>();
+            if (materia.Creditos is null or <= 0) campos.Add("créditos");
+            if (materia.Horas is null or <= 0) campos.Add("horas");
+            if (string.IsNullOrWhiteSpace(materia.Periodo)) campos.Add("período");
+            var temas = JsonSerializer.Deserialize<TemaCursado[]>(materia.TemasJson) ?? [];
+            if (temas.Length == 0) campos.Add("temas y subtemas");
+            foreach (var tema in temas)
+                if (tema.Subtemas is null || !tema.Subtemas.Any(x => !string.IsNullOrWhiteSpace(x))) campos.Add($"subtemas de {tema.Nombre}");
+            if (campos.Count > 0) faltantes.Add(new(materia.Codigo ?? "", materia.Nombre, campos));
+        }
+        return faltantes;
+    }
+
     private static ProblemDetails Problem(int status, string detail) => new()
     { Status = status, Title = status == 400 ? "Solicitud inválida" : "Conflicto", Detail = detail };
 }

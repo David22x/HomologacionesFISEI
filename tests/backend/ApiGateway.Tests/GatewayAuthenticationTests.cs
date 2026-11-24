@@ -24,6 +24,19 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
         _fixture = fixture;
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RutaZip_requiere_bearer_y_llega_a_Academic(bool autenticado)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/catalogo/mallas/{Guid.NewGuid()}/planes-analiticos/analizar") { Content = new StringContent("") };
+        if (autenticado) request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer", GatewayApiFactory.CreateToken(DateTime.UtcNow.AddMinutes(5)));
+        using var response = await _fixture.Client.SendAsync(request);
+        Assert.Equal(autenticado ? HttpStatusCode.Forbidden : HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     [Fact]
     public async Task RutaProtegida_SinToken_Devuelve401()
     {
@@ -201,6 +214,10 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
     [InlineData("GET", "/api/v1/documentos/importaciones/plantilla")]
     [InlineData("POST", "/api/v1/documentos/importaciones")]
     [InlineData("POST", "/api/v1/documentos/importaciones/confirmar")]
+    [InlineData("POST", "/api/v1/documentos/records/analizar")]
+    [InlineData("POST", "/api/v1/documentos/records/confirmar")]
+    [InlineData("POST", "/api/v1/documentos/records/analizar-registro")]
+    [InlineData("POST", "/api/v1/documentos/records/registrar")]
     public async Task RutaDocuments_SinToken_Devuelve401(string method, string path)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), path)
@@ -217,6 +234,10 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
     [InlineData("GET", "/api/v1/documentos/importaciones/plantilla")]
     [InlineData("POST", "/api/v1/documentos/importaciones")]
     [InlineData("POST", "/api/v1/documentos/importaciones/confirmar")]
+    [InlineData("POST", "/api/v1/documentos/records/analizar")]
+    [InlineData("POST", "/api/v1/documentos/records/confirmar")]
+    [InlineData("POST", "/api/v1/documentos/records/analizar-registro")]
+    [InlineData("POST", "/api/v1/documentos/records/registrar")]
     public async Task RutaDocuments_ConToken_ReenviaAlServicio(string method, string path)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), path)
@@ -242,7 +263,9 @@ public sealed class GatewayAuthenticationTests : IClassFixture<GatewayTestFixtur
                 .StartsWith("/api/v1/documentos/", StringComparison.Ordinal))
             .ToList();
 
-        Assert.Equal(3, routes.Count);
+        Assert.Equal(4, routes.Count);
+        var extractionRoute = Assert.Single(routes, route => route.GetProperty("UpstreamPathTemplate").GetString() == "/api/v1/documentos/records/{action}");
+        Assert.True(extractionRoute.GetProperty("Timeout").GetInt32() >= 200);
         Assert.Contains(routes, route =>
             route.GetProperty("UpstreamPathTemplate").GetString() == "/api/v1/documentos/importaciones/confirmar"
             && route.GetProperty("UpstreamHttpMethod")[0].GetString() == "Post");
@@ -513,6 +536,24 @@ public sealed class GatewayTestFixture : IAsyncLifetime
                         AuthenticationProviderKey = "Bearer",
                         AllowedScopes = Array.Empty<string>()
                     }
+                },
+                new
+                {
+                    DownstreamPathTemplate = "/api/v1/documentos/records/{action}",
+                    DownstreamScheme = "http",
+                    DownstreamHostAndPorts = new[] { new { Host = "127.0.0.1", Port = downstreamPort } },
+                    UpstreamPathTemplate = "/api/v1/documentos/records/{action}",
+                    UpstreamHttpMethod = new[] { "POST" },
+                    AuthenticationOptions = new { AuthenticationProviderKey = "Bearer", AllowedScopes = Array.Empty<string>() }
+                },
+                new
+                {
+                    DownstreamPathTemplate = "/api/v1/catalogo/mallas/{id}/planes-analiticos/{action}",
+                    DownstreamScheme = "http",
+                    DownstreamHostAndPorts = new[] { new { Host = "127.0.0.1", Port = downstreamPort } },
+                    UpstreamPathTemplate = "/api/v1/catalogo/mallas/{id}/planes-analiticos/{action}",
+                    UpstreamHttpMethod = new[] { "POST" },
+                    AuthenticationOptions = new { AuthenticationProviderKey = "Bearer", AllowedScopes = Array.Empty<string>() }
                 },
                 new
                 {

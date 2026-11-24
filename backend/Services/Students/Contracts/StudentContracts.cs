@@ -13,7 +13,7 @@ public sealed record EstudianteWriteRequest(
 
 public sealed record EstudianteResponse(Guid Id, string Cedula, TipoIdentificacion TipoIdentificacion,
     string Nombres, string Apellidos, TipoEstudiante Tipo, string? CreadoPor, DateTime CreadoEn,
-    string? ModificadoPor, DateTime ModificadoEn, HistorialResponse? Historial, bool Eliminado = false);
+    string? ModificadoPor, DateTime ModificadoEn, HistorialResponse? Historial, bool Eliminado = false, IReadOnlyList<FaltanteHomologacion>? InformacionFaltante = null, bool ListoParaHomologar = false);
 
 public sealed record HistorialWriteRequest(Guid? CarreraOrigenId,
     [StringLength(200)] string? CarreraOrigenNombre,
@@ -27,11 +27,14 @@ public sealed record AsignaturaCursadaWriteRequest(Guid? AsignaturaId,
     decimal? Creditos,
     int? Horas,
     decimal Nota,
-    [Required, StringLength(30)] string Periodo);
+    [Required, StringLength(30)] string Periodo, IReadOnlyList<TemaCursado>? Temas = null, [StringLength(200)] string? CarreraOrigenNombre = null);
 
 public sealed record HistorialResponse(Guid Id, Guid EstudianteId, Guid? CarreraOrigenId,
     string? CarreraOrigenNombre, string? InstitucionOrigen, int? NivelActual, DateTime ActualizadoEn,
-    IReadOnlyList<AsignaturaCursadaResponse> Asignaturas, Guid? MallaOrigenId = null);
+    IReadOnlyList<AsignaturaCursadaResponse> Asignaturas, Guid? MallaOrigenId = null, bool EsExterno = false);
 
 public sealed record AsignaturaCursadaResponse(Guid Id, Guid? AsignaturaId, string? Codigo,
-    string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo);
+    string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo, IReadOnlyList<TemaCursado>? Temas = null, [StringLength(200)] string? CarreraOrigenNombre = null);
+
+public sealed record TemaCursado([Required, StringLength(300)] string Nombre, IReadOnlyList<string> Subtemas, int? Horas = null);
+public sealed record FaltanteHomologacion(string Codigo, string Asignatura, IReadOnlyList<string> Campos);

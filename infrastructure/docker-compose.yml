@@ -191,6 +191,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:5104
+      AcademicService__BaseUrl: http://academic:5193
+      AgentIaService__BaseUrl: http://agent-ia:5197
       StudentsService__BaseUrl: http://students:5194
       Jwt__SecretKey: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in infrastructure/.env}
     ports:

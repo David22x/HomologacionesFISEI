@@ -18,13 +18,15 @@ export interface AsignaturaCatalogo {
 
 export interface AsignaturaCursada {
   id?: string;
-  asignaturaId: string;
+  asignaturaId: string | null;
   codigo: string | null;
   nombre: string;
   creditos: number | null;
   horas: number | null;
   nota: number;
   periodo: string;
+  carreraOrigenNombre?: string | null;
+  temas?: { nombre: string; subtemas: string[]; horas?: number | null }[];
 }
 
 export interface HistorialAcademico {
@@ -51,6 +53,8 @@ export interface Estudiante {
   modificadoPor: string | null;
   modificadoEn: string;
   historial: HistorialAcademico | null;
+  informacionFaltante?: { codigo: string; asignatura: string; campos: string[] }[];
+  listoParaHomologar?: boolean;
 }
 
 export interface EstudianteWriteRequest {
@@ -108,6 +112,8 @@ async function request<T>(
 }
 
 export const studentsService = {
+  actualizarExterno(id: string, datos: unknown): Promise<Estudiante> { return request<Estudiante>(`/api/v1/estudiantes/${id}`, 'PUT', datos); },
+  guardarHistorial(id: string, historial: unknown): Promise<HistorialAcademico> { return request<HistorialAcademico>(`/api/v1/estudiantes/${id}/historial`, 'PUT', historial); },
   obtener(id: string): Promise<Estudiante> { return request<Estudiante>(`/api/v1/estudiantes/${id}`); },
   eliminar(id: string): Promise<void> {
     return request<void>(`/api/v1/estudiantes/${id}`, 'DELETE');

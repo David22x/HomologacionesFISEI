@@ -26,7 +26,8 @@ public sealed class ImportacionesController : ControllerBase
         Guid? CarreraOrigenId, string? CarreraOrigenNombre, string? InstitucionOrigen, int? NivelActual,
         IReadOnlyList<ExternalSubjectImport> Asignaturas);
     private sealed record ExternalSubjectImport(
-        Guid? AsignaturaId, string? Codigo, string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo);
+        Guid? AsignaturaId, string? Codigo, string Nombre, decimal? Creditos, int? Horas, decimal Nota, string Periodo, IReadOnlyList<ExternalTopic>? Temas = null);
+    private sealed record ExternalTopic(string Nombre, IReadOnlyList<string> Subtemas, int? Horas = null);
 
     private static readonly IReadOnlyDictionary<string, Column[]> Schema = new Dictionary<string, Column[]>
     {
@@ -248,7 +249,7 @@ public sealed class ImportacionesController : ControllerBase
 
                 ValidateContents(sheets["Contenidos"], subjectCodes, errors);
                 if (errors.Count == 0)
-                    import = CreateImport(sheets["Estudiante"], studentRows[0], sheets["Asignaturas"], subjectRows);
+                    import = CreateImport(sheets["Estudiante"], studentRows[0], sheets["Asignaturas"], subjectRows, sheets["Contenidos"]);
             }
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -268,7 +269,8 @@ public sealed class ImportacionesController : ControllerBase
         (IXLWorksheet Worksheet, Dictionary<string, int> Headers) studentSheet,
         int studentRow,
         (IXLWorksheet Worksheet, Dictionary<string, int> Headers) subjectsSheet,
-        IReadOnlyList<int> subjectRows)
+        IReadOnlyList<int> subjectRows,
+        (IXLWorksheet Worksheet, Dictionary<string, int> Headers) contentsSheet)
     {
         var identificationType = Value(studentSheet, studentRow, "TipoIdentificacion");
         var level = Value(studentSheet, studentRow, "NivelActual");
@@ -290,7 +292,11 @@ public sealed class ImportacionesController : ControllerBase
                 credits,
                 decimal.ToInt32(hours),
                 grade,
-                Value(subjectsSheet, row, "Periodo"));
+                Value(subjectsSheet, row, "Periodo"),
+                GetDataRows(contentsSheet.Worksheet, contentsSheet.Headers)
+                    .Where(r => string.Equals(Value(contentsSheet, r, "CodigoAsignatura"), Value(subjectsSheet, row, "Codigo"), StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(r => Value(contentsSheet, r, "Tema"), StringComparer.OrdinalIgnoreCase)
+                    .Select(g => new ExternalTopic(g.Key, g.Select(r => Value(contentsSheet, r, "Subtema")).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())).ToArray());
         }).ToList();
 
         return new ExternalStudentImport(

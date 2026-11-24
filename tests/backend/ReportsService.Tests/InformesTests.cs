@@ -81,6 +81,29 @@ public sealed class InformesTests
         Assert.Contains("Decisión docente: Homologable", texto);
         Assert.Contains("Justificación: Se acepta por revisión académica documentada.", texto);
         Assert.Contains("Docente de prueba", texto);
+        Assert.Contains("Asignaturas homologadas (1)", texto);
+        Assert.Contains("Asignaturas no homologadas por decisión del profesor (0)", texto);
+        Assert.Contains("Observaciones del profesor", texto);
+        Assert.Contains("Firma del profesor responsable", texto);
+        Assert.Contains("Firma del estudiante (acepta el informe)", texto);
+        Assert.Contains("Tipo de homologación: Interna", texto);
+        Assert.Contains("Total de asignaturas homologadas: 1 de 1", texto);
+        Assert.Contains("Observaciones: Sin observaciones.", texto);
+        Assert.Contains("70% 80% Profesor", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_noMuestraCodigosInternosYUsaHoraDeEcuador()
+    {
+        using var factory = new ReportsFactory();
+        var texto = await GenerarTextoAsync(factory);
+        var expediente = factory.Fuente.ExpedienteId.ToString();
+        Assert.Contains("Expediente " + expediente[..8], texto);
+        Assert.DoesNotContain(expediente, texto);
+        Assert.DoesNotContain("Evidencia:", texto);
+        Assert.DoesNotContain("UTC", texto);
+        Assert.Contains("Decisión registrada 22/11/2026 05:00 (hora de Ecuador)", texto);
+        Assert.Contains("Temas del destino cubiertos: 1 de 1", texto);
     }
 
     [Fact]
@@ -88,14 +111,43 @@ public sealed class InformesTests
     {
         using var homologada = new ReportsFactory();
         var texto = await GenerarTextoAsync(homologada);
-        Assert.Contains("Asignaturas homologadas: 1", texto);
-        Assert.Contains("Asignaturas rechazadas: 0", texto);
+        Assert.Contains("Resumen 1 1 0 Decisiones Homologadas Rechazadas", texto);
         using var rechazada = new ReportsFactory();
         rechazada.Fuente.ResultadoFinal = 1;
         texto = await GenerarTextoAsync(rechazada);
-        Assert.Contains("Decisión docente: Rechazo por créditos", texto);
-        Assert.Contains("Asignaturas homologadas: 0", texto);
-        Assert.Contains("Asignaturas rechazadas: 1", texto);
+        Assert.Contains("Asignaturas no homologadas por decisión del profesor (0)", texto);
+        Assert.Contains("Otras 1 asignaturas no cumplieron los requisitos de homologación", texto);
+        Assert.DoesNotContain("Motivo del rechazo", texto);
+        Assert.DoesNotContain("Observaciones del profesor", texto);
+        Assert.Contains("Resumen 1 0 1 Decisiones Homologadas Rechazadas", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_explicaPorQueElProfesorRechazoLoQueElSistemaRecomendabaHomologar()
+    {
+        using var factory = new ReportsFactory();
+        factory.Fuente.ResultadoCalculado = 0;
+        factory.Fuente.ResultadoFinal = 2;
+        factory.Fuente.Justificacion = "Faltan temas de bases de datos en el sílabo de origen.";
+        var texto = await GenerarTextoAsync(factory);
+        Assert.Contains("Asignaturas no homologadas por decisión del profesor (1)", texto);
+        Assert.Contains("Motivo del rechazo", texto);
+        Assert.Contains("El sistema recomendaba homologar; el profesor la rechazó.", texto);
+        Assert.Contains("Rechazo por contenidos", texto);
+        Assert.Contains("Créditos: 70% (no cumple, mínimo 80%)", texto);
+        Assert.Contains("Justificación del profesor: Faltan temas de bases de datos en el sílabo de origen.", texto);
+        Assert.DoesNotContain("Observaciones del profesor", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_indicaQueLosContenidosNoAplicanEnUnaTransversalDirecta()
+    {
+        using var factory = new ReportsFactory();
+        factory.Fuente.ResultadoCalculado = 4;
+        factory.Fuente.ResultadoFinal = 4;
+        var texto = await GenerarTextoAsync(factory);
+        Assert.Contains("Asignaturas homologadas (1)", texto);
+        Assert.Contains("70% No aplica Sistema", texto);
     }
 
     [Fact]
@@ -251,6 +303,7 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
     public string Nombre { get; set; } = "Ana";
     public int Estado { get; set; } = 5;
     public int ResultadoFinal { get; set; }
+    public int ResultadoCalculado { get; set; } = 1;
     public bool SinDecisiones { get; set; }
     public string Justificacion { get; set; } = "Se acepta por revisión académica documentada.";
     public int CantidadTemas { get; set; } = 1;
@@ -271,7 +324,7 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
                 expediente = new { id = ExpedienteId, estudianteId = _estudiante, carreraDestinoId = _carrera,
                     mallaDestinoId = _malla, profesorId = Guid.Empty, profesorNombre = "Docente de prueba", estado = Estado },
                 decisiones = new[] { new { id = _destino, asignaturaDestinoId = _destino,
-                    origenIdsJson = JsonSerializer.Serialize(new[] { _origen }), resultadoCalculado = 1, resultadoFinal = ResultadoFinal,
+                    origenIdsJson = JsonSerializer.Serialize(new[] { _origen }), resultadoCalculado = ResultadoCalculado, resultadoFinal = ResultadoFinal,
                     justificacion = Justificacion,
                     profesorId = Guid.Empty, registradoEn = new DateTime(2026, 11, 22, 10, 0, 0, DateTimeKind.Utc) } }
                     .Take(SinDecisiones ? 0 : 1).ToArray(),
@@ -291,7 +344,7 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
             };
         }
         else if (path.StartsWith("/api/v1/estudiantes/"))
-            resultado = new { nombres = Nombre, apellidos = "Paz", cedula = "DEMO-001",
+            resultado = new { nombres = Nombre, apellidos = "Paz", cedula = "DEMO-001", tipo = 0,
                 historial = new { carreraOrigenNombre = "Ingeniería en Sistemas", institucionOrigen = "Universidad Externa" } };
         else if (path.EndsWith("/mallas"))
             resultado = new[] { new { id = _malla, version = "2026" } };

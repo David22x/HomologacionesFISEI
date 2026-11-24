@@ -32,7 +32,7 @@ public sealed class InformesController(ReportsDbContext db, FuenteInformeClient 
                 return Unauthorized();
             var completos = await fuente.CompletarAsync(datos, bearer, ct);
             var json = JsonSerializer.Serialize(completos, JsonWeb);
-            var huellaFuente = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
+            var huellaFuente = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json + "|plantilla:" + InformePdf.VersionPlantilla)));
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var existente = await db.Informes.AsNoTracking().Where(x =>
                 x.ExpedienteId == expedienteId && x.HuellaFuente == huellaFuente)

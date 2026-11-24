@@ -19,7 +19,17 @@ public sealed class FuenteInformeClient(IHttpClientFactory clients)
         var malla = mallas.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == fuente.Expediente.MallaDestinoId);
         return new(fuente, $"{Texto(estudiante, "apellidos")}, {Texto(estudiante, "nombres")}",
             Texto(estudiante, "cedula"), Texto(carrera, "nombre"), Texto(malla, "version"),
-            CarreraOrigen(estudiante, carreras));
+            CarreraOrigen(estudiante, carreras), TipoHomologacion(estudiante));
+    }
+
+    private static string? TipoHomologacion(JsonElement estudiante)
+    {
+        if (!estudiante.TryGetProperty("tipo", out var tipo)) return null;
+        if (tipo.ValueKind == JsonValueKind.Number && tipo.TryGetInt32(out var numero))
+            return numero == 1 ? "Externa" : numero == 0 ? "Interna" : null;
+        var texto = tipo.ValueKind == JsonValueKind.String ? tipo.GetString() : null;
+        if (texto?.StartsWith("Ext", StringComparison.OrdinalIgnoreCase) == true) return "Externa";
+        return texto?.StartsWith("Int", StringComparison.OrdinalIgnoreCase) == true ? "Interna" : null;
     }
 
     private static string CarreraOrigen(JsonElement estudiante, JsonElement carreras)
@@ -59,4 +69,4 @@ public sealed record DecisionDatos(Guid Id, Guid AsignaturaDestinoId, string Ori
     int ResultadoCalculado, int ResultadoFinal, string? Justificacion, Guid ProfesorId, DateTime RegistradoEn);
 public sealed record FuenteHomologacion(ExpedienteDatos Expediente, DecisionDatos[] Decisiones, JsonElement Analisis);
 public sealed record DatosInforme(FuenteHomologacion Fuente, string Estudiante, string Identificacion,
-    string Carrera, string Malla, string CarreraOrigen = "No registrada");
+    string Carrera, string Malla, string CarreraOrigen = "No registrada", string? Tipo = null);

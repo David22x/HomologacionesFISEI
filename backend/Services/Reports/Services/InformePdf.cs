@@ -25,9 +25,11 @@ public static class InformePdf
                 column.Spacing(8);
                 column.Item().Text($"Estudiante: {datos.Estudiante}");
                 column.Item().Text($"Identificación: {datos.Identificacion}");
+                column.Item().Text($"Carrera de origen: {datos.CarreraOrigen}");
                 column.Item().Text($"Carrera de destino: {datos.Carrera} · Malla {datos.Malla}");
                 column.Item().Text($"Profesor responsable: {datos.Fuente.Expediente.ProfesorNombre}");
                 column.Item().Text($"Estado: Resuelto · Generado {generadoEn:yyyy-MM-dd HH:mm:ss} UTC");
+                Resumen(column, datos);
                 column.Item().PaddingTop(8).Text("Decisiones académicas").FontSize(14).SemiBold();
                 foreach (var decision in datos.Fuente.Decisiones.OrderBy(x => x.AsignaturaDestinoId))
                 {
@@ -44,6 +46,9 @@ public static class InformePdf
                     column.Item().Text($"Resultado calculado: {Resultado(decision.ResultadoCalculado)}");
                     column.Item().Text($"Decisión docente: {Resultado(decision.ResultadoFinal)}");
                     column.Item().Text("Justificación: " + (decision.Justificacion ?? "Aceptación de la recomendación calculada."));
+                    if (EsRecomendable(decision.Justificacion))
+                        column.Item().Background(Colors.Green.Lighten4).Padding(4)
+                            .Text("Nota: Es recomendable homologar").SemiBold().FontColor(Colors.Green.Darken3);
                     column.Item().Text($"Decisión registrada {decision.RegistradoEn:yyyy-MM-dd HH:mm:ss} UTC · Profesor {decision.ProfesorId}");
                     column.Item().Text($"Créditos: {Porcentaje(reglas, "razonCreditos")} · Contenidos: {Porcentaje(reglas, "coberturaContenidos")} · Horas: {Porcentaje(reglas, "razonHoras")}");
                     column.Item().Text("Versión de reglas: " + reglas.GetProperty("versionReglas").GetString());
@@ -61,6 +66,7 @@ public static class InformePdf
                 if (datos.Fuente.Analisis.TryGetProperty("advertencias", out var notas))
                     foreach (var nota in notas.EnumerateArray())
                         column.Item().Text("Advertencia del expediente: " + nota.GetString());
+                Cierre(column, datos, generadoEn);
             });
             page.Footer().AlignCenter().Text(text =>
             {
@@ -70,6 +76,31 @@ public static class InformePdf
                 text.TotalPages();
             });
         })).GeneratePdf();
+    }
+
+    private static bool Homologada(int resultado) => resultado is 0 or 4;
+
+    private static bool EsRecomendable(string? justificacion) =>
+        justificacion?.Contains("Es recomendable homologar", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static void Resumen(ColumnDescriptor column, DatosInforme datos)
+    {
+        var decisiones = datos.Fuente.Decisiones;
+        var homologadas = decisiones.Count(x => Homologada(x.ResultadoFinal));
+        column.Item().PaddingTop(8).Text("Resumen").FontSize(14).SemiBold();
+        column.Item().Text($"Decisiones registradas: {decisiones.Length}");
+        column.Item().Text($"Asignaturas homologadas: {homologadas}");
+        column.Item().Text($"Asignaturas rechazadas: {decisiones.Length - homologadas}");
+    }
+
+    private static void Cierre(ColumnDescriptor column, DatosInforme datos, DateTime generadoEn)
+    {
+        column.Item().PaddingTop(16).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
+        column.Item().Text($"Responsable: {datos.Fuente.Expediente.ProfesorNombre}").SemiBold();
+        column.Item().Text($"Fecha de emisión: {generadoEn:yyyy-MM-dd HH:mm:ss} UTC");
+        column.Item().Text("La decisión final de homologación corresponde al profesor responsable. " +
+            "Los resultados calculados por el sistema son una recomendación de apoyo.")
+            .FontSize(9).FontColor(Colors.Grey.Darken2);
     }
 
     private static void Temas(ColumnDescriptor column, JsonElement cobertura, string propiedad, string titulo)

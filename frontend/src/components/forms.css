@@ -110,3 +110,7 @@
 .expediente-page .eligibility-results-table input[type=checkbox], .expediente-page .compact-homologation-table input[type=checkbox] { width: 1.1rem; height: 1.1rem; }
 .definitive-panel { border-top: 4px solid #238463; margin: 1.25rem 0; }
 @media (max-width: 640px) { .expediente-page .eligibility-results-table, .expediente-page .compact-homologation-table { table-layout: auto; } .expediente-page .eligibility-results-table th, .expediente-page .compact-homologation-table th { font-size: .75rem; } }
+
+.informes-expediente { display: grid; gap: 0.5rem; margin: 1rem 0; }
+.informes-versiones { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.informes-versiones li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }

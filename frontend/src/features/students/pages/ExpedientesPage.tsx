@@ -18,6 +18,7 @@ import {
   type SeleccionPropuesta,
 } from '../expedientesService';
 import { studentsService, type AsignaturaCursada, type Estudiante } from '../studentsService';
+import InformesExpediente from './InformesExpediente';
 
 interface ExpedientesPageProps {
   canCreate: boolean;
@@ -735,6 +736,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>
+        {selectedExpediente && [5, 'Resuelto'].includes(selectedExpediente.estado) && <InformesExpediente expedienteId={selectedExpediente.id} puedeGenerar={canCreate} />}
         {puedeEditar && iaAnalysis && decisions.length === 0 && <button type="button" className="students-secondary" disabled={analyzingIa} onClick={() => { void analyzeWithIa(true); }}>Recalcular con los datos actuales</button>}
         {iaError && <p className="ia-error" role="alert">{iaError}</p>}
         {analyzingIa && <p className="catalog-message" role="status">El agente está analizando los contenidos del expediente. Esto puede tardar unos minutos.</p>}

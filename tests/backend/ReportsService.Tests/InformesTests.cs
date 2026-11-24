@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using ReportsService.Data;
+using UglyToad.PdfPig;
 
 namespace ReportsService.Tests;
 
@@ -53,6 +54,98 @@ public sealed class InformesTests
         var versiones = await client.GetFromJsonAsync<JsonElement>(ruta);
         Assert.Equal(2, versiones.GetArrayLength());
 
+    }
+
+    private static async Task<string> GenerarTextoAsync(ReportsFactory factory)
+    {
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ReportsFactory.Token(AppRoles.Profesor);
+        var ruta = $"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}";
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsync(ruta + "/generar", null)).StatusCode);
+        using var documento = PdfDocument.Open(await client.GetByteArrayAsync(ruta + "/1/pdf"));
+        return string.Join(" ", documento.GetPages().SelectMany(p => p.GetWords()).Select(w => w.Text));
+    }
+
+    [Fact]
+    public async Task Pdf_incluyeLosDatosYLasDecisionesGuardadas()
+    {
+        using var factory = new ReportsFactory();
+        var texto = await GenerarTextoAsync(factory);
+        Assert.Contains("Paz, Ana", texto);
+        Assert.Contains("DEMO-001", texto);
+        Assert.Contains("Carrera de origen: Ingeniería en Sistemas (Universidad Externa)", texto);
+        Assert.Contains("Carrera de destino: Ingeniería de Software · Malla 2026", texto);
+        Assert.Contains("Programación", texto);
+        Assert.Contains("Origen: Fundamentos de programación", texto);
+        Assert.Contains("Resultado calculado: Rechazo por créditos", texto);
+        Assert.Contains("Decisión docente: Homologable", texto);
+        Assert.Contains("Justificación: Se acepta por revisión académica documentada.", texto);
+        Assert.Contains("Docente de prueba", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_resumeHomologadasYRechazadasSegunLaDecision()
+    {
+        using var homologada = new ReportsFactory();
+        var texto = await GenerarTextoAsync(homologada);
+        Assert.Contains("Asignaturas homologadas: 1", texto);
+        Assert.Contains("Asignaturas rechazadas: 0", texto);
+        using var rechazada = new ReportsFactory();
+        rechazada.Fuente.ResultadoFinal = 1;
+        texto = await GenerarTextoAsync(rechazada);
+        Assert.Contains("Decisión docente: Rechazo por créditos", texto);
+        Assert.Contains("Asignaturas homologadas: 0", texto);
+        Assert.Contains("Asignaturas rechazadas: 1", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_indicaSiCumpleLosMinimosYDeclaraLaDecisionDelProfesor()
+    {
+        using var factory = new ReportsFactory();
+        var texto = await GenerarTextoAsync(factory);
+        Assert.Contains("Créditos: 70% (no cumple, mínimo 80%)", texto);
+        Assert.Contains("Contenidos: 80% (cumple, mínimo 80%)", texto);
+        Assert.Contains("Horas: Sin datos", texto);
+        Assert.Contains("La decisión final de homologación corresponde al profesor responsable", texto);
+    }
+
+    [Fact]
+    public async Task Pdf_destacaLaNotaEsRecomendableHomologarSoloCuandoExiste()
+    {
+        using var sinNota = new ReportsFactory();
+        Assert.DoesNotContain("Nota: Es recomendable homologar", await GenerarTextoAsync(sinNota));
+        using var conNota = new ReportsFactory();
+        conNota.Fuente.Justificacion = "Revisión docente. Es recomendable homologar";
+        Assert.Contains("Nota: Es recomendable homologar", await GenerarTextoAsync(conNota));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task Generar_noPermiteExpedientesQueNoEstanResueltos(int estado)
+    {
+        using var factory = new ReportsFactory();
+        factory.Fuente.Estado = estado;
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ReportsFactory.Token(AppRoles.Profesor);
+        var ruta = $"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}";
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(ruta + "/generar", null)).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<ReportsDbContext>().Informes.CountAsync());
+    }
+
+    [Fact]
+    public async Task Generar_noPermiteUnExpedienteResueltoSinDecisiones()
+    {
+        using var factory = new ReportsFactory();
+        factory.Fuente.SinDecisiones = true;
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ReportsFactory.Token(AppRoles.Profesor);
+        var ruta = $"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}";
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(ruta + "/generar", null)).StatusCode);
     }
 
     [Fact]
@@ -156,6 +249,10 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
     private readonly Guid _carrera = Guid.NewGuid();
     private readonly Guid _malla = Guid.NewGuid();
     public string Nombre { get; set; } = "Ana";
+    public int Estado { get; set; } = 5;
+    public int ResultadoFinal { get; set; }
+    public bool SinDecisiones { get; set; }
+    public string Justificacion { get; set; } = "Se acepta por revisión académica documentada.";
     public int CantidadTemas { get; set; } = 1;
     public HttpStatusCode EstadoRespuesta { get; set; } = HttpStatusCode.OK;
     public HttpClient CreateClient(string name) => new(this, false) { BaseAddress = new Uri("http://localhost/") };
@@ -172,11 +269,12 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
             resultado = new
             {
                 expediente = new { id = ExpedienteId, estudianteId = _estudiante, carreraDestinoId = _carrera,
-                    mallaDestinoId = _malla, profesorId = Guid.Empty, profesorNombre = "Docente de prueba", estado = 5 },
+                    mallaDestinoId = _malla, profesorId = Guid.Empty, profesorNombre = "Docente de prueba", estado = Estado },
                 decisiones = new[] { new { id = _destino, asignaturaDestinoId = _destino,
-                    origenIdsJson = JsonSerializer.Serialize(new[] { _origen }), resultadoCalculado = 1, resultadoFinal = 0,
-                    justificacion = "Se acepta por revisión académica documentada.",
-                    profesorId = Guid.Empty, registradoEn = new DateTime(2026, 11, 22, 10, 0, 0, DateTimeKind.Utc) } },
+                    origenIdsJson = JsonSerializer.Serialize(new[] { _origen }), resultadoCalculado = 1, resultadoFinal = ResultadoFinal,
+                    justificacion = Justificacion,
+                    profesorId = Guid.Empty, registradoEn = new DateTime(2026, 11, 22, 10, 0, 0, DateTimeKind.Utc) } }
+                    .Take(SinDecisiones ? 0 : 1).ToArray(),
                 analisis = new
                 {
                     propuestas = new[] { new { asignaturaDestinoId = _destino, nombreDestino = "Programación",

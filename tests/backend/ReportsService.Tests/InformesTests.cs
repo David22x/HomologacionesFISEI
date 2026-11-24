@@ -56,6 +56,21 @@ public sealed class InformesTests
     }
 
     [Fact]
+    public async Task Generar_incluyeCarreraDeOrigenDelHistorial()
+    {
+        using var factory = new ReportsFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ReportsFactory.Token(AppRoles.Profesor);
+        var ruta = $"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}";
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsync(ruta + "/generar", null)).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var informe = await scope.ServiceProvider.GetRequiredService<ReportsDbContext>().Informes.SingleAsync();
+        Assert.Contains("Ingeniería en Sistemas (Universidad Externa)",
+            JsonDocument.Parse(informe.DatosJson).RootElement.GetProperty("carreraOrigen").GetString());
+        Assert.StartsWith("%PDF-", Encoding.ASCII.GetString(informe.Pdf, 0, 5));
+    }
+
+    [Fact]
     public async Task PermisosYEstado_noPermitenGenerarInformesAjenos()
     {
         using var factory = new ReportsFactory();
@@ -178,7 +193,8 @@ public sealed class FuenteFalsa : HttpMessageHandler, IHttpClientFactory
             };
         }
         else if (path.StartsWith("/api/v1/estudiantes/"))
-            resultado = new { nombres = Nombre, apellidos = "Paz", cedula = "DEMO-001" };
+            resultado = new { nombres = Nombre, apellidos = "Paz", cedula = "DEMO-001",
+                historial = new { carreraOrigenNombre = "Ingeniería en Sistemas", institucionOrigen = "Universidad Externa" } };
         else if (path.EndsWith("/mallas"))
             resultado = new[] { new { id = _malla, version = "2026" } };
         else resultado = new[] { new { id = _carrera, nombre = "Ingeniería de Software" } };

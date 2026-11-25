@@ -21,7 +21,17 @@ export default function RecordImportPage() {
   const [showAll, setShowAll] = useState(false);
   const student = students.find(s => s.id === studentId);
   const external = mode === 'registrar' ? source === 'externo' : student?.tipo === 1;
-  useEffect(() => { Promise.all([studentsService.listar(), catalogService.obtenerCarreras()]).then(([s, c]) => { setStudents(s); setCareers(c); }).catch(e => setError(e.message)); }, []);
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([studentsService.listar(), catalogService.obtenerCarreras()]).then(([s, c]) => {
+      if (!active) return;
+      if (s.status === 'fulfilled') setStudents(s.value);
+      if (c.status === 'fulfilled') setCareers(c.value);
+      const failures = [s, c].filter(v => v.status === 'rejected').map(v => v.status === 'rejected' && v.reason instanceof Error ? v.reason.message : 'No se pudo cargar una dependencia.');
+      if (failures.length) setError(failures.join(' '));
+    });
+    return () => { active = false; };
+  }, []);
   function edit(index: number, changes: Partial<Row>) { setPreview(p => p && ({ ...p, filas: p.filas.map((r, i) => i === index ? { ...r, ...changes } : r) })); }
   function profile(changes: Partial<Profile>) { setPreview(p => p && ({ ...p, perfil: { ...p.perfil, ...changes } })); }
   async function associate(malla: string, career: string, document: Preview) {
@@ -51,9 +61,10 @@ export default function RecordImportPage() {
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo consultar el catálogo.'); } finally { setBusy(false); }
   }
   async function analyze() {
-    if (!file) return; setBusy(true); setError(''); setNotice(''); setCompleted(false); setPreview(null); setShowAll(source === 'externo'); setCareerId(''); setMallaId(''); setMallas([]); setSubjects([]);
+    if (!file) return; setBusy(true); setError(''); setNotice('');
     try {
       const response = await uploadImport<Preview>(`/api/v1/documentos/records/analizar-registro?externo=${source === 'externo'}`, file);
+      setCompleted(false); setShowAll(source === 'externo'); setCareerId(''); setMallaId(''); setMallas([]); setSubjects([]);
       let document = { ...response, perfil: { ...emptyProfile(), ...response.perfil } };
       setPreview(document);
       if (source === 'uta' && mode === 'registrar') {
@@ -79,7 +90,8 @@ export default function RecordImportPage() {
         await uploadImport(`/api/v1/documentos/records/confirmar?externo=${source === 'externo'}`, file, { estudianteId: studentId, ...preview });
         setNotice('Récord importado. Se conservaron las materias existentes.');
       }
-      setCompleted(true); setStudents(await studentsService.listar());
+      setCompleted(true);
+      try { setStudents(await studentsService.listar()); } catch { setNotice(current => current + ' El registro se confirmó, pero no se pudo refrescar el listado.'); }
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo confirmar el récord.'); } finally { setBusy(false); }
   }
   function scale(value: string) {
@@ -95,7 +107,12 @@ export default function RecordImportPage() {
       <label>Archivo PDF<input type="file" accept=".pdf" onChange={e => { setFile(e.target.files?.[0] ?? null); setPreview(null); setError(''); setNotice(''); setCompleted(false); }} /></label>
       <button type="button" className="students-primary" disabled={!file || (mode === 'actualizar' && !studentId)} onClick={() => { void analyze(); }}>{busy ? 'Procesando documento…' : 'Leer récord académico'}</button>
     </fieldset><p>{source === 'externo' ? 'La IA extrae información del texto del PDF. Confirma las notas y la escala; los datos desconocidos quedan pendientes. Los documentos escaneados requieren OCR previo.' : 'Lectura de certificaciones UTA sin depender de IA. Las materias sin cursar se muestran aparte y no se seleccionan para importar.'}</p></section>
-    {error && <p role="alert" className="catalog-error">{error}</p>}{notice && <p role="status" className="maintenance-notice">{notice}</p>}
+    {error && <p role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" disabled={busy} onClick={() => {
+      void Promise.allSettled([studentsService.listar(), catalogService.obtenerCarreras()]).then(([s, c]) => {
+        if (s.status === 'fulfilled') setStudents(s.value); if (c.status === 'fulfilled') setCareers(c.value);
+        const failed = [s, c].find(v => v.status === 'rejected'); setError(failed?.status === 'rejected' && failed.reason instanceof Error ? failed.reason.message : '');
+      });
+    }}>Actualizar listas</button></p>}{notice && <p role="status" className="maintenance-notice">{notice}</p>}
     {preview && !completed && <section className="students-panel"><h2>Revisa la información extraída</h2>
       <fieldset disabled={busy} className="student-form-grid"><label>Identificación del documento<input value={preview.identificacion} onChange={e => setPreview({ ...preview, identificacion: e.target.value })} /></label>
       {mode === 'registrar' && <><label>Tipo de identificación<select value={preview.perfil.tipoIdentificacion} onChange={e => profile({ tipoIdentificacion: Number(e.target.value) })}><option value={0}>Cédula ecuatoriana</option><option value={1}>Pasaporte / identificación extranjera</option></select></label>

@@ -21,15 +21,13 @@ export default function CatalogPage() {
   const [nivelId, setNivelId] = useState('');
   const [busqueda, setBusqueda] = useState('');
 
-  const [cargando, setCargando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let activo = true;
 
     async function cargarCarreras() {
-      setCargando(true);
-      setError('');
 
       try {
         const datos = await catalogService.obtenerCarreras();
@@ -57,18 +55,9 @@ export default function CatalogPage() {
   useEffect(() => {
     let activo = true;
 
-    setMallas([]);
-    setMallaId('');
-    setNiveles([]);
-    setNivelId('');
-    setAsignaturas([]);
-    setBusqueda('');
-
     if (!carreraId) return;
 
     async function cargarMallas() {
-      setCargando(true);
-      setError('');
 
       try {
         const datos = await catalogService.obtenerMallas(carreraId);
@@ -96,16 +85,9 @@ export default function CatalogPage() {
   useEffect(() => {
     let activo = true;
 
-    setNiveles([]);
-    setNivelId('');
-    setAsignaturas([]);
-    setBusqueda('');
-
     if (!mallaId) return;
 
     async function cargarNiveles() {
-      setCargando(true);
-      setError('');
 
       try {
         const datos = await catalogService.obtenerNiveles(mallaId);
@@ -133,13 +115,9 @@ export default function CatalogPage() {
   useEffect(() => {
     let activo = true;
 
-    setAsignaturas([]);
-
     if (!mallaId || !nivelId) return;
 
     async function cargarAsignaturas() {
-      setCargando(true);
-      setError('');
 
       try {
         const datos = await catalogService.obtenerAsignaturas(
@@ -195,9 +173,9 @@ export default function CatalogPage() {
       </header>
 
       <section className="catalog-filters" aria-label="Filtros del catálogo">
-        <SearchableSelect id="carrera" label="Carrera" value={carreraId} placeholder="Escribe para buscar una carrera" options={carreras.map(carrera => ({ value: carrera.id, label: `${carrera.nombre}${carrera.esDemo ? ' (DEMO)' : ''} · ${carrera.codigo}` }))} onChange={setCarreraId} />
-        <SearchableSelect key={`catalogo-malla-${carreraId}`} id="malla" label="Malla curricular" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!carreraId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' (vigente)' : ''}` }))} onChange={setMallaId} />
-        <SearchableSelect key={`catalogo-nivel-${mallaId}`} id="nivel" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(nivel => ({ value: nivel.id, label: `Nivel ${nivel.numero}` }))} onChange={setNivelId} />
+        <SearchableSelect id="carrera" label="Carrera" value={carreraId} placeholder="Escribe para buscar una carrera" options={carreras.map(carrera => ({ value: carrera.id, label: `${carrera.nombre}${carrera.esDemo ? ' (DEMO)' : ''} · ${carrera.codigo}` }))} onChange={id => { setCarreraId(id); setMallas([]); setMallaId(''); setNiveles([]); setNivelId(''); setAsignaturas([]); setBusqueda(''); setError(''); setCargando(Boolean(id)); }} />
+        <SearchableSelect key={`catalogo-malla-${carreraId}`} id="malla" label="Malla curricular" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!carreraId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' (vigente)' : ''}` }))} onChange={id => { setMallaId(id); setNiveles([]); setNivelId(''); setAsignaturas([]); setBusqueda(''); setError(''); setCargando(Boolean(id)); }} />
+        <SearchableSelect key={`catalogo-nivel-${mallaId}`} id="nivel" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(nivel => ({ value: nivel.id, label: `Nivel ${nivel.numero}` }))} onChange={id => { setNivelId(id); setAsignaturas([]); setBusqueda(''); setError(''); setCargando(Boolean(id)); }} />
       </section>
 
       {carreraSeleccionada && mallaSeleccionada && nivelSeleccionado && (
@@ -210,6 +188,18 @@ export default function CatalogPage() {
       {error && (
         <div className="catalog-error" role="alert">
           {error}
+          <button type="button" disabled={cargando} onClick={async () => {
+            setCargando(true); setError('');
+            const resultados = await Promise.allSettled([
+              catalogService.obtenerCarreras().then(setCarreras),
+              ...(carreraId ? [catalogService.obtenerMallas(carreraId).then(setMallas)] : []),
+              ...(mallaId ? [catalogService.obtenerNiveles(mallaId).then(setNiveles)] : []),
+              ...(mallaId && nivelId ? [catalogService.obtenerAsignaturas(mallaId, nivelId, busqueda).then(setAsignaturas)] : []),
+            ]);
+            const fallo = resultados.find(r => r.status === 'rejected');
+            if (fallo?.status === 'rejected') setError(fallo.reason instanceof Error ? fallo.reason.message : 'No se pudo completar la consulta.');
+            setCargando(false);
+          }}>Reintentar consulta</button>
         </div>
       )}
 
@@ -232,7 +222,7 @@ export default function CatalogPage() {
             type="search"
             placeholder="Ej. programación..."
             value={busqueda}
-            onChange={(event) => setBusqueda(event.target.value)}
+            onChange={(event) => { setBusqueda(event.target.value); setAsignaturas([]); setError(''); setCargando(Boolean(mallaId && nivelId)); }}
             disabled={!mallaId || !nivelId}
           />
         </div>

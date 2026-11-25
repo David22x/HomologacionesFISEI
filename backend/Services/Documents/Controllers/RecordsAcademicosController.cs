@@ -85,7 +85,7 @@ public sealed class RecordsAcademicosController(IHttpClientFactory clients) : Co
             return new ContentResult { StatusCode = (int)response.StatusCode, ContentType = "application/json", Content = await response.Content.ReadAsStringAsync(ct) };
         }
         catch (Exception ex) when (ex is InvalidDataException or JsonException) { return BadRequest(new { mensaje = ex.Message }); }
-        catch (HttpRequestException) { return StatusCode(503, new { mensaje = "No se pudieron consultar Students o Academic. No se guardaron cambios." }); }
+        catch (HttpRequestException) { return StatusCode(503, new { mensaje = "No se pudo confirmar la operación. Consulta el historial antes de repetir el guardado." }); }
     }
 
     public sealed record Registro(VistaRecord Documento, int Tipo, Guid? CarreraOrigenId = null, Guid? MallaOrigenId = null, int? NivelActual = null);

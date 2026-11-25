@@ -59,7 +59,15 @@ export default function TemasPage({ isAdmin }: TemasPageProps) {
     }
   }, [asignaturaId]);
 
-  useEffect(() => { void cargarDatos(); }, [cargarDatos]);
+  useEffect(() => {
+    let active = true;
+    catalogService.obtenerTemas(asignaturaId).then(async rows => {
+      const children = await Promise.all(rows.map(async tema => [tema.id, await catalogService.obtenerSubtemas(tema.id)] as const));
+      if (active) { setTemas(rows); setSubtemas(Object.fromEntries(children)); }
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los temas y subtemas.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [asignaturaId]);
 
   const temaOrdenado = useMemo(() => [...temas].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)), [temas]);
 
@@ -215,7 +223,7 @@ export default function TemasPage({ isAdmin }: TemasPageProps) {
       <div className="topics-heading"><div><h2>Temas y subtemas</h2><p>{isAdmin ? 'Puedes agregar, editar, reordenar y eliminar el contenido.' : 'Vista de consulta de temas y subtemas.'}</p></div>
         {isAdmin && <button type="button" className="maintenance-primary" onClick={iniciarNuevoTema}>Agregar tema</button>}
       </div>
-      {error && <div role="alert" className="catalog-error">{error}</div>}
+      {error && <div role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" onClick={() => { void cargarDatos(); }}>Reintentar consulta</button></div>}
       {notice && <div role="status" className="maintenance-notice">{notice}</div>}
       {isAdmin && editingTemaId === '' && temaForm.orden && renderFormulario(temaForm, setTemaForm, 'Nuevo tema', guardarTema, () => setTemaForm(emptyForm))}
       {loading ? <p className="catalog-message" role="status">Cargando temas y subtemas…</p> : temaOrdenado.length === 0 ? <p className="catalog-message">Esta asignatura aún no tiene temas registrados.</p> : (

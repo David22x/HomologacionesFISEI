@@ -58,9 +58,9 @@ export default function ImportHistoryPage() {
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!file || error) return;
+    if (!file || !file.name.toLowerCase().endsWith('.xlsx') || file.size > MAX_FILE_SIZE) return;
+    setError('');
     setBusy(true);
-    setResult(null);
     setConfirmationMessage('');
     try {
       const validation = await importService.validarArchivo(file);
@@ -130,7 +130,7 @@ export default function ImportHistoryPage() {
         <label htmlFor="history-file">Archivo de historial (.xlsx)</label>
         <div className="import-controls">
           <input ref={fileInput} id="history-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} disabled={busy || Boolean(confirmationMessage)} />
-          <button className="students-primary" type="submit" disabled={!file || Boolean(error) || busy || Boolean(confirmationMessage)}>
+          <button className="students-primary" type="submit" disabled={!file || !file.name.toLowerCase().endsWith('.xlsx') || file.size > MAX_FILE_SIZE || busy || Boolean(confirmationMessage)}>
             {busy ? 'Validando…' : 'Cargar archivo'}
           </button>
           {file && !confirmationMessage && <button className="students-secondary" type="button" onClick={cancelImport} disabled={busy}>Quitar archivo</button>}

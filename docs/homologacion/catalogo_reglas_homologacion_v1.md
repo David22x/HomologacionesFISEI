@@ -40,7 +40,12 @@ El [JSON versionado](reglas_homologacion_v1.json) reúne las reglas y parámetro
 
 **Docente, fecha y evidencia de revisión** · Pendientes de registro.
 
-## Dependencias de implementación
+## Estado técnico de implementación
 
-- **R7.** Agregar `EsTransversal` al catálogo académico y definir cómo acreditarlo para orígenes externos.
-- **R11.** La importación valida la hoja `Contenidos` y actualmente guarda el historial sin esas filas. Para evaluar cobertura externa hay que persistir y consultar temas y subtemas por asignatura cursada. [Contrato de importación](../api/plantilla-historial-externo.md)
+- **R7.** `EsTransversal` ya está disponible en el catálogo. El reconocimiento de una transversal externa sigue requiriendo evidencia y criterio docente.
+- **R11.** La hoja `Contenidos` ya se guarda por asignatura cursada y se envía al agente. Si faltan institución, carrera, créditos, horas, temas o subtemas, el backend solicita completarlos con HTTP 422 antes de evaluar. [Contrato de importación](../api/plantilla-historial-externo.md)
+
+- **R8.** El mínimo se configura en Agent IA mediante `Homologacion__Reglas__NotaMinima` (Docker: `HOMOLOGACION_NOTA_MINIMA`). Se valida el intervalo 0–10 y se aplica inclusivamente. Vacío significa que se utiliza la aprobación declarada en el historial; no se inventa un umbral. Los parámetros efectivos se conservan en `reglas.parametrosAplicados` y se muestran en el detalle de la propuesta.
+- **R9.** La selección y la decisión impiden aceptar dos destinos con una misma asignatura de origen. La priorización automática no sustituye la decisión del profesor.
+
+La implementación técnica y sus pruebas no equivalen a la aprobación normativa del catálogo: los acuerdos de la tabla anterior deben registrarse cuando el docente los confirme. Cambiar la configuración afecta a nuevas ejecuciones; los resultados guardados mantienen su evidencia. Recalcular antes de registrar decisiones si cambia el criterio.

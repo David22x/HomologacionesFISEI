@@ -37,10 +37,17 @@ public sealed record ResultadoReglas(
     decimal? CoberturaContenidos,
     decimal? RazonHoras,
     IReadOnlyList<string> Advertencias,
-    string VersionReglas);
+    string VersionReglas, ParametrosReglas? ParametrosAplicados = null);
 
 public sealed class ParametrosReglas
 {
+    public static ParametrosReglas DesdeConfiguracion(Microsoft.Extensions.Configuration.IConfiguration configuration)
+    {
+        var minimo = Microsoft.Extensions.Configuration.ConfigurationBinder.GetValue<decimal?>(configuration, "Homologacion:Reglas:NotaMinima");
+        if (minimo is < 0 or > 10) throw new InvalidOperationException("Homologacion:Reglas:NotaMinima debe estar entre 0 y 10 en la escala normalizada.");
+        return new ParametrosReglas { NotaMinima = minimo };
+    }
+
     public string Version { get; init; } = "1.0.0";
     public decimal RazonCreditosMinima { get; init; } = 0.80m;
     public decimal CoberturaMinima { get; init; } = 0.80m;
@@ -145,7 +152,7 @@ public sealed class MotorReglasHomologacion(
 
         ResultadoReglas Crear(ResultadoHomologacion resultado) =>
             new(resultado, razonCreditos, cobertura, razonHoras,
-                advertencias.ToArray(), parametros.Version);
+                advertencias.ToArray(), parametros.Version, parametros);
     }
 
     private decimal? CalcularCobertura(EvaluacionHomologacion entrada)

@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using AcademicService.Data;
 using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
@@ -22,6 +23,8 @@ builder.Services.AddCustomSwagger("Academic Service API - Catalogo academico");
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+builder.Services.AddServiceResilience();
+builder.Services.AddReadinessCheck("database", async (services, ct) => await services.GetRequiredService<AcademicDbContext>().Database.CanConnectAsync(ct));
 var app = builder.Build();
 
 // Migraciones y semilla del catalogo (solo en Desarrollo). La opcion permite
@@ -43,7 +46,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 app.Run();

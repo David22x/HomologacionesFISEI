@@ -36,6 +36,12 @@ it('avisa cuando regenerar no crea una versión nueva', async () => {
 it('permite descargar pero no generar a quien no es profesor', async () => {
   vi.spyOn(expedientesService, 'listarInformes').mockResolvedValue([version(1)]);
   const descargar = vi.spyOn(expedientesService, 'descargarInforme').mockResolvedValue(new Blob(['%PDF-']));
+  let nombreDescarga = '';
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+    nombreDescarga = this.download;
+    expect(this.href).toBe('blob:informe');
+    expect(document.body.contains(this)).toBe(true);
+  });
   URL.createObjectURL = vi.fn(() => 'blob:informe');
   URL.revokeObjectURL = vi.fn();
   render(<InformesExpediente expedienteId="exp" puedeGenerar={false} />);
@@ -43,6 +49,9 @@ it('permite descargar pero no generar a quien no es profesor', async () => {
   expect(screen.queryByRole('button', { name: 'Generar informe' })).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Descargar versión 1' }));
   await waitFor(() => expect(descargar).toHaveBeenCalledWith('exp', 1));
+  expect(click).toHaveBeenCalledOnce();
+  expect(nombreDescarga).toBe('homologacion-exp-v1.pdf');
+  expect(document.querySelector('a[download]')).not.toBeInTheDocument();
 });
 
 it('muestra el error cuando no se puede generar', async () => {

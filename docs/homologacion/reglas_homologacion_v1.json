@@ -23,7 +23,9 @@
         "maximo": 10
       },
       "notaMinima": null,
-      "estado": "pendiente_validacion"
+      "estado": "pendiente_validacion",
+      "configuracionServicio": "Homologacion:Reglas:NotaMinima",
+      "variableDocker": "HOMOLOGACION_NOTA_MINIMA"
     }
   },
   "reglas": [
@@ -104,5 +106,12 @@
       "criterio": "Aplicar R1 a R9 con los contenidos de la hoja Contenidos del XLSX, asociados por código de asignatura. Identificar la procedencia como contenidos declarados en el sílabo. El criterio propuesto omite el catálogo de origen y los precedentes. Si R2 requiere temas y faltan, aplicar R4.",
       "ejemplo": "Una materia externa con créditos suficientes y cuatro de cinco contenidos de destino cubiertos alcanza 80 % con pesos iguales. Si carece de temas y requiere R2, queda como Datos incompletos."
     }
-  ]
+  ],
+  "estadoImplementacion": {
+    "transversalesEnCatalogo": true,
+    "contenidosExternosPersistidos": true,
+    "validacionFaltantesExternos": "HTTP 422 antes de evaluar",
+    "parametrosEfectivosGuardados": "reglas.parametrosAplicados",
+    "validacionNormativa": "pendiente de evidencia docente"
+  }
 }

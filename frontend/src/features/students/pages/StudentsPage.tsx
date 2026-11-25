@@ -81,14 +81,17 @@ export default function StudentsPage() {
   }
 
   useEffect(() => {
-    void loadStudents();
+    let active = true;
+    studentsService.listar().then(rows => { if (active) setStudents(rows); })
+      .catch(err => { if (active) setError(err instanceof Error ? err.message : 'No se pudieron cargar los estudiantes.'); })
+      .finally(() => { if (active) setLoading(false); });
     catalogService.obtenerCarreras()
-      .then(setCareers)
-      .catch(err => setError(err instanceof Error ? err.message : 'No se pudieron cargar las carreras.'));
+      .then(rows => { if (active) setCareers(rows); })
+      .catch(err => { if (active) setError(err instanceof Error ? err.message : 'No se pudieron cargar las carreras.'); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    setMallas([]);
     if (!careerId) return;
     let active = true;
     catalogService.obtenerMallas(careerId).then(rows => { if (active) setMallas(rows); })
@@ -97,7 +100,6 @@ export default function StudentsPage() {
   }, [careerId]);
 
   useEffect(() => {
-    setNiveles([]); setNivelId(''); setSubjects([]); setSelectedSubjectId('');
     if (!mallaId) return;
     let active = true;
     catalogService.obtenerNiveles(mallaId).then(rows => { if (active) setNiveles(rows); })
@@ -106,7 +108,6 @@ export default function StudentsPage() {
   }, [mallaId]);
 
   useEffect(() => {
-    setSubjects([]); setSelectedSubjectId('');
     if (!mallaId || !nivelId) return;
     let active = true;
     catalogService.obtenerAsignaturas(mallaId, nivelId, '').then(rows => { if (active) setSubjects(rows); })
@@ -115,9 +116,8 @@ export default function StudentsPage() {
   }, [mallaId, nivelId]);
 
   useEffect(() => {
-    if (!showForm || editingId || !mallaId || !Number.isInteger(Number(nivelActual)) || Number(nivelActual) < 1) { setLoadingCourses(false); return; }
+    if (!showForm || editingId || !mallaId || !Number.isInteger(Number(nivelActual)) || Number(nivelActual) < 1) return;
     let active = true;
-    setLoadingCourses(true);
     catalogService.obtenerAsignaturas(mallaId, '', '').then(rows => {
       if (!active) return;
       const eligible = rows.filter(subject => subject.nivelNumero >= 1 && subject.nivelNumero <= Number(nivelActual));
@@ -160,7 +160,7 @@ export default function StudentsPage() {
   }
 
   function resetForm() {
-    setShowForm(false); setEditingId(''); setCedula(''); setNombres(''); setApellidos('');
+    setShowForm(false); setEditingId(''); setLoadingCourses(false); setCedula(''); setNombres(''); setApellidos('');
     setCareerId(''); setNivelActual(''); setMallaId(''); setNivelId(''); setSelectedSubjectId('');
     setGrade(''); setPeriod(''); setCourses([]); setError(''); setNotice('');
   }
@@ -175,7 +175,9 @@ export default function StudentsPage() {
       setError('Esta pantalla permite editar estudiantes internos con historial académico.');
       return;
     }
-    setShowForm(true); setEditingId(student.id); setCedula(student.cedula);
+    if (careerId !== (student.historial.carreraOrigenId ?? '')) setMallas([]);
+    if (mallaId !== (student.historial.mallaOrigenId ?? '')) setNiveles([]);
+    setShowForm(true); setEditingId(student.id); setLoadingCourses(false); setNivelId(''); setSubjects([]); setSelectedSubjectId(''); setCedula(student.cedula);
     setNombres(student.nombres); setApellidos(student.apellidos);
     setCareerId(student.historial.carreraOrigenId ?? '');
     setMallaId(student.historial.mallaOrigenId ?? '');
@@ -238,7 +240,11 @@ export default function StudentsPage() {
         carreraOrigenNombre: null,
         institucionOrigen: null,
         nivelActual: Number(nivelActual),
-        asignaturas: courses.map(({ clientKey: _clientKey, nivelCarga: _nivelCarga, id: _id, ...course }) => course),
+        asignaturas: courses.map(course => ({
+          asignaturaId: course.asignaturaId, codigo: course.codigo, nombre: course.nombre,
+          creditos: course.creditos, horas: course.horas, nota: course.nota, periodo: course.periodo,
+          carreraOrigenNombre: course.carreraOrigenNombre, temas: course.temas,
+        })),
       },
     };
 
@@ -246,7 +252,7 @@ export default function StudentsPage() {
       if (editingId) await studentsService.actualizar(editingId, payload);
       else await studentsService.crear(payload);
       setNotice(editingId ? 'Estudiante actualizado correctamente.' : 'Estudiante registrado correctamente.');
-      setShowForm(false); setEditingId('');
+      setShowForm(false); setEditingId(''); setLoadingCourses(false);
       await loadStudents();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el estudiante.');
@@ -294,7 +300,9 @@ export default function StudentsPage() {
     </header>
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}
-    {error && <div role="alert" className="catalog-error">{error}</div>}
+    {error && <div role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" disabled={loading} onClick={() => {
+      void loadStudents(); void catalogService.obtenerCarreras().then(setCareers).catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el catálogo.'));
+    }}>Actualizar listas</button></div>}
 
     <section className="students-panel student-search-panel" aria-labelledby="student-search-heading">
       <div className="students-panel-heading">
@@ -379,9 +387,9 @@ export default function StudentsPage() {
           <label>Cédula<input inputMode="numeric" value={cedula} onChange={event => setCedula(event.target.value.replace(/\D/g, '').slice(0, 10))} required minLength={10} maxLength={10} placeholder="10 dígitos" /></label>
           <label>Nombres<input value={nombres} onChange={event => setNombres(event.target.value)} required maxLength={150} /></label>
           <label>Apellidos<input value={apellidos} onChange={event => setApellidos(event.target.value)} required maxLength={150} /></label>
-          <SearchableSelect id="student-career" label="Carrera de origen" value={careerId} placeholder="Escribe para buscar la carrera" options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))} onChange={value => { setCareerId(value); setMallaId(''); setCourses([]); }} />
-            <SearchableSelect key={`student-malla-${careerId}`} id="student-malla" label="Malla" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!careerId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' · vigente' : ''}` }))} onChange={value => { setMallaId(value); if (!editingId) setCourses([]); }} />
-          <label>Nivel actual<input type="number" min={1} step={1} value={nivelActual} onChange={event => setNivelActual(event.target.value)} required /></label>
+          <SearchableSelect id="student-career" label="Carrera de origen" value={careerId} placeholder="Escribe para buscar la carrera" options={careers.map(career => ({ value: career.id, label: `${career.nombre} · ${career.codigo}` }))} onChange={value => { setCareerId(value); setMallaId(''); setCourses([]); setMallas([]); setNiveles([]); setNivelId(''); setSubjects([]); setSelectedSubjectId(''); setLoadingCourses(false); }} />
+            <SearchableSelect key={`student-malla-${careerId}`} id="student-malla" label="Malla" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!careerId || mallas.length === 0} options={mallas.map(malla => ({ value: malla.id, label: `Versión ${malla.version}${malla.vigente ? ' · vigente' : ''}` }))} onChange={value => { setMallaId(value); setNiveles([]); setNivelId(''); setSubjects([]); setSelectedSubjectId(''); setLoadingCourses(Boolean(value && !editingId && Number.isInteger(Number(nivelActual)) && Number(nivelActual) >= 1)); if (!editingId) setCourses([]); }} />
+          <label>Nivel actual<input type="number" min={1} step={1} value={nivelActual} onChange={event => { setNivelActual(event.target.value); setLoadingCourses(Boolean(showForm && !editingId && mallaId && Number.isInteger(Number(event.target.value)) && Number(event.target.value) >= 1)); }} required /></label>
         </div>
 
         <fieldset className="student-course-picker" disabled={!careerId}>
@@ -391,7 +399,7 @@ export default function StudentsPage() {
           {editingId && <button type="button" className="students-secondary" onClick={() => { void loadMissingCourses(); }} disabled={!mallaId || !nivelActual || loadingCourses}>Agregar materias de la malla hasta el nivel actual</button>}
           <div className="student-course-picker-grid">
 
-            <SearchableSelect key={`student-level-${mallaId}`} id="student-level" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(level => ({ value: level.id, label: `Nivel ${level.numero}` }))} onChange={setNivelId} />
+            <SearchableSelect key={`student-level-${mallaId}`} id="student-level" label="Nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId || niveles.length === 0} options={niveles.map(level => ({ value: level.id, label: `Nivel ${level.numero}` }))} onChange={id => { setNivelId(id); setSubjects([]); setSelectedSubjectId(''); }} />
             <SearchableSelect key={`student-subject-${nivelId}`} id="student-subject" label="Asignatura" value={selectedSubjectId} placeholder="Escribe para buscar una asignatura" disabled={!nivelId} options={subjects.map(subject => ({ value: subject.id, label: `${subject.codigo} · ${subject.nombre}` }))} onChange={setSelectedSubjectId} />
             <label>Nota<input type="number" min="0" max="10" step="0.01" value={grade} onChange={event => setGrade(event.target.value)} placeholder="0–10" /></label>
             <label>Período<input value={period} onChange={event => setPeriod(event.target.value)} maxLength={30} placeholder="Ej. 2026-A" /></label>

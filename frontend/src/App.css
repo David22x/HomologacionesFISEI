@@ -585,3 +585,9 @@
   .selection-dock .student-table-wrap { overflow: visible; }
   .expediente-page.has-selection-dock { padding-bottom: 0; }
 }
+
+.service-availability { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #edcf8b; background: #fff8e8; color: #6c4f13; font-size: 13px; }
+.service-availability p { margin: 5px 0; }
+.service-availability button { flex: 0 0 auto; }
+.session-recovery { max-width: 640px; margin: 10vh auto; padding: 28px; border: 1px solid #dbe4ef; border-radius: 16px; background: white; }
+@media(max-width: 640px) { .service-availability { flex-direction: column; } }

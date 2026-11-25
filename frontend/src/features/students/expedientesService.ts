@@ -1,3 +1,4 @@
+import { serviceFetch } from '../../lib/serviceFetch';
 import { notifySessionExpired } from '../auth/services/sessionEvents';
 
 const API_URL = (
@@ -50,6 +51,7 @@ export interface ResultadoReglasExpediente {
   razonHoras: number | null;
   advertencias: string[];
   versionReglas: string;
+  parametrosAplicados?: { version: string; razonCreditosMinima: number; coberturaMinima: number; similitudMinima: number; notaMinima: number | null; razonHorasMinimaPropuesta: number } | null;
 }
 
 export interface ResultadoParExpediente {
@@ -160,7 +162,7 @@ async function send(
   const token = sessionStorage.getItem('accessToken');
   if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await serviceFetch(`${API_URL}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,

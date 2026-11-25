@@ -1,3 +1,5 @@
+using ApiGateway.Services;
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Authentication;
 using Ocelot.DependencyInjection;
@@ -22,10 +24,14 @@ var ocelotConfigurationPath = builder.Configuration["Ocelot:ConfigurationFile"]
 builder.Configuration.AddJsonFile(ocelotConfigurationPath, optional: false, reloadOnChange: true);
 builder.Services.AddOcelot(builder.Configuration);
 
+builder.Services.AddHttpClient("ServiceMonitor", client => client.Timeout = TimeSpan.FromSeconds(3));
+builder.Services.AddSingleton<ServiceStatusMonitor>();
+builder.Services.AddServiceResilience();
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseHealthChecks("/health");
+app.UseHealthChecks("/health/ready");
 app.UseCors("Frontend");
 app.Use(async (context, next) =>
 {
@@ -40,6 +46,16 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseAuthentication();
+app.Use(async (context, next) => {
+    if (context.Request.Path == "/status/services" && HttpMethods.IsGet(context.Request.Method)) {
+        if (context.User.Identity?.IsAuthenticated != true) { context.Response.StatusCode = 401; return; }
+        var services = await context.RequestServices.GetRequiredService<ServiceStatusMonitor>().CheckAsync(context.RequestAborted);
+        context.Response.Headers.CacheControl = "no-store";
+        await context.Response.WriteAsJsonAsync(new { services });
+        return;
+    }
+    await next();
+});
 await app.UseOcelot();
 
 app.Run();

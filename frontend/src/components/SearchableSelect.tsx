@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface SearchableSelectOption {
   value: string;
@@ -26,11 +26,9 @@ export default function SearchableSelect({
 }: SearchableSelectProps) {
   const listId = `${id}-options`;
   const selected = options.find((option) => option.value === value);
-  const [query, setQuery] = useState(selected?.label ?? '');
-
-  useEffect(() => {
-    if (selected) setQuery(selected.label);
-  }, [value, selected?.label]);
+  const selectedLabel = selected?.label ?? '';
+  const [draft, setDraft] = useState({ selection: value, label: selectedLabel, query: selectedLabel });
+  const query = draft.selection === value && draft.label === selectedLabel ? draft.query : selectedLabel;
 
   return (
     <div className="catalog-field">
@@ -45,12 +43,12 @@ export default function SearchableSelect({
         autoComplete="off"
         onChange={(event) => {
           const nextQuery = event.target.value;
-          setQuery(nextQuery);
           const match = options.find(
             (option) => option.label.toLocaleLowerCase() === nextQuery.toLocaleLowerCase(),
           );
-          if (match) onChange(match.value);
-          else if (!nextQuery) onChange('');
+          const nextValue = match?.value ?? '';
+          setDraft({ selection: nextValue, label: match?.label ?? '', query: nextQuery });
+          if (nextValue !== value) onChange(nextValue);
         }}
       />
       <datalist id={listId}>

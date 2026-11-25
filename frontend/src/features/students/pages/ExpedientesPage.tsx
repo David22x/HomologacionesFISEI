@@ -31,6 +31,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   const [mallas, setMallas] = useState<MallaCurricular[]>([]);
   const [detailMallas, setDetailMallas] = useState<MallaCurricular[]>([]);
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [detailPartial, setDetailPartial] = useState(false);
   const [selectionCollapsed, setSelectionCollapsed] = useState(false);
   const [selectedExpediente, setSelectedExpediente] = useState<Expediente | null>(null);
   const [originCourses, setOriginCourses] = useState<AsignaturaCursada[]>([]);
@@ -75,21 +76,17 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      studentsService.listar(),
-      catalogService.obtenerCarreras(),
-      expedientesService.listar(),
+    Promise.allSettled([
+      studentsService.listar(), catalogService.obtenerCarreras(), expedientesService.listar(),
     ]).then(([studentRows, careerRows, expedienteRows]) => {
       if (!active) return;
-      setStudents(studentRows);
-      setCareers(careerRows);
-      setExpedientes(expedienteRows);
-      setError('');
-    }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los expedientes.');
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
+      if (studentRows.status === 'fulfilled') setStudents(studentRows.value);
+      if (careerRows.status === 'fulfilled') setCareers(careerRows.value);
+      if (expedienteRows.status === 'fulfilled') setExpedientes(expedienteRows.value);
+      const failures = [studentRows, careerRows, expedienteRows].filter(v => v.status === 'rejected')
+        .map(v => v.status === 'rejected' && v.reason instanceof Error ? v.reason.message : 'No se pudo consultar una dependencia.');
+      setError(failures.join(' '));
+    }).finally(() => { if (active) setLoading(false); });
 
     return () => { active = false; };
   }, []);
@@ -116,6 +113,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   async function selectExpediente(expediente: Expediente) {
     const requestId = ++detailRequestId.current;
+    setDetailPartial(true);
     setSelectionCollapsed(false);
     setSelectedExpediente(expediente);
     setDetailStudent(null);
@@ -145,28 +143,34 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     setLoadingDetail(true);
     setError('');
     try {
-      const student = students.find(item => item.id === expediente.estudianteId) ?? await studentsService.obtener(expediente.estudianteId);
+      const warnings: string[] = [];
+      const student = students.find(item => item.id === expediente.estudianteId) ?? await studentsService.obtener(expediente.estudianteId)
+        .catch(cause => { warnings.push(cause instanceof Error ? cause.message : 'No se pudo consultar al estudiante.'); return null; });
       const editable = canCreate && ![2, 3, 5, 'Finalizado', 'Anulado', 'Resuelto'].includes(expediente.estado);
-      const [rows, pairRows, analisisGuardado, decisionRows, summary] = await Promise.all([
-        catalogService.obtenerMallas(expediente.carreraDestinoId),
-        editable && student.historial?.asignaturas?.length ? expedientesService.precargarPares(expediente.id) : expedientesService.listarPares(expediente.id),
-        expedientesService.consultarAnalisis(expediente.id),
-        expedientesService.listarDecisiones(expediente.id),
-        expedientesService.consultarSeleccion(expediente.id),
+      const loadPairs = async () => {
+        if (!editable || !student?.historial?.asignaturas?.length) return expedientesService.listarPares(expediente.id);
+        try { return await expedientesService.precargarPares(expediente.id); }
+        catch { warnings.push('No se pudieron actualizar las coincidencias; se consultan las guardadas.'); return expedientesService.listarPares(expediente.id); }
+      };
+      const values = await Promise.allSettled([
+        catalogService.obtenerMallas(expediente.carreraDestinoId), loadPairs(), expedientesService.consultarAnalisis(expediente.id),
+        expedientesService.listarDecisiones(expediente.id), expedientesService.consultarSeleccion(expediente.id),
+        catalogService.obtenerAsignaturas(expediente.mallaDestinoId, '', ''),
       ]);
-      const levels = await catalogService.obtenerNiveles(expediente.mallaDestinoId);
-      const assignmentGroups = await Promise.all(levels.map(level =>
-        catalogService.obtenerAsignaturas(expediente.mallaDestinoId, level.id, ''),
-      ));
       if (requestId === detailRequestId.current) {
+        const [rows, pairRows, analysis, decisionRows, summary, assignments] = values;
         setDetailStudent(student);
-        setDetailMallas(rows);
         setOriginCourses(student?.historial?.asignaturas ?? []);
-        setDestinationCourses(assignmentGroups.flat());
-        setPairs(pairRows);
-        setIaAnalysis(analisisGuardado);
-        setDecisions(decisionRows);
-        setSelection(summary.seleccion); setResults(summary.resultados);
+        if (rows.status === 'fulfilled') setDetailMallas(rows.value);
+        if (pairRows.status === 'fulfilled') setPairs(pairRows.value);
+        if (analysis.status === 'fulfilled') setIaAnalysis(analysis.value);
+        if (decisionRows.status === 'fulfilled') setDecisions(decisionRows.value);
+        if (summary.status === 'fulfilled') { setSelection(summary.value.seleccion); setResults(summary.value.resultados); }
+        if (assignments.status === 'fulfilled') setDestinationCourses(assignments.value);
+        const failures = values.filter(v => v.status === 'rejected');
+        setDetailPartial(!student || failures.length > 0);
+        warnings.push(...failures.map(v => v.status === 'rejected' && v.reason instanceof Error ? v.reason.message : 'No se pudo consultar una dependencia.'));
+        if (warnings.length) setError(warnings.join(' '));
       }
     } catch (cause) {
       if (requestId === detailRequestId.current) {
@@ -469,7 +473,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
 
   const soloLectura = selectedExpediente != null &&
     [2, 3, 5, 'Finalizado', 'Anulado', 'Resuelto'].includes(selectedExpediente.estado);
-  const puedeEditar = canCreate && !soloLectura;
+  const puedeEditar = canCreate && !soloLectura && !loadingDetail && !detailPartial;
 
   const selectedStudent = detailStudent ?? students.find(student => student.id === selectedExpediente?.estudianteId);
   const selectedCareer = careers.find(career => career.id === selectedExpediente?.carreraDestinoId);
@@ -518,11 +522,12 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   function showDetail(proposal: PropuestaExpedienteIa) { setExpandedKey(proposalReviewKey(proposal)); setReviewFormKey(null); }
   const destinationIds = [...new Set(analysisProposals.map(proposal => proposal.asignaturaDestinoId))];
   const decisionsByDestination = new Map(decisions.map(decision => [decision.asignaturaDestinoId, decision]));
-  const decidedDestinationCount = destinationIds.filter(id => {
+  const pendingDestinationIds = destinationIds.filter(id => {
     const decision = decisionsByDestination.get(id);
-    return decision != null && decision.resultadoFinal !== 3
-      && decisionMatchesProposal(decision, id, analysisProposals);
-  }).length;
+    return decision == null || decision.resultadoFinal === 3
+      || !decisionMatchesProposal(decision, id, analysisProposals);
+  });
+  const decidedDestinationCount = destinationIds.length - pendingDestinationIds.length;
   const canResolve = destinationIds.length > 0
     && decidedDestinationCount === destinationIds.length
     && decisions.every(decision => decision.resultadoFinal !== 3)
@@ -624,6 +629,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
     </section>
 
     {selectedExpediente && <section className="students-panel expediente-detail" aria-labelledby="expediente-detail-heading">
+      {detailPartial && !loadingDetail && <div className="catalog-message" role="status"><strong>Consulta parcial del expediente</strong><p>Se muestran los datos disponibles. La edición está bloqueada hasta recuperar la información necesaria.</p><button type="button" className="students-secondary" onClick={() => { void selectExpediente(selectedExpediente); }}>Reintentar carga del expediente</button></div>}
       <div className="students-panel-heading">
         <div>
           <h2 id="expediente-detail-heading">Detalle del expediente</h2>
@@ -749,7 +755,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
             {analyzingIa ? 'Analizando expediente…' : 'Analizar con IA'}
           </button>}
         </div>
-        {selectedExpediente && [5, 'Resuelto'].includes(selectedExpediente.estado) && <InformesExpediente expedienteId={selectedExpediente.id} puedeGenerar={canCreate} />}
+        {selectedExpediente && [5, 'Resuelto'].includes(selectedExpediente.estado) && <InformesExpediente key={selectedExpediente.id} expedienteId={selectedExpediente.id} puedeGenerar={canCreate} />}
         {puedeEditar && iaAnalysis && decisions.length === 0 && <button type="button" className="students-secondary" disabled={analyzingIa} onClick={() => { void analyzeWithIa(true); }}>Recalcular con los datos actuales</button>}
         {iaError && <p className="ia-error" role="alert">{iaError}</p>}
         {analyzingIa && <p className="catalog-message" role="status">El agente está analizando los contenidos del expediente. Esto puede tardar unos minutos.</p>}
@@ -782,11 +788,16 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                 && decisionMatchesProposal(decision, id, analysisProposals);
               return <li key={id} className={complete ? 'decision-complete' : 'decision-pending'}>
                 <span>{proposal?.nombreDestino ?? id}</span>
+                {!complete && proposal && puedeEditar && <button type="button" className="students-secondary" onClick={() => { setShowDiagnostics(true); showDetail(proposal); }}>Revisar destino</button>}
                 <strong>{complete && decision
                   ? `${resultadoLabel(decision.resultadoCalculado)} → ${resultadoLabel(decision.resultadoFinal)}`
                   : 'Pendiente'}</strong>
               </li>;
             })}</ul></details>
+            {puedeEditar && pendingDestinationIds.length > 0 && <button type="button" className="students-secondary" onClick={() => {
+              const proposal = analysisProposals.find(p => p.asignaturaDestinoId === pendingDestinationIds[0]);
+              setShowDiagnostics(true); if (proposal) showDetail(proposal);
+            }}>Revisar siguiente pendiente ({pendingDestinationIds.length})</button>}
             {puedeEditar && <button className="students-primary" type="button" onClick={() => { void resolveExpediente(); }} disabled={!canResolve || resolving}>
               {resolving ? 'Resolviendo…' : 'Resolver expediente'}
             </button>}
@@ -846,6 +857,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         </span>
                       </div>
                       <p>{explanation}</p>
+                      {rules.parametrosAplicados && <small>Parámetros de esta ejecución · Créditos: {formatPercent(rules.parametrosAplicados.razonCreditosMinima)} · Contenidos: {formatPercent(rules.parametrosAplicados.coberturaMinima)} · Similitud: {formatPercent(rules.parametrosAplicados.similitudMinima)} · {rules.parametrosAplicados.notaMinima == null ? 'Nota mínima sin configurar; se utiliza la aprobación declarada.' : `Nota mínima: ${rules.parametrosAplicados.notaMinima}/10.`}</small>}
                     </div>
                     <div className="ia-topic-columns">
                       <div><h6>Temas coincidentes ({coverage.temasCoincidentes.length})</h6>

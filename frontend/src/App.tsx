@@ -1,3 +1,4 @@
+import { ServiceUnavailableError } from './lib/serviceFetch';
 import RecordImportPage from './features/students/pages/RecordImportPage';
 
 import { useEffect, useState } from 'react';
@@ -32,11 +33,14 @@ function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function restoreSession() {
+      setLoading(true); setSessionUnavailable(false);
       const token = sessionStorage.getItem('accessToken');
 
       if (!token) {
@@ -47,7 +51,11 @@ function App() {
       try {
         const currentUser = await getCurrentUser(token);
         if (active) setUser(currentUser);
-      } catch {
+      } catch (cause) {
+        if (cause instanceof ServiceUnavailableError) {
+          if (active) { setSessionUnavailable(true); setSessionError(cause.message); }
+          return;
+        }
         sessionStorage.removeItem('accessToken');
 
         if (active) {
@@ -65,7 +73,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [sessionAttempt]);
 
   useEffect(() => {
     return onSessionExpired(() => {
@@ -91,6 +99,8 @@ function App() {
   if (loading) {
     return <main className="auth-page">Verificando sesión...</main>;
   }
+
+  if (sessionUnavailable) return <main className="session-recovery"><h1>Autenticación temporalmente no disponible</h1><p role="alert">{sessionError}</p><p>Tu sesión se conserva. Debemos validarla antes de mostrar información protegida.</p><button type="button" className="students-primary" onClick={() => setSessionAttempt(value => value + 1)}>Reintentar conexión</button></main>;
 
   return (
     <BrowserRouter>

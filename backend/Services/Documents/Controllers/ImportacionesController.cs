@@ -75,7 +75,7 @@ public sealed class ImportacionesController : ControllerBase
     [HttpPost]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxFileSize + 1024 * 1024)]
-    public IActionResult ValidarArchivo([FromForm] IFormFile? archivo)
+    public IActionResult ValidarArchivo(IFormFile? archivo)
     {
         var outcome = ValidateFile(archivo);
         return outcome.IsValid
@@ -94,7 +94,7 @@ public sealed class ImportacionesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Confirmar(
-        [FromForm] IFormFile? archivo,
+        IFormFile? archivo,
         [FromForm] string? datos,
         [FromServices] IHttpClientFactory httpClientFactory,
         CancellationToken ct)

@@ -23,6 +23,7 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
     { id: 'sw', codigo: 'SW', nombre: 'Software', esDemo: false }, { id: 'ti', codigo: 'TI', nombre: 'Tecnologías', esDemo: false }]);
   vi.spyOn(catalogService, 'obtenerMallas').mockResolvedValue([]);
   vi.spyOn(catalogService, 'obtenerNiveles').mockResolvedValue([]);
+  vi.spyOn(catalogService, 'obtenerAsignaturas').mockResolvedValue([]);
   vi.spyOn(expedientesService, 'listar').mockResolvedValue([expediente]);
   const precargar = vi.spyOn(expedientesService, 'precargarPares').mockResolvedValue([{ id: 'pair', expedienteId: 'exp', asignaturaCursadaId: 'origin', asignaturaDestinoId: 'physics', precargado: true }]);
   vi.spyOn(expedientesService, 'listarPares').mockResolvedValue([]);
@@ -46,6 +47,7 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   expect(within(table).getByText('Física - TI')).toBeInTheDocument();
   expect(precargar).toHaveBeenCalledWith('exp');
   expect(screen.queryByRole('columnheader', { name: 'Umbral' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Revisar siguiente pendiente/ })).toBeEnabled();
   expect(within(table).getByText('Cercana al umbral: revisión docente')).toBeInTheDocument();
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' })).toBeChecked());
@@ -67,8 +69,28 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' })).not.toBeChecked());
   expect(screen.queryByRole('checkbox', { name: 'Retirar selección Física' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Revisar siguiente pendiente/ }));
+  expect(screen.getByRole('region', { name: 'Detalle de propuesta' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Cerrar expediente' }));
   expect(document.querySelector('.selection-dock')).not.toBeInTheDocument();
   expect(document.querySelector('.has-selection-dock')).not.toBeInTheDocument();
 
+});
+
+it('mantiene el listado de expedientes si falla el catalogo y bloquea la edicion de una carga parcial', async () => {
+  vi.spyOn(studentsService, 'listar').mockResolvedValue([]);
+  vi.spyOn(studentsService, 'obtener').mockRejectedValue(new Error('Students no disponible'));
+  vi.spyOn(catalogService, 'obtenerCarreras').mockRejectedValue(new Error('Catálogo no disponible'));
+  vi.spyOn(catalogService, 'obtenerMallas').mockRejectedValue(new Error('Catálogo no disponible'));
+  vi.spyOn(catalogService, 'obtenerAsignaturas').mockRejectedValue(new Error('Catálogo no disponible'));
+  vi.spyOn(expedientesService, 'listar').mockResolvedValue([{ id: 'exp', estudianteId: 'student', carreraDestinoId: 'career', mallaDestinoId: 'malla', estado: 'EnRevision', creadoEn: '2026-11-24T10:00:00Z' } as Expediente]);
+  vi.spyOn(expedientesService, 'listarPares').mockResolvedValue([]);
+  vi.spyOn(expedientesService, 'consultarAnalisis').mockResolvedValue(null);
+  vi.spyOn(expedientesService, 'listarDecisiones').mockResolvedValue([]);
+  vi.spyOn(expedientesService, 'consultarSeleccion').mockResolvedValue({ seleccion: [], resultados: [] });
+  render(<MemoryRouter><ExpedientesPage canCreate /></MemoryRouter>);
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Ver expediente' }));
+  expect(await screen.findByText('Consulta parcial del expediente')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Analizar con IA' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reintentar carga del expediente' })).toBeEnabled();
 });

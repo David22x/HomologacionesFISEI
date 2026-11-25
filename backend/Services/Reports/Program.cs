@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
@@ -24,6 +25,8 @@ builder.Services.AddHttpClient("Academic", client =>
 builder.Services.AddScoped<FuenteInformeClient>();
 // Uso académico del proyecto.
 QuestPDF.Settings.License = LicenseType.Community;
+builder.Services.AddServiceResilience();
+builder.Services.AddReadinessCheck("database", async (services, ct) => await services.GetRequiredService<ReportsDbContext>().Database.CanConnectAsync(ct));
 var app = builder.Build();
 if (app.Environment.IsDevelopment() && builder.Configuration.GetValue("Reports:MigrateOnStartup", true))
 {
@@ -39,7 +42,7 @@ if (app.Environment.IsDevelopment())
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 app.Run();
 public partial class Program { }

@@ -1,3 +1,4 @@
+import { serviceFetch, ServiceUnavailableError } from '../../../lib/serviceFetch';
 import { notifySessionExpired } from './sessionEvents';
 
 
@@ -41,7 +42,7 @@ export async function login(
   email: string,
   password: string
 ): Promise<LoginResponse> {
-  const response = await fetch(`${API_URL}/auth/login`, {
+  const response = await serviceFetch(`${API_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -81,17 +82,23 @@ export async function login(
 export async function getCurrentUser(
   token: string
 ): Promise<AuthUser> {
-  const response = await fetch(`${API_URL}/auth/me`, {
+  const response = await serviceFetch(`${API_URL}/auth/me`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 
   if (!response.ok) {
-    throw new Error('SESSION_INVALID');
+    if (response.status === 401) throw new Error('SESSION_INVALID');
+    throw new ServiceUnavailableError('No se pudo validar la sesión con autenticación. Reintenta en unos segundos.', 'Auth');
   }
-
-  return response.json() as Promise<AuthUser>;
+  try {
+    const data = await response.json() as Partial<AuthUser> | null;
+    if (!data || typeof data.id !== 'string' || typeof data.email !== 'string' || typeof data.nombreCompleto !== 'string'
+      || !Array.isArray(data.roles) || !data.roles.every(role => typeof role === 'string'))
+      throw new Error('Respuesta de sesión incompleta');
+    return data as AuthUser;
+  } catch { throw new ServiceUnavailableError('Autenticación devolvió una respuesta incompleta. Reintenta la validación de tu sesión.', 'Auth'); }
 }
 
 export const userManagementService = {
@@ -109,7 +116,7 @@ export const userManagementService = {
 async function requestUsers<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const token = sessionStorage.getItem('accessToken');
   if (!token) throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await serviceFetch(`${API_URL}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,

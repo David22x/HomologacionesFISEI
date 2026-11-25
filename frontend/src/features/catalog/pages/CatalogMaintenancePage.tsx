@@ -45,18 +45,33 @@ export default function CatalogMaintenancePage() {
     setAsignaturas(await catalogService.obtenerAsignaturas(id, nivelId, ''));
   }
 
-  async function cargarTodo() {
-    try {
-      await cargarCarreras();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el catálogo.');
-    }
-  }
-
-  useEffect(() => { void cargarTodo(); }, []);
-  useEffect(() => { void cargarMallas(); }, [carreraId]);
-  useEffect(() => { void cargarNiveles(); }, [mallaId]);
-  useEffect(() => { void cargarAsignaturas(); }, [mallaId, nivelId]);
+  useEffect(() => {
+    let active = true;
+    catalogService.obtenerCarreras().then(rows => { if (active) setCarreras(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el catálogo.'); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    const query = carreraId ? catalogService.obtenerMallas(carreraId) : Promise.resolve([]);
+    query.then(rows => { if (active) setMallas(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [carreraId]);
+  useEffect(() => {
+    let active = true;
+    const query = mallaId ? catalogService.obtenerNiveles(mallaId) : Promise.resolve([]);
+    query.then(rows => { if (active) setNiveles(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [mallaId]);
+  useEffect(() => {
+    let active = true;
+    const query = mallaId ? catalogService.obtenerAsignaturas(mallaId, nivelId, '') : Promise.resolve([]);
+    query.then(rows => { if (active) setAsignaturas(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [mallaId, nivelId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,7 +173,12 @@ export default function CatalogMaintenancePage() {
       {(section === 'niveles' || section === 'asignaturas') && <SearchableSelect key={`maintenance-malla-${carreraId}`} id="maintenance-malla" label="Buscar malla" value={mallaId} placeholder="Escribe para buscar una malla" disabled={!carreraId} options={mallas.map(m => ({ value: m.id, label: `Versión ${m.version} · ${m.estado || (m.vigente ? 'Publicada' : 'Borrador')}` }))} onChange={id => { setMallaId(id); setNivelId(''); }} />}
       {section === 'asignaturas' && <SearchableSelect key={`maintenance-nivel-${mallaId}`} id="maintenance-nivel" label="Buscar nivel" value={nivelId} placeholder="Escribe para buscar un nivel" disabled={!mallaId} options={niveles.map(n => ({ value: n.id, label: `Nivel ${n.numero}` }))} onChange={setNivelId} />}
     </section>
-    {error && <div role="alert" className="catalog-error">{error}</div>}{notice && <div role="status" className="maintenance-notice">{notice}</div>}
+    {error && <div role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" disabled={busy} onClick={() => {
+      void Promise.allSettled([cargarCarreras(), cargarMallas(), cargarNiveles(), cargarAsignaturas()]).then(results => {
+        const failure = results.find(r => r.status === 'rejected');
+        setError(failure?.status === 'rejected' && failure.reason instanceof Error ? failure.reason.message : '');
+      });
+    }}>Reintentar consulta</button></div>}{notice && <div role="status" className="maintenance-notice">{notice}</div>}
     {section === 'asignaturas' && planJson && <section className="maintenance-form plan-preview"><h2>Revisar extracción del plan analítico</h2><p>Verifica y corrige nombre, código, créditos, horas, unidad organizacional y los temas/subtemas. Los temas previos de esta asignatura se reemplazarán al confirmar.</p><label>Datos extraídos (JSON editable)<textarea rows={18} value={planJson} onChange={e => setPlanJson(e.target.value)} /></label><div className="maintenance-actions"><button className="maintenance-primary" type="button" disabled={busy} onClick={() => void confirmarPlan()}>{busy ? 'Guardando…' : 'Confirmar y guardar'}</button><button type="button" disabled={busy} onClick={() => { setPlanJson(''); setPlanSubjectId(''); setPlanFile(null); }}>Cancelar</button></div></section>}
     <section className="maintenance-layout">
       <form className="maintenance-form" onSubmit={submit} key={`${section}-${editId}`}>

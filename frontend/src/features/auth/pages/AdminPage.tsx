@@ -21,7 +21,13 @@ export default function AdminPage({ currentUserId }: { currentUserId: string }) 
     finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadUsers(); }, []);
+  useEffect(() => {
+    let active = true;
+    userManagementService.listar().then(rows => { if (active) setUsers(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los usuarios.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   function beginEdit(user: ManagedUser) {
     setEditingId(user.id);
@@ -62,7 +68,7 @@ export default function AdminPage({ currentUserId }: { currentUserId: string }) 
 
   return <main className="catalog-page">
     <header className="catalog-header"><div><p className="catalog-eyebrow">HOMOLOGACIONES FISEI · ADMINISTRACIÓN</p><h1>Usuarios y roles</h1><p>Crea cuentas, asigna roles y cambia el estado de acceso.</p></div></header>
-    {error && <p className="catalog-error" role="alert">{error}</p>}
+    {error && <p className="catalog-error" role="alert">{error}<button type="button" className="students-secondary" onClick={() => { void loadUsers(); }}>Reintentar consulta</button></p>}
     {notice && <p className="maintenance-notice" role="status">{notice}</p>}
     <section className="students-panel">
       <h2>{editingId ? 'Editar usuario' : 'Crear usuario'}</h2>

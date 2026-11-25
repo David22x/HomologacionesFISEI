@@ -1,3 +1,4 @@
+import { serviceFetch } from '../../../lib/serviceFetch';
 import { notifySessionExpired } from '../../auth/services/sessionEvents';
 
 
@@ -72,7 +73,7 @@ async function cargarPlan(asignaturaId: string, archivo: File, confirmar?: PlanA
   const body = new FormData(); body.append('archivo', archivo);
   const ruta = `${API_URL}/api/v1/catalogo/asignaturas/${asignaturaId}/plan-analitico/${confirmar ? 'confirmar' : 'analizar'}`;
   if (confirmar) body.append('datos', JSON.stringify(confirmar));
-  const response = await fetch(ruta, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
+  const response = await serviceFetch(ruta, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
   if (response.status === 401) notifySessionExpired();
   if (!response.ok) { let message = `No se pudo procesar el PDF (HTTP ${response.status}).`; try { const err = await response.json(); message = err.detail || err.title || message; } catch { /* mensaje HTTP */ } throw new Error(message); }
   if (confirmar) return;
@@ -81,7 +82,7 @@ async function cargarPlan(asignaturaId: string, archivo: File, confirmar?: PlanA
 
 async function descargarPlan(asignaturaId: string): Promise<void> {
   const token = sessionStorage.getItem('accessToken');
-  const response = await fetch(`${API_URL}/api/v1/catalogo/asignaturas/${asignaturaId}/plan-analitico/archivo`, { headers: { Authorization: `Bearer ${token ?? ''}` } });
+  const response = await serviceFetch(`${API_URL}/api/v1/catalogo/asignaturas/${asignaturaId}/plan-analitico/archivo`, { headers: { Authorization: `Bearer ${token ?? ''}` } });
   if (response.status === 401) notifySessionExpired();
   if (!response.ok) { let message = 'No se pudo descargar el plan analítico.'; try { const err = await response.json(); message = err.detail || err.title || message; } catch { /* mensaje genérico */ } throw new Error(message); }
   const blob = await response.blob(); const url = URL.createObjectURL(blob); const link = document.createElement('a');
@@ -103,7 +104,7 @@ async function solicitarConMetodo<T>(
     throw new Error('No hay una sesión activa. Inicia sesión nuevamente.');
   }
 
-  const response = await fetch(`${API_URL}${ruta}`, {
+  const response = await serviceFetch(`${API_URL}${ruta}`, {
     method: metodo,
     headers: {
       Authorization: `Bearer ${token}`,

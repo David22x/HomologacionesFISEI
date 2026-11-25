@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
@@ -21,6 +22,26 @@ namespace ReportsService.Tests;
 
 public sealed class InformesTests
 {
+    [Fact]
+    public async Task CaidaDeBaseAlGuardar_noSeConfundeConGeneracionConcurrente()
+    {
+        using var factory = new ReportsFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ReportsFactory.Token(AppRoles.Profesor);
+        factory.SaveFailure = new DbUpdateException("Fallo simulado", new TransientDatabaseFailure());
+        using var response = await client.PostAsync($"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}/generar", null);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.DoesNotContain("concurrentemente", await response.Content.ReadAsStringAsync());
+        factory.SaveFailure = null;
+        using var recovered = await client.PostAsync($"/api/v1/informes/expedientes/{factory.Fuente.ExpedienteId}/generar", null);
+        Assert.Equal(HttpStatusCode.Created, recovered.StatusCode);
+    }
+
+    private sealed class TransientDatabaseFailure : System.Data.Common.DbException
+    {
+        public override bool IsTransient => true;
+    }
+
     [Fact]
     public async Task Generar_descargarYVersionar_conservaBytesYHuella()
     {
@@ -256,6 +277,7 @@ public sealed class ReportsFactory : WebApplicationFactory<Program>
     private const string Secret = "Reports-tests-secret-with-at-least-32-bytes";
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     public FuenteFalsa Fuente { get; } = new();
+    public Exception? SaveFailure { get; set; }
     public ReportsFactory() => _connection.Open();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -268,11 +290,21 @@ public sealed class ReportsFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DbContextOptions<ReportsDbContext>>();
             services.RemoveAll<ReportsDbContext>();
-            services.AddDbContext<ReportsDbContext>(options => options.UseSqlite(_connection));
+            services.AddDbContext<ReportsDbContext>(options => options.UseSqlite(_connection).AddInterceptors(new SimulatedSaveFailure(this)));
             services.AddSingleton<IHttpClientFactory>(Fuente);
             using var scope = services.BuildServiceProvider().CreateScope();
             scope.ServiceProvider.GetRequiredService<ReportsDbContext>().Database.EnsureCreated();
         });
+    }
+
+    private sealed class SimulatedSaveFailure(ReportsFactory factory) : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (factory.SaveFailure is { } failure) throw failure;
+            return ValueTask.FromResult(result);
+        }
     }
 
     public static AuthenticationHeaderValue Token(string rol)

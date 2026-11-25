@@ -81,3 +81,26 @@ describe('Autenticación', () => {
     expect(sessionStorage.getItem('accessToken')).toBeNull();
   });
 });
+
+it('informa la caída de Auth en el login sin atribuirla a las credenciales', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+  render(<App />);
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('Correo electrónico'), 'profesor@uta.edu.ec');
+  await user.type(screen.getByLabelText('Contraseña'), 'clave-de-prueba');
+  await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('no está disponible temporalmente');
+  expect(screen.getByLabelText('Correo electrónico')).toHaveValue('profesor@uta.edu.ec');
+});
+
+it.each([500, 503])('conserva la sesion ante Auth caido (%s) y permite recuperarla sin volver a escribir credenciales', async (status) => {
+  sessionStorage.setItem('accessToken', 'sesion-conservada');
+  const fetch = vi.fn().mockResolvedValueOnce({ ok: false, status }).mockResolvedValueOnce({ ok: true, status: 200,
+    json: async () => ({ id: 'prof', email: 'prof@example.test', nombreCompleto: 'Profesor QA', roles: ['Profesor'] }) });
+  vi.stubGlobal('fetch', fetch); render(<App />);
+  await screen.findByText('Autenticación temporalmente no disponible');
+  expect(sessionStorage.getItem('accessToken')).toBe('sesion-conservada');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Reintentar conexión' }));
+  expect(await screen.findByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
+  expect(sessionStorage.getItem('accessToken')).toBe('sesion-conservada');
+});

@@ -45,18 +45,33 @@ export default function CatalogMaintenancePage() {
     setAsignaturas(await catalogService.obtenerAsignaturas(id, nivelId, ''));
   }
 
-  async function cargarTodo() {
-    try {
-      await cargarCarreras();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el catálogo.');
-    }
-  }
-
-  useEffect(() => { void cargarTodo(); }, []);
-  useEffect(() => { void cargarMallas().catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.')); }, [carreraId]);
-  useEffect(() => { void cargarNiveles().catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.')); }, [mallaId]);
-  useEffect(() => { void cargarAsignaturas().catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.')); }, [mallaId, nivelId]);
+  useEffect(() => {
+    let active = true;
+    catalogService.obtenerCarreras().then(rows => { if (active) setCarreras(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el catálogo.'); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    const query = carreraId ? catalogService.obtenerMallas(carreraId) : Promise.resolve([]);
+    query.then(rows => { if (active) setMallas(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [carreraId]);
+  useEffect(() => {
+    let active = true;
+    const query = mallaId ? catalogService.obtenerNiveles(mallaId) : Promise.resolve([]);
+    query.then(rows => { if (active) setNiveles(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [mallaId]);
+  useEffect(() => {
+    let active = true;
+    const query = mallaId ? catalogService.obtenerAsignaturas(mallaId, nivelId, '') : Promise.resolve([]);
+    query.then(rows => { if (active) setAsignaturas(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo consultar el catálogo.'); });
+    return () => { active = false; };
+  }, [mallaId, nivelId]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

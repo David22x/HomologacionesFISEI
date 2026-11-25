@@ -1,6 +1,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { login } from '../services/authService';
+import { ServiceUnavailableError } from '../../../lib/serviceFetch';
 
 interface LoginPageProps {
   onLogin: (token: string) => Promise<void>;
@@ -26,9 +27,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
     try {
       const result = await login(email.trim(), password);
       await onLogin(result.accessToken);
-    } catch {
+    } catch (cause) {
       setError(
-        'No se pudo iniciar sesión. Verifica tus credenciales e intenta nuevamente.'
+        cause instanceof ServiceUnavailableError ? cause.message : 'No se pudo iniciar sesión. Verifica tus credenciales e intenta nuevamente.'
       );
     } finally {
       setLoading(false);

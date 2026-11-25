@@ -21,7 +21,13 @@ export default function AdminPage({ currentUserId }: { currentUserId: string }) 
     finally { setLoading(false); }
   }
 
-  useEffect(() => { void loadUsers(); }, []);
+  useEffect(() => {
+    let active = true;
+    userManagementService.listar().then(rows => { if (active) setUsers(rows); })
+      .catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los usuarios.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   function beginEdit(user: ManagedUser) {
     setEditingId(user.id);

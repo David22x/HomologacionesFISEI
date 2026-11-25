@@ -12,11 +12,11 @@ export default function BulkPlansPanel() {
   const [entries, setEntries] = useState<Entry[]>([]); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   useEffect(() => { catalogService.obtenerCarreras().then(setCareers).catch(e => setError(e.message)); }, []);
-  useEffect(() => { let active = true; setMallas([]); setMalla(''); setEntries([]);
+  useEffect(() => { let active = true;
     if (career) catalogService.obtenerMallas(career).then(rows => { if (active) setMallas(rows.filter(m => m.estado !== 'Publicada')); }).catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [career]);
-  useEffect(() => { let active = true; setEntries([]); setSubjects([]);
+  useEffect(() => { let active = true;
     if (malla) catalogService.obtenerAsignaturas(malla, '', '').then(rows => { if (active) setSubjects(rows); }).catch(e => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [malla]);
@@ -39,8 +39,8 @@ export default function BulkPlansPanel() {
   }
   return <section className="students-panel import-panel" aria-label="Carga masiva de planes analíticos">
     <h2>Importar planes analíticos desde ZIP</h2><p>Selecciona la carrera y una malla borrador. Se revisan todos los PDF antes de guardar. Máximo 30 MB, 200 PDF.</p>
-    <fieldset disabled={busy} className="student-form-grid"><label>Carrera del ZIP<select value={career} onChange={e => setCareer(e.target.value)}><option value="">Selecciona</option>{careers.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
-      <label>Malla del ZIP<select value={malla} onChange={e => setMalla(e.target.value)}><option value="">Selecciona</option>{mallas.map(m => <option key={m.id} value={m.id}>{m.version} {m.estado ?? ''}</option>)}</select></label>
+    <fieldset disabled={busy} className="student-form-grid"><label>Carrera del ZIP<select value={career} onChange={e => { setCareer(e.target.value); setMallas([]); setMalla(''); setEntries([]); setSubjects([]); }}><option value="">Selecciona</option>{careers.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
+      <label>Malla del ZIP<select value={malla} onChange={e => { setMalla(e.target.value); setEntries([]); setSubjects([]); }}><option value="">Selecciona</option>{mallas.map(m => <option key={m.id} value={m.id}>{m.version} {m.estado ?? ''}</option>)}</select></label>
       <label>Archivo ZIP<input type="file" accept=".zip" onChange={e => { setFile(e.target.files?.[0] ?? null); setEntries([]); setError(''); }} /></label>
       <button type="button" className="students-primary" disabled={!file || !malla} onClick={() => { void run(false); }}>{busy ? 'Procesando…' : 'Analizar ZIP'}</button>
     </fieldset>

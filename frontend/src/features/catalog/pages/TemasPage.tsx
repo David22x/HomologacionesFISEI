@@ -59,7 +59,15 @@ export default function TemasPage({ isAdmin }: TemasPageProps) {
     }
   }, [asignaturaId]);
 
-  useEffect(() => { void cargarDatos(); }, [cargarDatos]);
+  useEffect(() => {
+    let active = true;
+    catalogService.obtenerTemas(asignaturaId).then(async rows => {
+      const children = await Promise.all(rows.map(async tema => [tema.id, await catalogService.obtenerSubtemas(tema.id)] as const));
+      if (active) { setTemas(rows); setSubtemas(Object.fromEntries(children)); }
+    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los temas y subtemas.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [asignaturaId]);
 
   const temaOrdenado = useMemo(() => [...temas].sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)), [temas]);
 

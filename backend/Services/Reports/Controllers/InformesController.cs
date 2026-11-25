@@ -108,7 +108,7 @@ public sealed class InformesController(ReportsDbContext db, FuenteInformeClient 
         }
         catch (JsonException) { return Problem(statusCode: 502, detail: "Los datos del informe no son válidos."); }
         catch (InvalidOperationException) { return Problem(statusCode: 502, detail: "Los datos del informe están incompletos."); }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 1205 or 2601 or 2627 })
         {
             return Conflict(new { mensaje = "Se generó un informe concurrentemente. Reintenta para recuperar su versión." });
         }

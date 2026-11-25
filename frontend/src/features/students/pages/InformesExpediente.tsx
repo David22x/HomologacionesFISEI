@@ -16,9 +16,6 @@ export default function InformesExpediente({ expedienteId, puedeGenerar }: Infor
 
   useEffect(() => {
     let vigente = true;
-    setCargando(true);
-    setError('');
-    setAviso('');
     expedientesService.listarInformes(expedienteId)
       .then(lista => { if (vigente) setVersiones(lista); })
       .catch(cause => { if (vigente) setError(cause instanceof Error ? cause.message : 'No se pudieron consultar los informes.'); })

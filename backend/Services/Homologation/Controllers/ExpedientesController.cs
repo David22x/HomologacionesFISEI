@@ -61,7 +61,8 @@ public class ExpedientesController : ControllerBase
             if (student.TryGetProperty("eliminado", out var eliminado) && eliminado.ValueKind == JsonValueKind.True)
                 return BadRequest(new { mensaje = "El estudiante fue eliminado del registro activo." });
             if (student.TryGetProperty("historial", out var history) && history.ValueKind == JsonValueKind.Object
-                && history.TryGetProperty("carreraOrigenId", out var origen) && origen.TryGetGuid(out var origenId)
+                && history.TryGetProperty("carreraOrigenId", out var origen) && origen.ValueKind == JsonValueKind.String
+                && origen.TryGetGuid(out var origenId)
                 && origenId == request.CarreraDestinoRefId)
                 return BadRequest(new { mensaje = "La carrera de destino debe ser diferente a la carrera de origen." });
 

@@ -1,5 +1,6 @@
 services:
   sqlserver:
+    restart: unless-stopped
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
@@ -27,6 +28,7 @@ services:
     restart: "no"
 
   auth:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -46,13 +48,14 @@ services:
       sqlserver-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5192/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5192/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   academic:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -70,13 +73,14 @@ services:
       sqlserver-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5193/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5193/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   students:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -94,13 +98,14 @@ services:
       sqlserver-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5194/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5194/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   ollama:
+    restart: unless-stopped
     image: ollama/ollama:latest
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
@@ -131,6 +136,7 @@ services:
     restart: "no"
 
   agent-ia:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -146,14 +152,15 @@ services:
       Homologacion__Reglas__NotaMinima: ${HOMOLOGACION_NOTA_MINIMA:-}
     depends_on:
       ollama-models:
-        condition: service_completed_successfully
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5197/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5197/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
 
   homologation:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -174,15 +181,16 @@ services:
       sqlserver-init:
         condition: service_completed_successfully
       agent-ia:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5196/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5196/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   documents:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -200,7 +208,7 @@ services:
       - "${DOCUMENTS_PORT:-5104}:5104"
     depends_on:
       students:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5104/health"]
       interval: 10s
@@ -209,6 +217,7 @@ services:
       start_period: 20s
 
   reports:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -229,15 +238,16 @@ services:
       sqlserver-init:
         condition: service_completed_successfully
       homologation:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5198/health"]
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5198/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
 
   template:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -252,6 +262,7 @@ services:
       - "${TEMPLATE_PORT:-5158}:5158"
 
   gateway:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -267,17 +278,17 @@ services:
       - "${GATEWAY_PORT:-5080}:5080"
     depends_on:
       auth:
-        condition: service_healthy
+        condition: service_started
       academic:
-        condition: service_healthy
+        condition: service_started
       students:
-        condition: service_healthy
+        condition: service_started
       homologation:
-        condition: service_healthy
+        condition: service_started
       reports:
-        condition: service_healthy
+        condition: service_started
       documents:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5080/health"]
       interval: 10s
@@ -286,6 +297,7 @@ services:
       start_period: 20s
 
   frontend:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: frontend/Dockerfile
@@ -295,7 +307,7 @@ services:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       gateway:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://localhost/"]
       interval: 10s

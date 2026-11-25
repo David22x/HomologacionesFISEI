@@ -1,3 +1,4 @@
+import { serviceFetch } from '../../../lib/serviceFetch';
 import { notifySessionExpired } from '../../auth/services/sessionEvents';
 
 const API_URL = (
@@ -47,7 +48,7 @@ function authorizationHeaders(): HeadersInit {
 
 export const importService = {
   async descargarPlantilla(): Promise<void> {
-    const response = await fetch(`${API_URL}/api/v1/documentos/importaciones/plantilla`, {
+    const response = await serviceFetch(`${API_URL}/api/v1/documentos/importaciones/plantilla`, {
       headers: authorizationHeaders(),
     });
     if (response.status === 401) notifySessionExpired();
@@ -103,7 +104,7 @@ async function sendFileResponse(path: string, file: File, datos?: ImportPreview)
     const form = new FormData();
     form.append('archivo', file);
     if (datos) form.append('datos', JSON.stringify(datos));
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await serviceFetch(`${API_URL}${path}`, {
       method: 'POST',
       headers: authorizationHeaders(),
       body: form,

@@ -1,3 +1,4 @@
+import { serviceFetch } from '../../../lib/serviceFetch';
 import { notifySessionExpired } from '../../auth/services/sessionEvents';
 
 export async function uploadImport<T>(path: string, file: File, data?: unknown): Promise<T> {
@@ -5,7 +6,7 @@ export async function uploadImport<T>(path: string, file: File, data?: unknown):
   if (!token) throw new Error('Inicia sesión para importar archivos.');
   const body = new FormData(); body.append('archivo', file);
   if (data !== undefined) body.append('datos', JSON.stringify(data));
-  const response = await fetch(`${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080').replace(/\/$/, '')}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
+  const response = await serviceFetch(`${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:5080').replace(/\/$/, '')}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body });
   if (response.status === 401) notifySessionExpired();
   const result = await response.json().catch(() => null);
   if (!response.ok) {

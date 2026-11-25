@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
@@ -42,6 +43,8 @@ builder.Services.AddHttpClient("AgentIaService", client =>
     client.Timeout = TimeSpan.FromSeconds(90);
 });
 
+builder.Services.AddServiceResilience();
+builder.Services.AddReadinessCheck("database", async (services, ct) => await services.GetRequiredService<HomologationDbContext>().Database.CanConnectAsync(ct));
 var app = builder.Build();
 
 // Migraciones automaticas solo en Desarrollo. La opcion permite probar el host
@@ -67,7 +70,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 app.Run();

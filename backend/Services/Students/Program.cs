@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
@@ -22,6 +23,8 @@ builder.Services.AddCustomSwagger("Students Service API - Estudiantes e historia
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+builder.Services.AddServiceResilience();
+builder.Services.AddReadinessCheck("database", async (services, ct) => await services.GetRequiredService<StudentsDbContext>().Database.CanConnectAsync(ct));
 var app = builder.Build();
 
 // Aplica las migraciones al arrancar (solo en Desarrollo). La opcion permite
@@ -45,7 +48,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 app.Run();

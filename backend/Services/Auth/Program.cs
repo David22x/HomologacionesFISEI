@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using AuthService.Data;
 using AuthService.Models;
 using AuthService.Services;
@@ -41,6 +42,8 @@ builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomSwagger("Auth Service API - Identity");
 
+builder.Services.AddServiceResilience();
+builder.Services.AddReadinessCheck("database", async (services, ct) => await services.GetRequiredService<AuthDbContext>().Database.CanConnectAsync(ct));
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -64,7 +67,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 await AuthDbSeeder.SeedAsync(app.Services, app.Environment.IsDevelopment());

@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Authentication;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
@@ -11,6 +12,7 @@ builder.Services.AddCustomSwagger("Plantilla de Microservicio FISEI");
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+builder.Services.AddServiceResilience();
 var app = builder.Build();
 
 // Manejo global de excepciones estandarizado (RFC 7807 ProblemDetails)
@@ -27,7 +29,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Endpoint de diagnóstico y salud
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 app.Run();

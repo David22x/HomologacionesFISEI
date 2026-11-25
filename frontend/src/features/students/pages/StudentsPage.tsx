@@ -294,7 +294,9 @@ export default function StudentsPage() {
     </header>
 
     {notice && <div role="status" className="maintenance-notice">{notice}</div>}
-    {error && <div role="alert" className="catalog-error">{error}</div>}
+    {error && <div role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" disabled={loading} onClick={() => {
+      void loadStudents(); void catalogService.obtenerCarreras().then(setCareers).catch(cause => setError(cause instanceof Error ? cause.message : 'No se pudo cargar el catálogo.'));
+    }}>Actualizar listas</button></div>}
 
     <section className="students-panel student-search-panel" aria-labelledby="student-search-heading">
       <div className="students-panel-heading">

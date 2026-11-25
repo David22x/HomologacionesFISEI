@@ -1,3 +1,4 @@
+using BuildingBlocks.Resilience;
 using BuildingBlocks.Exceptions;
 using BuildingBlocks.Swagger;
 using BuildingBlocks.Authentication;
@@ -21,6 +22,7 @@ builder.Services.AddHttpClient("StudentsService", client =>
 builder.Services.AddHttpClient("AcademicService", client => client.BaseAddress = new Uri(builder.Configuration["AcademicService:BaseUrl"] ?? "http://localhost:5193"));
 
 builder.Services.AddHttpClient("AgentIaService", client => { client.BaseAddress = new Uri(builder.Configuration["AgentIaService:BaseUrl"] ?? "http://localhost:5197"); client.Timeout = TimeSpan.FromSeconds(190); });
+builder.Services.AddServiceResilience();
 var app = builder.Build();
 
 // Manejo global de excepciones estandarizado
@@ -36,7 +38,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health");
+app.MapServiceHealth();
 app.MapControllers();
 
 app.Run();

@@ -240,6 +240,8 @@ El workflow `.github/workflows/ci.yml` ejecuta la instalación, compilación y p
 
 ## Problemas comunes
 
+La guía de [disponibilidad y recuperación de servicios](docs/resiliencia-servicios.md) explica los avisos de caída, los tiempos de espera, las comprobaciones de salud y la recuperación sin repetir guardados automáticamente.
+
 - **Docker no responde:** inicia Docker Desktop y espera a que indique que el motor está listo.
 - **Puerto 1433 ocupado:** cambia `MSSQL_PORT` en `infrastructure\.env` y actualiza el puerto en `ConnectionStrings:DefaultConnection`.
 - **SQL Server no inicia:** verifica que la contraseña de `MSSQL_SA_PASSWORD` cumpla los requisitos de SQL Server.

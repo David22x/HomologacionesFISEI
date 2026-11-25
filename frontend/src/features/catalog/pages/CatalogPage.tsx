@@ -210,6 +210,18 @@ export default function CatalogPage() {
       {error && (
         <div className="catalog-error" role="alert">
           {error}
+          <button type="button" disabled={cargando} onClick={async () => {
+            setCargando(true); setError('');
+            const resultados = await Promise.allSettled([
+              catalogService.obtenerCarreras().then(setCarreras),
+              ...(carreraId ? [catalogService.obtenerMallas(carreraId).then(setMallas)] : []),
+              ...(mallaId ? [catalogService.obtenerNiveles(mallaId).then(setNiveles)] : []),
+              ...(mallaId && nivelId ? [catalogService.obtenerAsignaturas(mallaId, nivelId, busqueda).then(setAsignaturas)] : []),
+            ]);
+            const fallo = resultados.find(r => r.status === 'rejected');
+            if (fallo?.status === 'rejected') setError(fallo.reason instanceof Error ? fallo.reason.message : 'No se pudo completar la consulta.');
+            setCargando(false);
+          }}>Reintentar consulta</button>
         </div>
       )}
 

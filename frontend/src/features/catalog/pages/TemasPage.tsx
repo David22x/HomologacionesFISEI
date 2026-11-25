@@ -215,7 +215,7 @@ export default function TemasPage({ isAdmin }: TemasPageProps) {
       <div className="topics-heading"><div><h2>Temas y subtemas</h2><p>{isAdmin ? 'Puedes agregar, editar, reordenar y eliminar el contenido.' : 'Vista de consulta de temas y subtemas.'}</p></div>
         {isAdmin && <button type="button" className="maintenance-primary" onClick={iniciarNuevoTema}>Agregar tema</button>}
       </div>
-      {error && <div role="alert" className="catalog-error">{error}</div>}
+      {error && <div role="alert" className="catalog-error">{error}<button type="button" className="students-secondary" onClick={() => { void cargarDatos(); }}>Reintentar consulta</button></div>}
       {notice && <div role="status" className="maintenance-notice">{notice}</div>}
       {isAdmin && editingTemaId === '' && temaForm.orden && renderFormulario(temaForm, setTemaForm, 'Nuevo tema', guardarTema, () => setTemaForm(emptyForm))}
       {loading ? <p className="catalog-message" role="status">Cargando temas y subtemas…</p> : temaOrdenado.length === 0 ? <p className="catalog-message">Esta asignatura aún no tiene temas registrados.</p> : (

@@ -1,3 +1,4 @@
+import ServiceAvailability from './ServiceAvailability';
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import type { AuthUser } from '../features/auth/services/authService';
@@ -186,6 +187,7 @@ export default function AppLayout({ user, onLogout }: AppLayoutProps) {
       </aside>
 
       <div className="app-content" key={user.id}>
+        <ServiceAvailability />
         <Outlet />
       </div>
     </div>

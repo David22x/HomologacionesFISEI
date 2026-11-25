@@ -518,11 +518,12 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
   function showDetail(proposal: PropuestaExpedienteIa) { setExpandedKey(proposalReviewKey(proposal)); setReviewFormKey(null); }
   const destinationIds = [...new Set(analysisProposals.map(proposal => proposal.asignaturaDestinoId))];
   const decisionsByDestination = new Map(decisions.map(decision => [decision.asignaturaDestinoId, decision]));
-  const decidedDestinationCount = destinationIds.filter(id => {
+  const pendingDestinationIds = destinationIds.filter(id => {
     const decision = decisionsByDestination.get(id);
-    return decision != null && decision.resultadoFinal !== 3
-      && decisionMatchesProposal(decision, id, analysisProposals);
-  }).length;
+    return decision == null || decision.resultadoFinal === 3
+      || !decisionMatchesProposal(decision, id, analysisProposals);
+  });
+  const decidedDestinationCount = destinationIds.length - pendingDestinationIds.length;
   const canResolve = destinationIds.length > 0
     && decidedDestinationCount === destinationIds.length
     && decisions.every(decision => decision.resultadoFinal !== 3)
@@ -782,11 +783,16 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                 && decisionMatchesProposal(decision, id, analysisProposals);
               return <li key={id} className={complete ? 'decision-complete' : 'decision-pending'}>
                 <span>{proposal?.nombreDestino ?? id}</span>
+                {!complete && proposal && puedeEditar && <button type="button" className="students-secondary" onClick={() => { setShowDiagnostics(true); showDetail(proposal); }}>Revisar destino</button>}
                 <strong>{complete && decision
                   ? `${resultadoLabel(decision.resultadoCalculado)} → ${resultadoLabel(decision.resultadoFinal)}`
                   : 'Pendiente'}</strong>
               </li>;
             })}</ul></details>
+            {puedeEditar && pendingDestinationIds.length > 0 && <button type="button" className="students-secondary" onClick={() => {
+              const proposal = analysisProposals.find(p => p.asignaturaDestinoId === pendingDestinationIds[0]);
+              setShowDiagnostics(true); if (proposal) showDetail(proposal);
+            }}>Revisar siguiente pendiente ({pendingDestinationIds.length})</button>}
             {puedeEditar && <button className="students-primary" type="button" onClick={() => { void resolveExpediente(); }} disabled={!canResolve || resolving}>
               {resolving ? 'Resolviendo…' : 'Resolver expediente'}
             </button>}
@@ -846,6 +852,7 @@ export default function ExpedientesPage({ canCreate }: ExpedientesPageProps) {
                         </span>
                       </div>
                       <p>{explanation}</p>
+                      {rules.parametrosAplicados && <small>Parámetros de esta ejecución · Créditos: {formatPercent(rules.parametrosAplicados.razonCreditosMinima)} · Contenidos: {formatPercent(rules.parametrosAplicados.coberturaMinima)} · Similitud: {formatPercent(rules.parametrosAplicados.similitudMinima)} · {rules.parametrosAplicados.notaMinima == null ? 'Nota mínima sin configurar; se utiliza la aprobación declarada.' : `Nota mínima: ${rules.parametrosAplicados.notaMinima}/10.`}</small>}
                     </div>
                     <div className="ia-topic-columns">
                       <div><h6>Temas coincidentes ({coverage.temasCoincidentes.length})</h6>

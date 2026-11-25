@@ -54,8 +54,14 @@ export default function InformesExpediente({ expedienteId, puedeGenerar }: Infor
       const enlace = document.createElement('a');
       enlace.href = url;
       enlace.download = `homologacion-${expedienteId}-v${version}.pdf`;
-      enlace.click();
-      URL.revokeObjectURL(url);
+      try {
+        document.body.append(enlace);
+        enlace.click();
+      } finally {
+        enlace.remove();
+        // Permite que el navegador inicie la descarga antes de liberar el Blob.
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No se pudo descargar el informe.');
     } finally {

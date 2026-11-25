@@ -46,6 +46,7 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   expect(within(table).getByText('Física - TI')).toBeInTheDocument();
   expect(precargar).toHaveBeenCalledWith('exp');
   expect(screen.queryByRole('columnheader', { name: 'Umbral' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Revisar siguiente pendiente/ })).toBeEnabled();
   expect(within(table).getByText('Cercana al umbral: revisión docente')).toBeInTheDocument();
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' })).toBeChecked());
@@ -67,6 +68,8 @@ it('excluye carrera de origen, identifica SW a TI y oculta los diagnósticos ini
   await user.click(screen.getByRole('checkbox', { name: 'Seleccionar propuesta IA Física' }));
   await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Seleccionar coincidencia Física' })).not.toBeChecked());
   expect(screen.queryByRole('checkbox', { name: 'Retirar selección Física' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Revisar siguiente pendiente/ }));
+  expect(screen.getByRole('region', { name: 'Detalle de propuesta' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Cerrar expediente' }));
   expect(document.querySelector('.selection-dock')).not.toBeInTheDocument();
   expect(document.querySelector('.has-selection-dock')).not.toBeInTheDocument();

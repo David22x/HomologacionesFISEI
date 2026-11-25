@@ -36,7 +36,7 @@ Compose construye e inicia los contenedores en orden: espera a que SQL Server es
 
 ### Ollama y modelos locales
 
-El primer inicio descarga automáticamente los modelos configurados en `infrastructure/.env`: `bge-m3` para embeddings y `qwen2.5:7b` para lenguaje. Compose espera a que Ollama responda y a que termine la descarga antes de iniciar Agent IA. Los modelos se guardan en el volumen persistente `ollama-data`, así que no vuelven a descargarse mientras conserves ese volumen. El modelo de lenguaje queda preparado para la tarea de explicación; el comparador actual usa `OLLAMA_EMBEDDING_MODEL`.
+El primer inicio descarga automáticamente los modelos configurados en `infrastructure/.env`: `bge-m3` para embeddings y `qwen2.5:7b` para lenguaje. Compose espera a que Ollama responda y a que termine la descarga antes de iniciar Agent IA. Los modelos se guardan en el volumen persistente `ollama-data`, así que no vuelven a descargarse mientras conserves ese volumen. El modelo de lenguaje se utiliza para extraer récords de otras universidades; las explicaciones de homologación se generan mediante plantilla. El comparador de contenidos usa `OLLAMA_EMBEDDING_MODEL`.
 
 Las descargas iniciales ocupan aproximadamente 5.9 GB (BGE-M3: 1.2 GB; Qwen2.5 7B: 4.7 GB), además del espacio para imágenes Docker. Reserva al menos 10 GB de memoria para Docker y usa un equipo con 16 GB de RAM para la demostración; el consumo real varía según el contexto y los modelos que se estén ejecutando. Ollama puede funcionar por CPU, aunque la primera evaluación puede tardar más.
 
@@ -246,3 +246,7 @@ El workflow `.github/workflows/ci.yml` ejecuta la instalación, compilación y p
 - **Un servicio informa que falta configuración:** configura las claves `ConnectionStrings:DefaultConnection` para Auth, `ConnectionStrings:AcademicConnection` para Academic, `Jwt:SecretKey` y las contraseñas de semilla de Auth con los comandos de User Secrets anteriores.
 - **Academic Service no puede conectarse a SQL Server:** verifica que `sqlserver` esté `healthy`, que `AcademicDB` exista y que `ConnectionStrings:AcademicConnection` use el puerto y la contraseña configurados en `infrastructure\.env`.
 - **El login da error de conexión:** confirma que SQL Server está `healthy`, que `AuthDB` existe y que Auth Service y Gateway siguen ejecutándose.
+
+## Estabilización y ensayo de presentación
+
+La guía [verificación del flujo completo](docs/verificacion-flujo-presentacion.md) incluye la nota mínima configurable, las pruebas, el despliegue y un caso sintético reproducible desde el registro hasta la descarga del PDF. Las importaciones se describen en [importaciones académicas](docs/importaciones-academicas.md).

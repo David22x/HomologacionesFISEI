@@ -143,6 +143,7 @@ services:
       Ollama__BaseUrl: http://ollama:11434/
       Ollama__EmbeddingModel: ${OLLAMA_EMBEDDING_MODEL:-bge-m3}
       Ollama__LanguageModel: ${OLLAMA_LANGUAGE_MODEL:-qwen2.5:7b}
+      Homologacion__Reglas__NotaMinima: ${HOMOLOGACION_NOTA_MINIMA:-}
     depends_on:
       ollama-models:
         condition: service_completed_successfully

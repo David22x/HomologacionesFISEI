@@ -50,6 +50,7 @@ export interface ResultadoReglasExpediente {
   razonHoras: number | null;
   advertencias: string[];
   versionReglas: string;
+  parametrosAplicados?: { version: string; razonCreditosMinima: number; coberturaMinima: number; similitudMinima: number; notaMinima: number | null; razonHorasMinimaPropuesta: number } | null;
 }
 
 export interface ResultadoParExpediente {
